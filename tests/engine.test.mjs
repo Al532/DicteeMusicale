@@ -165,6 +165,21 @@ test("les rythmes Parker conservent durées, silences et départs de phrases ann
   );
 });
 
+test("les chicks Parker suivent les temps 2 et 4 sans dépasser la phrase", () => {
+  assert.ok(PARKER_SOLOS.every((solo) => solo.beats.length > 0));
+  const results = Array.from({ length: 48 }, (_, index) =>
+    makeSequence({ mode: "parker", random: seededRandom(index + 200) }),
+  );
+
+  assert.ok(results.some((result) => result.chicks.length > 0));
+  for (const result of results) {
+    const lastTiming = result.timings.at(-1);
+    const playbackEnd = lastTiming.offset + lastTiming.duration;
+    assert.ok(result.chicks.every(({ beat }) => beat === 2 || beat === 4));
+    assert.ok(result.chicks.every(({ offset }) => offset >= 0 && offset < playbackEnd));
+  }
+});
+
 test("la longueur est bornée", () => {
   assert.equal(
     makeSequence({ length: 1, mode: "random", random: seededRandom() }).notes.length,
