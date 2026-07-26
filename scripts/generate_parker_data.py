@@ -30,7 +30,7 @@ def build_corpus(database: Path) -> list[dict]:
     for melid, source_url in SOURCE_PAGES.items():
         info = connection.execute(
             """
-            SELECT s.performer, s.title, r.recordingdate, t.solotime
+            SELECT s.performer, s.title, s.avgtempo, r.recordingdate, t.solotime
             FROM solo_info s
             JOIN record_info r USING (melid)
             JOIN transcription_info t USING (melid)
@@ -41,11 +41,21 @@ def build_corpus(database: Path) -> list[dict]:
         events = connection.execute(
             """
             SELECT CAST(ROUND(pitch) AS INTEGER) AS pitch,
-                   ROUND(onset, 3) AS onset,
+                   ROUND(onset, 4) AS onset,
+                   ROUND(duration, 4) AS duration,
                    bar
             FROM melody
             WHERE melid = ?
             ORDER BY onset, eventid
+            """,
+            (melid,),
+        ).fetchall()
+        phrases = connection.execute(
+            """
+            SELECT start, end, value
+            FROM sections
+            WHERE melid = ? AND type = 'PHRASE'
+            ORDER BY start
             """,
             (melid,),
         ).fetchall()
@@ -57,9 +67,17 @@ def build_corpus(database: Path) -> list[dict]:
                 "title": info["title"],
                 "recordingDate": info["recordingdate"],
                 "soloTime": info["solotime"],
+                "originalTempo": info["avgtempo"],
                 "dataset": "Weimar Jazz Database v1.2 (2016)",
                 "sourceUrl": source_url,
-                "events": [[row["pitch"], row["onset"], row["bar"]] for row in events],
+                "events": [
+                    [row["pitch"], row["onset"], row["duration"], row["bar"]]
+                    for row in events
+                ],
+                "phrases": [
+                    [row["start"], row["end"], row["value"]]
+                    for row in phrases
+                ],
             }
         )
 
