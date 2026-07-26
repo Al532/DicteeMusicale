@@ -9,19 +9,21 @@ import {
 
 const STORAGE_KEY = "dictee-musicale.records.v1";
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
+const RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE = 100;
+const LEGATO_RELEASE_SECONDS = 0.035;
 
 const elements = {
   length: document.querySelector("#length"),
   lengthOutput: document.querySelector("#length-output"),
-  tempo: document.querySelector("#tempo"),
-  tempoOutput: document.querySelector("#tempo-output"),
+  randomSpeed: document.querySelector("#random-speed"),
+  randomSpeedOutput: document.querySelector("#random-speed-output"),
   speed: document.querySelector("#speed"),
   speedOutput: document.querySelector("#speed-output"),
   gameSpeed: document.querySelector("#game-speed"),
   gameSpeedOutput: document.querySelector("#game-speed-output"),
   gameSpeedSetting: document.querySelector("#game-speed-setting"),
   lengthSetting: document.querySelector("#length-setting"),
-  tempoSetting: document.querySelector("#tempo-setting"),
+  randomSpeedSetting: document.querySelector("#random-speed-setting"),
   speedSetting: document.querySelector("#speed-setting"),
   mode: document.querySelector("#mode"),
   newExercise: document.querySelector("#new-exercise"),
@@ -76,8 +78,10 @@ function writeJson(key, value) {
 function loadSettings() {
   const settings = readJson(SETTINGS_KEY, {});
   if (settings.length) elements.length.value = settings.length;
-  if (settings.randomTempo ?? settings.tempo) {
-    elements.tempo.value = settings.randomTempo ?? settings.tempo;
+  const savedRandomSpeed =
+    settings.randomSpeedPercent ?? settings.randomTempo ?? settings.tempo;
+  if (savedRandomSpeed) {
+    elements.randomSpeed.value = savedRandomSpeed;
   }
   if (settings.parkerSpeed) elements.speed.value = settings.parkerSpeed;
   elements.gameSpeed.value = elements.speed.value;
@@ -89,7 +93,7 @@ function loadSettings() {
 function saveSettings() {
   writeJson(SETTINGS_KEY, {
     length: Number(elements.length.value),
-    randomTempo: Number(elements.tempo.value),
+    randomSpeedPercent: Number(elements.randomSpeed.value),
     parkerSpeed: Number(elements.speed.value),
     mode: elements.mode.value,
   });
@@ -97,7 +101,7 @@ function saveSettings() {
 
 function updateSettingLabels() {
   elements.lengthOutput.value = `${elements.length.value} notes`;
-  elements.tempoOutput.value = `${elements.tempo.value} BPM`;
+  elements.randomSpeedOutput.value = `${elements.randomSpeed.value} %`;
   elements.speedOutput.value = `${elements.speed.value} %`;
   elements.gameSpeedOutput.value = `${elements.gameSpeed.value} %`;
 }
@@ -105,16 +109,40 @@ function updateSettingLabels() {
 function updateModeSettings() {
   const isParker = elements.mode.value === "parker";
   elements.lengthSetting.hidden = isParker;
-  elements.tempoSetting.hidden = isParker;
+  elements.randomSpeedSetting.hidden = isParker;
   elements.speedSetting.hidden = !isParker;
-  elements.gameSpeedSetting.hidden = !isParker;
+  elements.gameSpeedSetting.hidden = false;
+  if (isParker) {
+    elements.gameSpeed.min = "25";
+    elements.gameSpeed.max = "100";
+    elements.gameSpeed.step = "5";
+    elements.gameSpeed.value = elements.speed.value;
+  } else {
+    elements.gameSpeed.min = "50";
+    elements.gameSpeed.max = "320";
+    elements.gameSpeed.step = "2";
+    elements.gameSpeed.value = elements.randomSpeed.value;
+  }
+  updateSettingLabels();
 }
 
-function syncSpeed(value) {
+function syncParkerSpeed(value) {
   elements.speed.value = value;
-  elements.gameSpeed.value = value;
+  if (elements.mode.value === "parker") elements.gameSpeed.value = value;
   updateSettingLabels();
   saveSettings();
+}
+
+function syncRandomSpeed(value) {
+  elements.randomSpeed.value = value;
+  if (elements.mode.value === "random") elements.gameSpeed.value = value;
+  updateSettingLabels();
+  saveSettings();
+}
+
+function syncGameSpeed(value) {
+  if (elements.mode.value === "parker") syncParkerSpeed(value);
+  else syncRandomSpeed(value);
 }
 
 function buildPiano(layout) {
@@ -305,17 +333,20 @@ function playSequence() {
     const lastTiming = exercise.timings.at(-1);
     playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
   } else {
-    exercise.tempo = Number(elements.tempo.value);
-    const beatMs = 60_000 / exercise.tempo;
-    const toneDuration = Math.min(0.62, (beatMs / 1000) * 0.8);
+    exercise.speedPercent = Number(elements.randomSpeed.value);
+    const notesPerMinute =
+      RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE * (exercise.speedPercent / 100);
+    const noteIntervalMs = 60_000 / notesPerMinute;
+    const toneDuration = noteIntervalMs / 1000 + LEGATO_RELEASE_SECONDS;
     exercise.notes.forEach((midi, index) => {
-      const delayMs = index * beatMs;
+      const delayMs = index * noteIntervalMs;
       playTone(midi, delayMs / 1000, toneDuration, index === 0);
       if (index === 0) {
         flashPlayedKey(midi, delayMs, toneDuration * 1000);
       }
     });
-    playbackDuration = exercise.notes.length * beatMs;
+    playbackDuration =
+      exercise.notes.length * noteIntervalMs + LEGATO_RELEASE_SECONDS * 1000;
   }
 
   playbackTimer = window.setTimeout(() => {
@@ -383,9 +414,11 @@ function startExercise() {
     mode: elements.mode.value,
     label: generated.meta.label,
     source: generated.meta.source,
-    tempo: generated.timings ? null : Number(elements.tempo.value),
-    speedPercent: generated.timings ? Number(elements.speed.value) : null,
-    originalTempo: generated.meta.originalTempo ?? Number(elements.tempo.value),
+    tempo: null,
+    speedPercent: generated.timings
+      ? Number(elements.speed.value)
+      : Number(elements.randomSpeed.value),
+    originalTempo: generated.meta.originalTempo ?? null,
     notes: generated.notes,
     timings: generated.timings ?? null,
     chicks: generated.chicks ?? null,
@@ -581,8 +614,8 @@ function exportCsv() {
       "mesure_debut",
       "mesure_fin",
       "transposition_demi_tons",
-      "tempo_lecture",
-      "vitesse_pourcent",
+      "vitesse_aleatoire_pourcent",
+      "vitesse_parker_pourcent",
       "tempo_original",
       "position",
       "note_precedente_midi",
@@ -608,8 +641,8 @@ function exportCsv() {
         record.source?.barStart,
         record.source?.barEnd,
         record.source?.transposition,
-        record.tempo,
-        record.speedPercent,
+        record.mode === "random" ? (record.speedPercent ?? record.tempo) : null,
+        record.mode === "parker" ? record.speedPercent : null,
         record.originalTempo,
         attempt.position + 1,
         attempt.previousMidi,
@@ -763,9 +796,11 @@ function setUpGameMode() {
 }
 
 elements.length.addEventListener("input", updateSettingLabels);
-elements.tempo.addEventListener("input", updateSettingLabels);
-elements.speed.addEventListener("input", () => syncSpeed(elements.speed.value));
-elements.gameSpeed.addEventListener("input", () => syncSpeed(elements.gameSpeed.value));
+elements.randomSpeed.addEventListener("input", () =>
+  syncRandomSpeed(elements.randomSpeed.value),
+);
+elements.speed.addEventListener("input", () => syncParkerSpeed(elements.speed.value));
+elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSpeed.value));
 elements.mode.addEventListener("change", updateModeSettings);
 elements.newExercise.addEventListener("click", startExercise);
 elements.nextExercise.addEventListener("click", startExercise);
