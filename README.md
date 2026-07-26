@@ -27,9 +27,12 @@ Deux modes sont disponibles, avec **Phrases réelles** sélectionné par défaut
 - **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée intégralement.
   Un réglage de 25 à 100 % permet de ralentir la vitesse originale ; sa modification est prise
   en compte lors de chaque réécoute. Le bouton **Réécouter** devient **Stop** pendant la lecture.
-- **Aléatoire — statistiques Parker** : de 3 à 10 notes, à tempo réglable. Chaque intervalle
-  signé est tiré indépendamment dans les 1 584 transitions observées à l’intérieur des
-  phrases du corpus.
+- **Aléatoire — Markov Parker** : de 3 à 10 notes, à tempo réglable. Les intervalles sont
+  générés par un modèle de Markov à ordre variable, entraîné sur les 1 584 transitions
+  internes aux phrases du corpus. Il utilise jusqu’aux six intervalles précédents lorsque
+  le contexte a été observé plusieurs fois, puis se replie progressivement vers les ordres
+  inférieurs. Une séquence ne peut ni reproduire exactement une phrase du corpus, ni en
+  recopier plus de sept intervalles consécutifs.
 
 ## Statistiques
 
