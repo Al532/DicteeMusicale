@@ -262,7 +262,7 @@ function randomSequence(length, random) {
   };
 }
 
-function parkerSequence(random) {
+function parkerSequence(random, maxNotes = null) {
   const candidates = [];
   for (const solo of PARKER_SOLOS) {
     for (const phrase of solo.phrases) {
@@ -274,7 +274,20 @@ function parkerSequence(random) {
     }
   }
 
-  const excerpt = randomChoice(candidates, random);
+  const selected = randomChoice(candidates, random);
+  const safeMaxNotes = Number.isFinite(maxNotes)
+    ? Math.max(5, Math.min(15, Math.round(maxNotes)))
+    : null;
+  const events =
+    safeMaxNotes === null
+      ? selected.events
+      : selected.events.slice(0, safeMaxNotes);
+  const excerpt = {
+    ...selected,
+    events,
+    notes: events.map(([midi]) => midi),
+  };
+  const wasTruncated = excerpt.events.length < selected.events.length;
   const transposition = randomParkerTransposition(random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
@@ -299,6 +312,9 @@ function parkerSequence(random) {
   const lastBar = lastEvent[3];
   const barLabel =
     firstBar === lastBar ? `mesure ${firstBar}` : `mesures ${firstBar}–${lastBar}`;
+  const excerptLabel = wasTruncated
+    ? `, extrait de ${excerpt.events.length} notes`
+    : "";
 
   return {
     notes: transposedNotes,
@@ -309,7 +325,9 @@ function parkerSequence(random) {
       originalTempo: excerpt.solo.originalTempo,
       source: {
         kind: "transcription",
-        label: `${excerpt.solo.performer}, « ${excerpt.solo.title} », phrase ${excerpt.phrase[2]}, ${barLabel}`,
+        label:
+          `${excerpt.solo.performer}, « ${excerpt.solo.title} », ` +
+          `phrase ${excerpt.phrase[2]}, ${barLabel}${excerptLabel}`,
         dataset: excerpt.solo.dataset,
         url: excerpt.solo.sourceUrl,
         recordingDate: excerpt.solo.recordingDate,
@@ -318,6 +336,9 @@ function parkerSequence(random) {
         audioOffset: excerpt.solo.audioOffset,
         phrase: excerpt.phrase[2],
         noteCount: transposedNotes.length,
+        fullPhraseNoteCount: selected.notes.length,
+        maxNotes: safeMaxNotes,
+        truncated: wasTruncated,
         barStart: firstBar,
         barEnd: lastBar,
         onsetStart: excerpt.events[0][1],
@@ -329,11 +350,16 @@ function parkerSequence(random) {
   };
 }
 
-export function makeSequence({ length = 5, mode = "random", random = Math.random } = {}) {
-  const safeLength = Math.max(3, Math.min(10, Math.round(length)));
+export function makeSequence({
+  length = 5,
+  maxNotes = null,
+  mode = "random",
+  random = Math.random,
+} = {}) {
+  const safeLength = Math.max(3, Math.min(15, Math.round(length)));
   const sequence =
     mode === "parker" || mode === "jazz"
-      ? parkerSequence(random)
+      ? parkerSequence(random, maxNotes)
       : randomSequence(safeLength, random);
   return {
     ...sequence,

@@ -38,13 +38,13 @@
 
         <div class="settings-grid">
           <label id="length-setting">
-            <span>Longueur <output id="length-output">5 notes</output></span>
-            <input id="length" type="range" min="3" max="10" value="5" />
+            <span><span id="length-label">Notes max</span> <output id="length-output">15 notes</output></span>
+            <input id="length" type="range" min="5" max="16" value="15" />
           </label>
 
           <label id="random-speed-setting">
-            <span>Vitesse <output id="random-speed-output">88 %</output></span>
-            <input id="random-speed" type="range" min="50" max="320" step="2" value="88" />
+            <span>Vitesse <output id="random-speed-output">30 %</output></span>
+            <input id="random-speed" type="range" min="25" max="100" step="1" value="30" />
           </label>
 
           <label id="speed-setting" hidden>
@@ -69,6 +69,10 @@
             <h2 id="exercise-title">Écoute, puis joue la suite</h2>
           </div>
           <div class="exercise-actions">
+            <label class="game-length-setting" id="game-length-setting">
+              <span><span id="game-length-label">Notes max</span> <output id="game-length-output">15</output></span>
+              <input id="game-length" type="range" min="5" max="16" value="15" />
+            </label>
             <label class="game-speed-setting" id="game-speed-setting" hidden>
               <span>Vitesse <output id="game-speed-output">100 %</output></span>
               <input id="game-speed" type="range" min="25" max="100" step="5" value="100" />

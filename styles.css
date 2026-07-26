@@ -219,6 +219,7 @@ button:disabled {
 #fullscreen-button,
 #next-exercise,
 .original-controls,
+.game-length-setting,
 .game-speed-setting {
   display: none;
 }
@@ -570,6 +571,25 @@ body.game-mode {
   gap: 6px;
 }
 
+.game-mode .game-length-setting {
+  display: grid;
+  grid-template-columns: minmax(64px, 9vw);
+  gap: 2px;
+  min-width: 64px;
+}
+
+.game-mode .game-length-setting span,
+.game-mode .game-speed-setting span {
+  margin: 0;
+  font-size: clamp(0.58rem, 1.5vw, 0.7rem);
+}
+
+.game-mode .game-length-setting input,
+.game-mode .game-speed-setting input {
+  height: 12px;
+  margin: 0;
+}
+
 .game-mode .transpose-toggle {
   display: flex;
   align-items: center;
@@ -599,16 +619,6 @@ body.game-mode {
   grid-template-columns: minmax(80px, 13vw);
   gap: 2px;
   min-width: 80px;
-}
-
-.game-mode .game-speed-setting span {
-  margin: 0;
-  font-size: clamp(0.58rem, 1.5vw, 0.7rem);
-}
-
-.game-mode .game-speed-setting input {
-  height: 12px;
-  margin: 0;
 }
 
 .game-mode .sequence {

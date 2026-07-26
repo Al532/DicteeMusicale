@@ -2,7 +2,7 @@
 
 Application web mobile de dictée mélodique :
 
-- une séquence aléatoire de 3 à 10 notes ou une phrase Parker complète est jouée ;
+- une séquence aléatoire de 3 à 15 notes ou un extrait de phrase Parker est joué ;
 - la première note est jouée et repérée sur le clavier, mais doit être saisie avant d’être
   révélée dans la séquence ;
 - les autres notes ne sont jamais montrées pendant la lecture ;
@@ -19,20 +19,25 @@ le mode de jeu s’ouvre automatiquement en plein écran paysage. Le clavier n�
 sur l’écran principal.
 Sur Android, l’installation depuis le navigateur permet de l’utiliser comme une application
 autonome. Le jeu contient les commandes **Réécouter** et **Suivant** ainsi que le réglage de
-vitesse Parker. Si le navigateur ne peut pas verrouiller l’orientation, il demande de tourner
-manuellement l’appareil.
+vitesse et le nombre de notes. Toute erreur relance automatiquement la phrase après un court
+délai. **Réécouter** efface aussi la progression : la saisie repart toujours de la première
+note. Si le navigateur ne peut pas verrouiller l’orientation, il demande de tourner manuellement
+l’appareil.
 
 Deux modes sont disponibles, avec **Phrases réelles** sélectionné par défaut :
 
-- **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée intégralement.
+- **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée. Le maximum
+  est réglable de 5 à 15 notes, avec 15 par défaut ; la position **Illimité** conserve toute
+  la phrase.
   Un réglage de 25 à 100 % permet de ralentir la vitesse originale ; sa modification est prise
   en compte lors de chaque réécoute. Le bouton **Réécouter** devient **Stop** pendant la lecture.
-  Le bouton **Original** fait entendre l’enregistrement de référence, avec trois secondes de
-  contexte avant la phrase et 1,5 seconde après. Le toggle **Transposer** aligne sa hauteur sur
-  la transposition courante sans accélérer ni ralentir l’audio.
-- **Aléatoire — Markov Parker** : de 3 à 10 notes, avec une vitesse réglable de 50 à
-  320 %. À 100 %, une nouvelle note commence toutes les 600 ms ; 320 % correspond exactement
-  au double de l’ancien maximum. Chaque note est tenue legato jusqu’à l’attaque suivante.
+  Le bouton **Original** colle aux frontières de l’extrait, sans contexte avant ou après.
+  Le toggle **Transposer** aligne sa hauteur sur la transposition courante sans accélérer ni
+  ralentir l’audio.
+- **Aléatoire — Markov Parker** : de 3 à 15 notes. Le curseur affiche une échelle simplifiée
+  de 25 à 100 %, tout en conservant son échelle de lecture interne ; sa vitesse maximale
+  atteint désormais 640 % sur cette échelle interne. Chaque note est tenue legato jusqu’à
+  l’attaque suivante.
   Les intervalles sont générés par un modèle de Markov à ordre variable, entraîné sur les 1 584 transitions
   internes aux phrases du corpus. Il utilise jusqu’aux six intervalles précédents lorsque
   le contexte a été observé plusieurs fois, puis se replie progressivement vers les ordres
@@ -49,7 +54,7 @@ Les données ne quittent jamais le navigateur.
 
 ## Extraits de Charlie Parker
 
-Le mode **Phrases réelles — Charlie Parker** utilise les phrases complètes de six solos
+Le mode **Phrases réelles — Charlie Parker** utilise les phrases annotées de six solos
 transcrits dans la
 [Weimar Jazz Database](https://jazzomat.hfm-weimar.de/dbformat/dbcontent.html) :
 *Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,

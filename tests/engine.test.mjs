@@ -135,7 +135,7 @@ test("les 104 phrases restent entièrement visibles dans les 13 transpositions s
 
 test("le mode aléatoire Markov utilise les 1 584 intervalles intra-phrase du corpus", () => {
   assert.equal(PARKER_INTERVAL_SAMPLE_SIZE, 1584);
-  for (const length of [3, 5, 10]) {
+  for (const length of [3, 5, 10, 15]) {
     const result = makeSequence({ length, mode: "random", random: seededRandom(length) });
     assert.equal(result.notes.length, length);
     assert.ok(result.notes.every((note) => note >= 48 && note <= 71));
@@ -236,19 +236,36 @@ test("les six enregistrements Parker sont présents sous leur nom stable", async
   );
 });
 
-test("le mode Parker joue la phrase entière quelle que soit la longueur demandée", () => {
-  const shortSetting = makeSequence({
-    length: 3,
+test("le mode Parker limite la phrase à 5–15 notes ou la conserve entière", () => {
+  const fullPhrase = makeSequence({
     mode: "parker",
     random: seededRandom(42),
   });
-  const longSetting = makeSequence({
-    length: 10,
+  const fiveNotes = makeSequence({
     mode: "parker",
+    maxNotes: 5,
     random: seededRandom(42),
   });
-  assert.deepEqual(shortSetting.notes, longSetting.notes);
-  assert.equal(shortSetting.notes.length, shortSetting.meta.source.noteCount);
+  const fifteenNotes = makeSequence({
+    mode: "parker",
+    maxNotes: 15,
+    random: seededRandom(42),
+  });
+
+  assert.ok(fullPhrase.notes.length > 15);
+  assert.deepEqual(fiveNotes.notes, fullPhrase.notes.slice(0, 5));
+  assert.deepEqual(fifteenNotes.notes, fullPhrase.notes.slice(0, 15));
+  assert.equal(fiveNotes.meta.source.fullPhraseNoteCount, fullPhrase.notes.length);
+  assert.equal(fiveNotes.meta.source.truncated, true);
+  assert.equal(fullPhrase.meta.source.truncated, false);
+  assert.equal(fullPhrase.meta.source.maxNotes, null);
+  assert.equal(fiveNotes.timings.length, fiveNotes.notes.length);
+  assert.equal(
+    fiveNotes.meta.source.onsetEnd,
+    fiveNotes.meta.source.onsetStart +
+      fiveNotes.timings.at(-1).offset +
+      fiveNotes.timings.at(-1).duration,
+  );
 });
 
 test("la transposition Parker reste entre −6 et +6 et le clavier couvre toute la phrase", () => {
@@ -314,7 +331,7 @@ test("la longueur est bornée", () => {
   );
   assert.equal(
     makeSequence({ length: 99, mode: "random", random: seededRandom() }).notes.length,
-    10,
+    15,
   );
 });
 
