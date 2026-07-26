@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
+from bisect import bisect_right
+from collections import Counter
 from pathlib import Path
 
 
@@ -43,13 +45,36 @@ def build_corpus(database: Path) -> list[dict]:
             SELECT CAST(ROUND(pitch) AS INTEGER) AS pitch,
                    ROUND(onset, 4) AS onset,
                    ROUND(duration, 4) AS duration,
-                   bar
+                   bar,
+                   beat,
+                   period
             FROM melody
             WHERE melid = ?
             ORDER BY onset, eventid
             """,
             (melid,),
         ).fetchall()
+        beat_onsets = [
+            row["onset"]
+            for row in connection.execute(
+                """
+                SELECT ROUND(onset, 4) AS onset
+                FROM beats
+                WHERE melid = ?
+                ORDER BY onset, beatid
+                """,
+                (melid,),
+            ).fetchall()
+        ]
+        period = Counter(
+            row["period"] for row in events if row["period"] and row["period"] > 0
+        ).most_common(1)[0][0]
+        phase_votes: Counter[int] = Counter()
+        for row in events:
+            beat_index = bisect_right(beat_onsets, row["onset"]) - 1
+            if beat_index >= 0 and row["beat"]:
+                phase_votes[(row["beat"] - 1 - beat_index) % period] += 1
+        phase = phase_votes.most_common(1)[0][0]
         phrases = connection.execute(
             """
             SELECT start, end, value
@@ -73,6 +98,10 @@ def build_corpus(database: Path) -> list[dict]:
                 "events": [
                     [row["pitch"], row["onset"], row["duration"], row["bar"]]
                     for row in events
+                ],
+                "beats": [
+                    [onset, (index + phase) % period + 1, period]
+                    for index, onset in enumerate(beat_onsets)
                 ],
                 "phrases": [
                     [row["start"], row["end"], row["value"]]
