@@ -4,6 +4,10 @@ import { readFile } from "node:fs/promises";
 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
+const styles = await readFile(new URL("../styles.css", import.meta.url), "utf8");
+const manifest = JSON.parse(
+  await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
+);
 
 test("l’interface ne propose que les modes Random et Parker", () => {
   const optionValues = [...index.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
@@ -30,4 +34,24 @@ test("seule la première touche est animée pendant la lecture", () => {
     /if \(index === 0\) \{\s*flashPlayedKey\(midi,[\s\S]*?\);\s*\}/g,
   );
   assert.equal(guardedFlashes?.length, 2);
+});
+
+test("la PWA se lance en plein écran paysage", () => {
+  assert.equal(manifest.display, "fullscreen");
+  assert.equal(manifest.orientation, "landscape");
+  assert.deepEqual(manifest.display_override, ["fullscreen", "standalone"]);
+});
+
+test("le bouton de jeu demande le plein écran et verrouille le paysage", () => {
+  assert.match(index, /id="fullscreen-button">Plein écran</);
+  assert.match(index, /class="rotate-overlay"/);
+  assert.match(app, /document\.documentElement\.requestFullscreen/);
+  assert.match(app, /screen\.orientation\?\.lock\?\.\("landscape"\)/);
+  assert.match(app, /document\.addEventListener\("fullscreenchange"/);
+});
+
+test("le mode jeu donne toute la largeur disponible au piano", () => {
+  assert.match(styles, /\.game-mode main \{[\s\S]*?width: 100%;[\s\S]*?height: 100dvh;/);
+  assert.match(styles, /\.game-mode \.piano \{[\s\S]*?width: 100%;[\s\S]*?min-width: 0;/);
+  assert.match(styles, /@media \(orientation: portrait\)[\s\S]*?\.game-mode \.rotate-overlay/);
 });
