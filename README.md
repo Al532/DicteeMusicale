@@ -3,7 +3,8 @@
 Application web mobile de dictée mélodique :
 
 - une séquence aléatoire de 3 à 10 notes ou une phrase Parker complète est jouée ;
-- la première note est jouée et affichée comme référence ;
+- la première note est jouée et repérée sur le clavier, mais doit être saisie avant d’être
+  révélée dans la séquence ;
 - les autres notes ne sont jamais montrées pendant la lecture ;
 - les notes suivantes sont saisies dans leur octave exacte sur un piano adaptatif ;
 - le clavier affiche au moins deux octaves et s’étend si l’ambitus l’exige ;
