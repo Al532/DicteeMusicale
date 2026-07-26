@@ -9,9 +9,10 @@ const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
 
-test("l’interface ne propose que les modes Random et Parker", () => {
+test("Phrases réelles est le premier mode et le choix par défaut", () => {
   const optionValues = [...index.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(optionValues, ["random", "parker"]);
+  assert.deepEqual(optionValues, ["parker", "random"]);
+  assert.match(app, /settings\.mode === "random" \? "random" : "parker"/);
 });
 
 test("la vitesse Parker va de 25 à 100 % et vaut 100 % par défaut", () => {
@@ -90,6 +91,8 @@ test("Commencer ouvre le mode jeu et le clavier reste absent de l’écran princ
   );
   assert.match(styles, /\.piano-shell \{\s*display: none;/);
   assert.match(styles, /\.game-mode \.piano-shell \{\s*display: block;/);
+  assert.match(styles, /\.exercise-panel \{\s*display: none;/);
+  assert.match(styles, /\.game-mode \.exercise-panel \{\s*display: grid;/);
 });
 
 test("le mode jeu donne toute la largeur disponible au piano dynamique", () => {
@@ -114,4 +117,24 @@ test("Suivant est disponible en jeu et Note de départ a disparu", () => {
   assert.doesNotMatch(index, /id="reference-note"/);
   assert.match(app, /elements\.nextExercise\.addEventListener\("click", startExercise\)/);
   assert.doesNotMatch(app, /playReference|referenceNote/);
+});
+
+test("Réécouter devient Stop pendant la lecture et arrête toutes les sources", () => {
+  assert.match(app, /elements\.replay\.textContent = playing \? "Stop" : "Réécouter"/);
+  assert.match(app, /function togglePlayback\(\) \{[\s\S]*?if \(isPlaying\) \{[\s\S]*?stopAllTones\(\)/);
+  assert.match(app, /for \(const source of activeAudioSources\) \{[\s\S]*?source\.stop\(\)/);
+  assert.match(app, /elements\.replay\.addEventListener\("click", togglePlayback\)/);
+});
+
+test("les chicks ne sont programmés que pour la lecture rythmée Parker", () => {
+  const playback = app.match(
+    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction renderSequence/,
+  )?.[1];
+  assert.ok(playback);
+  assert.match(
+    playback,
+    /if \(exercise\.timings\) \{[\s\S]*?for \(const chick of exercise\.chicks \?\? \[\]\) \{[\s\S]*?playChick\(chick\.offset \* timeScale\)/,
+  );
+  assert.match(app, /filter\.type = "highpass"/);
+  assert.match(app, /gain\.gain\.setValueAtTime\(0\.032, start\)/);
 });
