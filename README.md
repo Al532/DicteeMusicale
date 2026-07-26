@@ -22,14 +22,14 @@ autonome. Le jeu contient les commandes **Réécouter** et **Suivant** ainsi que
 vitesse Parker. Si le navigateur ne peut pas verrouiller l’orientation, il demande de tourner
 manuellement l’appareil.
 
-Deux modes sont disponibles :
+Deux modes sont disponibles, avec **Phrases réelles** sélectionné par défaut :
 
+- **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée intégralement.
+  Un réglage de 25 à 100 % permet de ralentir la vitesse originale ; sa modification est prise
+  en compte lors de chaque réécoute. Le bouton **Réécouter** devient **Stop** pendant la lecture.
 - **Aléatoire — statistiques Parker** : de 3 à 10 notes, à tempo réglable. Chaque intervalle
   signé est tiré indépendamment dans les 1 584 transitions observées à l’intérieur des
   phrases du corpus.
-- **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée intégralement.
-  Un réglage de 25 à 100 % permet de ralentir la vitesse originale ; sa modification est prise
-  en compte lors de chaque réécoute.
 
 ## Statistiques
 
@@ -61,10 +61,14 @@ chunks supplémentaires sont ajoutés lorsque l’ambitus l’exige.
 Les extraits commencent sur les frontières `PHRASE` annotées dans la WJazzD. Les positions
 et durées originales des notes sont conservées : articulations, tenues, silences et éventuels
 chevauchements restent donc audibles. Le réglage en pourcentage ralentit l’ensemble sans
-modifier ces proportions rythmiques.
+modifier ces proportions rythmiques. Un chick de charleston discret marque les temps 2 et 4
+(le temps 2 seul dans une mesure à trois temps), d’après les positions de temps du corpus.
+Il n’est joué qu’entre le départ de la première note et la fin de la dernière.
 
 Le fichier navigateur est généré depuis la base SQLite avec
-`scripts/generate_parker_data.py`, afin de conserver une provenance reproductible.
+`scripts/generate_parker_data.py`, afin de conserver une provenance reproductible. La version
+historique de la base ne numérote pas directement les temps dans sa table `beats` : leur phase
+est retrouvée de façon déterministe à partir des numéros de temps des notes de chaque solo.
 
 ## Développement
 
