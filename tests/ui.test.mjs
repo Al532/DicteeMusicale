@@ -10,19 +10,22 @@ const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
 
-test("Phrases réelles est le premier mode et le choix par défaut", () => {
-  const optionValues = [...index.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(optionValues, ["parker", "random"]);
-  assert.match(index, /<option value="random">Aléatoire — Markov Parker<\/option>/);
-  assert.match(app, /settings\.mode === "random" \? "random" : "parker"/);
+test("l’accueil ne propose que les deux boutons de lancement", () => {
+  const home = index.match(
+    /<section class="panel settings-panel"[\s\S]*?<\/section>/,
+  )?.[0];
+  assert.ok(home);
+  assert.match(home, /id="start-parker"[\s\S]*?Phrases réelles de Charlie Parker/);
+  assert.match(home, /id="start-random"[\s\S]*?Phrases générées sur Charlie Parker/);
+  assert.equal(home.match(/<button/g)?.length, 2);
+  assert.doesNotMatch(home, /<(?:input|select|label)\b/);
+  assert.match(app, /let currentMode = "parker"/);
+  assert.match(app, /function startMode\(mode\)/);
 });
 
 test("la vitesse Parker va de 25 à 100 % et vaut 100 % par défaut", () => {
-  assert.match(
-    index,
-    /id="speed" type="range" min="25" max="100" step="5" value="100"/,
-  );
-  assert.match(app, /exercise\.speedPercent = Number\(elements\.speed\.value\)/);
+  assert.match(app, /let parkerSpeedPercent = 100/);
+  assert.match(app, /exercise\.speedPercent = parkerSpeedPercent/);
   assert.match(app, /const timeScale = 100 \/ exercise\.speedPercent/);
   assert.match(
     index,
@@ -32,11 +35,6 @@ test("la vitesse Parker va de 25 à 100 % et vaut 100 % par défaut", () => {
 });
 
 test("la vitesse aléatoire affiche 25–100 % et double son maximum réel", () => {
-  assert.match(
-    index,
-    /id="random-speed" type="range" min="25" max="100" step="1" value="30"/,
-  );
-  assert.match(index, /id="random-speed-output">30 %<\/output>/);
   assert.doesNotMatch(index, /BPM/);
   assert.match(app, /const RANDOM_PLAYBACK_MIN_PERCENT = 50/);
   assert.match(app, /const RANDOM_PLAYBACK_MAX_PERCENT = 640/);
@@ -48,12 +46,10 @@ test("la vitesse aléatoire affiche 25–100 % et double son maximum réel", () 
 });
 
 test("la longueur reste disponible dans les deux modes", () => {
-  assert.doesNotMatch(app, /elements\.lengthSetting\.hidden = isParker/);
-  assert.match(app, /elements\.randomSpeedSetting\.hidden = isParker/);
-  assert.match(app, /elements\.speedSetting\.hidden = !isParker/);
-  assert.match(app, /elements\.length\.min = isParker \? "5" : "3"/);
-  assert.match(app, /elements\.length\.max = isParker \? "16" : "15"/);
-  assert.match(app, /parkerMaxNotes === 16 \? null : parkerMaxNotes/);
+  assert.match(app, /elements\.gameLength\.min = isParker \? "5" : "3"/);
+  assert.match(app, /elements\.gameLength\.max = "15"/);
+  assert.match(app, /maxNotes: parkerMaxNotes/);
+  assert.doesNotMatch(app, /Illimité|=== 16/);
 });
 
 test("le slider plein écran s’adapte aux deux modes", () => {
@@ -134,11 +130,13 @@ test("le bouton de jeu demande le plein écran et verrouille le paysage", () => 
   assert.match(app, /document\.addEventListener\("fullscreenchange"/);
 });
 
-test("Commencer ouvre le mode jeu et le clavier reste absent de l’écran principal", () => {
+test("chaque bouton d’accueil ouvre son mode de jeu", () => {
   assert.match(
     app,
     /function startExercise\(\) \{[\s\S]*?enterGameMode\(\);[\s\S]*?makeSequence/,
   );
+  assert.match(app, /elements\.startParker\.addEventListener\("click", \(\) => startMode\("parker"\)\)/);
+  assert.match(app, /elements\.startRandom\.addEventListener\("click", \(\) => startMode\("random"\)\)/);
   assert.match(styles, /\.piano-shell \{\s*display: none;/);
   assert.match(styles, /\.game-mode \.piano-shell \{\s*display: block;/);
   assert.match(styles, /\.exercise-panel \{\s*display: none;/);
@@ -189,9 +187,9 @@ test("les chicks ne sont programmés que pour la lecture rythmée Parker", () =>
   assert.match(app, /gain\.gain\.setValueAtTime\(0\.032, start\)/);
 });
 
-test("le lecteur original colle exactement aux frontières et cite l’enregistrement", () => {
+test("le lecteur original commence à la frontière et conserve une courte fin", () => {
   assert.match(index, /id="original-controls" hidden/);
-  assert.match(index, /id="play-original"[\s\S]*?>\s*Original\s*</);
+  assert.match(index, /id="play-original"[\s\S]*?>\s*Écouter Charlie Parker\s*</);
   assert.match(index, /id="audio-source-link"/);
   assert.doesNotMatch(app, /ORIGINAL_CONTEXT_(?:BEFORE|AFTER)_SECONDS/);
   assert.match(
@@ -203,7 +201,11 @@ test("le lecteur original colle exactement aux frontières et cite l’enregistr
     /const phraseEnd = sourceMeta\.audioOffset \+ sourceMeta\.onsetEnd/,
   );
   assert.match(app, /const clipStart = Math\.max\(0, phraseStart\)/);
-  assert.match(app, /const clipEnd = Math\.min\(recording\.duration, phraseEnd\)/);
+  assert.match(app, /const ORIGINAL_TAIL_SECONDS = 0\.25/);
+  assert.match(
+    app,
+    /const clipEnd = Math\.min\([\s\S]*?recording\.duration,[\s\S]*?phraseEnd \+ ORIGINAL_TAIL_SECONDS/,
+  );
   assert.match(app, /sliceAudioBuffer\(context, recording, clipStart, clipEnd\)/);
   assert.match(app, /elements\.audioSourceLink\.href = source\.audioSourceUrl/);
 });
@@ -218,16 +220,18 @@ test("le toggle transpose l’original sans changer sa durée", () => {
   assert.match(app, /elements\.transposeOriginal\.addEventListener\("change", saveSettings\)/);
 });
 
-test("Original devient Stop et n’est proposé qu’en mode phrases réelles", () => {
+test("l’écoute Parker est visible et son toggle lui est directement rattaché", () => {
   assert.match(
     app,
-    /elements\.playOriginal\.textContent = playing \? "Stop" : "Original"/,
+    /elements\.playOriginal\.textContent = playing \? "Stop" : "Écouter Charlie Parker"/,
   );
+  assert.match(index, /Transposer dans le ton actuel/);
   assert.match(app, /elements\.originalControls\.hidden = !hasOriginal/);
   assert.match(
     styles,
-    /\.game-mode \.original-controls:not\(\[hidden\]\) \{\s*display: flex;/,
+    /\.game-mode \.original-controls:not\(\[hidden\]\) \{\s*display: grid;/,
   );
+  assert.match(styles, /\.parker-listen-button \{[\s\S]*?background: var\(--accent\)/);
   assert.match(app, /elements\.playOriginal\.addEventListener\("click", toggleOriginalPlayback\)/);
 });
 
@@ -253,7 +257,7 @@ test("Réécouter remet toujours la saisie à la première note", () => {
   )?.[1];
   assert.ok(toggle);
   assert.equal(toggle.match(/resetExerciseProgress\(\)/g)?.length, 2);
-  assert.match(toggle, /if \(exercise\.completedAt\) \{[\s\S]*?exercise\.attempts = \[\]/);
+  assert.match(toggle, /if \(exercise\.completedAt\) \{\s*prepareRepeatedExercise\(\)/);
 });
 
 test("les notes déjà justes ne deviennent pas des erreurs après une remise à zéro", () => {
@@ -265,16 +269,52 @@ test("les notes déjà justes ne deviennent pas des erreurs après une remise à
 });
 
 test("le nombre de notes est réglable aussi dans l’interface de jeu", () => {
-  assert.match(index, /id="length" type="range" min="5" max="16" value="15"/);
-  assert.match(index, /id="game-length" type="range" min="5" max="16" value="15"/);
+  assert.match(index, /id="game-length" type="range" min="5" max="15" value="15"/);
   assert.match(index, /id="game-length-output">15<\/output>/);
   assert.match(styles, /\.game-mode \.game-length-setting \{\s*display: grid;/);
   assert.match(app, /elements\.gameLength\.addEventListener\("input"/);
-  assert.match(app, /return isParker && Number\(value\) === 16 \? "Illimité"/);
+  assert.doesNotMatch(index, /Illimité|∞/);
+});
+
+test("les toggles de lecture gardent une largeur fixe pour ne pas déplacer les sliders", () => {
+  assert.match(styles, /#replay \{[\s\S]*?width: 92px;[\s\S]*?min-width: 92px;/);
+  assert.match(styles, /\.parker-listen-button \{[\s\S]*?width: 168px;/);
+});
+
+test("la réussite ouvre une modale Recommencer ou Suivant", () => {
+  assert.match(index, /id="completion-modal"[\s\S]*?role="dialog"/);
+  assert.match(index, /id="restart-exercise">Recommencer<\/button>/);
+  assert.match(index, /id="completion-next">Suivant<\/button>/);
+  assert.match(app, /function finishExercise\(\) \{[\s\S]*?showCompletionModal\(\)/);
+  assert.match(
+    app,
+    /function restartSameExercise\(\) \{[\s\S]*?prepareRepeatedExercise\(\);[\s\S]*?resetExerciseProgress\(\);[\s\S]*?playSequence\(\)/,
+  );
+  assert.match(app, /elements\.completionNext\.addEventListener\("click", startExercise\)/);
+  assert.match(styles, /\.completion-modal:not\(\[hidden\]\) \{\s*display: grid;/);
+});
+
+test("la modale Parker écoute l’original sans se fermer ni transposer", () => {
+  assert.match(index, /id="completion-original"[\s\S]*?>\s*Écouter l’original\s*</);
+  assert.match(
+    app,
+    /function showCompletionModal\(\) \{\s*elements\.completionOriginal\.hidden = !exercise\?\.source\?\.audioFile/,
+  );
+  const modalPlayback = app.match(
+    /function toggleCompletionOriginal\(\) \{([\s\S]*?)\n\}/,
+  )?.[1];
+  assert.ok(modalPlayback);
+  assert.match(modalPlayback, /playOriginalExcerpt\(\{ forceOriginalPitch: true \}\)/);
+  assert.doesNotMatch(modalPlayback, /hideCompletionModal/);
+  assert.match(
+    app,
+    /const semitones = !forceOriginalPitch && elements\.transposeOriginal\.checked/,
+  );
+  assert.match(styles, /\.completion-original \{[\s\S]*?grid-column: 1 \/ -1;/);
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v11/);
+  assert.match(serviceWorker, /dictee-musicale-v12/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",

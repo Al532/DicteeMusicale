@@ -134,6 +134,19 @@ main {
   gap: 22px;
 }
 
+.mode-launchers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mode-launch {
+  min-height: 74px;
+  padding: 14px 20px;
+  border-radius: 16px;
+  font-size: clamp(0.95rem, 2.7vw, 1.12rem);
+}
+
 label > span {
   display: flex;
   justify-content: space-between;
@@ -201,6 +214,28 @@ select {
   min-height: 38px;
   padding-inline: 13px;
   font-size: 0.82rem;
+}
+
+#replay {
+  width: 92px;
+  min-width: 92px;
+}
+
+.parker-listen-button {
+  width: 168px;
+  min-height: 34px;
+  padding: 0 10px;
+  color: #241a08;
+  font-size: 0.76rem;
+  font-weight: 800;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.parker-listen-button:hover {
+  background: var(--accent-strong);
 }
 
 button:disabled {
@@ -406,6 +441,46 @@ button:disabled {
   display: none;
 }
 
+.completion-modal {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  padding: 20px;
+  background: rgba(8, 7, 11, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.completion-modal:not([hidden]) {
+  display: grid;
+  place-items: center;
+}
+
+.completion-card {
+  width: min(100%, 390px);
+  padding: 28px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.completion-card h2 {
+  margin-bottom: 22px;
+}
+
+.completion-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.completion-original {
+  grid-column: 1 / -1;
+  color: var(--accent-strong);
+  border-color: rgba(242, 184, 75, 0.58);
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -475,6 +550,10 @@ footer {
 }
 
 @media (max-width: 680px) {
+  .mode-launchers {
+    grid-template-columns: 1fr;
+  }
+
   .settings-grid {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -566,9 +645,10 @@ body.game-mode {
 }
 
 .game-mode .original-controls:not([hidden]) {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 168px;
+  gap: 2px;
+  justify-items: center;
 }
 
 .game-mode .game-length-setting {
@@ -597,6 +677,7 @@ body.game-mode {
   color: var(--muted);
   font-size: clamp(0.62rem, 1.6vw, 0.78rem);
   font-weight: 650;
+  line-height: 1.1;
   white-space: nowrap;
 }
 

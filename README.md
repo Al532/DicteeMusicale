@@ -14,9 +14,10 @@ Application web mobile de dictée mélodique :
 
 ## Utilisation
 
-Ouvrir l’application publiée sur GitHub Pages, choisir le mode, puis toucher **Commencer** :
-le mode de jeu s’ouvre automatiquement en plein écran paysage. Le clavier n’est pas affiché
-sur l’écran principal.
+Ouvrir l’application publiée sur GitHub Pages, puis choisir directement
+**Phrases réelles de Charlie Parker** ou **Phrases générées sur Charlie Parker** :
+le mode de jeu s’ouvre automatiquement en plein écran paysage. Les réglages et le clavier
+ne sont pas affichés sur l’écran principal.
 Sur Android, l’installation depuis le navigateur permet de l’utiliser comme une application
 autonome. Le jeu contient les commandes **Réécouter** et **Suivant** ainsi que le réglage de
 vitesse et le nombre de notes. Toute erreur relance automatiquement la phrase après un court
@@ -27,13 +28,14 @@ l’appareil.
 Deux modes sont disponibles, avec **Phrases réelles** sélectionné par défaut :
 
 - **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée. Le maximum
-  est réglable de 5 à 15 notes, avec 15 par défaut ; la position **Illimité** conserve toute
-  la phrase.
+  est réglable de 5 à 15 notes, avec 15 par défaut.
   Un réglage de 25 à 100 % permet de ralentir la vitesse originale ; sa modification est prise
   en compte lors de chaque réécoute. Le bouton **Réécouter** devient **Stop** pendant la lecture.
-  Le bouton **Original** colle aux frontières de l’extrait, sans contexte avant ou après.
+  Le bouton **Écouter Charlie Parker** commence exactement à la frontière de l’extrait et
+  conserve 250 ms après sa fin annotée pour ne pas couper la résonance.
   Le toggle **Transposer** aligne sa hauteur sur la transposition courante sans accélérer ni
-  ralentir l’audio.
+  ralentir l’audio. Après une réussite, la modale permet aussi d’écouter l’original dans son
+  ton d’origine sans fermer la modale.
 - **Aléatoire — Markov Parker** : de 3 à 15 notes. Le curseur affiche une échelle simplifiée
   de 25 à 100 %, tout en conservant son échelle de lecture interne ; sa vitesse maximale
   atteint désormais 640 % sur cette échelle interne. Chaque note est tenue legato jusqu’à

@@ -236,8 +236,8 @@ test("les six enregistrements Parker sont présents sous leur nom stable", async
   );
 });
 
-test("le mode Parker limite la phrase à 5–15 notes ou la conserve entière", () => {
-  const fullPhrase = makeSequence({
+test("le mode Parker est toujours limité à 5–15 notes", () => {
+  const defaultLimit = makeSequence({
     mode: "parker",
     random: seededRandom(42),
   });
@@ -246,19 +246,19 @@ test("le mode Parker limite la phrase à 5–15 notes ou la conserve entière", 
     maxNotes: 5,
     random: seededRandom(42),
   });
-  const fifteenNotes = makeSequence({
+  const oversizedLimit = makeSequence({
     mode: "parker",
-    maxNotes: 15,
+    maxNotes: 99,
     random: seededRandom(42),
   });
 
-  assert.ok(fullPhrase.notes.length > 15);
-  assert.deepEqual(fiveNotes.notes, fullPhrase.notes.slice(0, 5));
-  assert.deepEqual(fifteenNotes.notes, fullPhrase.notes.slice(0, 15));
-  assert.equal(fiveNotes.meta.source.fullPhraseNoteCount, fullPhrase.notes.length);
+  assert.equal(defaultLimit.notes.length, 15);
+  assert.equal(defaultLimit.meta.source.maxNotes, 15);
+  assert.deepEqual(fiveNotes.notes, defaultLimit.notes.slice(0, 5));
+  assert.deepEqual(oversizedLimit.notes, defaultLimit.notes);
+  assert.ok(fiveNotes.meta.source.fullPhraseNoteCount > 15);
   assert.equal(fiveNotes.meta.source.truncated, true);
-  assert.equal(fullPhrase.meta.source.truncated, false);
-  assert.equal(fullPhrase.meta.source.maxNotes, null);
+  assert.equal(defaultLimit.meta.source.truncated, true);
   assert.equal(fiveNotes.timings.length, fiveNotes.notes.length);
   assert.equal(
     fiveNotes.meta.source.onsetEnd,

@@ -262,7 +262,7 @@ function randomSequence(length, random) {
   };
 }
 
-function parkerSequence(random, maxNotes = null) {
+function parkerSequence(random, maxNotes = 15) {
   const candidates = [];
   for (const solo of PARKER_SOLOS) {
     for (const phrase of solo.phrases) {
@@ -275,13 +275,11 @@ function parkerSequence(random, maxNotes = null) {
   }
 
   const selected = randomChoice(candidates, random);
-  const safeMaxNotes = Number.isFinite(maxNotes)
-    ? Math.max(5, Math.min(15, Math.round(maxNotes)))
-    : null;
-  const events =
-    safeMaxNotes === null
-      ? selected.events
-      : selected.events.slice(0, safeMaxNotes);
+  const safeMaxNotes = Math.max(
+    5,
+    Math.min(15, Math.round(Number(maxNotes) || 15)),
+  );
+  const events = selected.events.slice(0, safeMaxNotes);
   const excerpt = {
     ...selected,
     events,
@@ -352,7 +350,7 @@ function parkerSequence(random, maxNotes = null) {
 
 export function makeSequence({
   length = 5,
-  maxNotes = null,
+  maxNotes = 15,
   mode = "random",
   random = Math.random,
 } = {}) {

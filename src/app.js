@@ -17,26 +17,17 @@ const RANDOM_SLIDER_MIN = 25;
 const RANDOM_SLIDER_MAX = 100;
 const RANDOM_PLAYBACK_MIN_PERCENT = 50;
 const RANDOM_PLAYBACK_MAX_PERCENT = 640;
+const ORIGINAL_TAIL_SECONDS = 0.25;
 
 const elements = {
-  length: document.querySelector("#length"),
-  lengthLabel: document.querySelector("#length-label"),
-  lengthOutput: document.querySelector("#length-output"),
   gameLength: document.querySelector("#game-length"),
   gameLengthLabel: document.querySelector("#game-length-label"),
   gameLengthOutput: document.querySelector("#game-length-output"),
-  randomSpeed: document.querySelector("#random-speed"),
-  randomSpeedOutput: document.querySelector("#random-speed-output"),
-  speed: document.querySelector("#speed"),
-  speedOutput: document.querySelector("#speed-output"),
   gameSpeed: document.querySelector("#game-speed"),
   gameSpeedOutput: document.querySelector("#game-speed-output"),
   gameSpeedSetting: document.querySelector("#game-speed-setting"),
-  lengthSetting: document.querySelector("#length-setting"),
-  randomSpeedSetting: document.querySelector("#random-speed-setting"),
-  speedSetting: document.querySelector("#speed-setting"),
-  mode: document.querySelector("#mode"),
-  newExercise: document.querySelector("#new-exercise"),
+  startParker: document.querySelector("#start-parker"),
+  startRandom: document.querySelector("#start-random"),
   nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
   sequence: document.querySelector("#sequence"),
@@ -57,6 +48,10 @@ const elements = {
   originalControls: document.querySelector("#original-controls"),
   playOriginal: document.querySelector("#play-original"),
   transposeOriginal: document.querySelector("#transpose-original"),
+  completionModal: document.querySelector("#completion-modal"),
+  completionOriginal: document.querySelector("#completion-original"),
+  restartExercise: document.querySelector("#restart-exercise"),
+  completionNext: document.querySelector("#completion-next"),
   stats: {
     exercises: document.querySelector("#stat-exercises"),
     notes: document.querySelector("#stat-notes"),
@@ -71,8 +66,10 @@ let exercise = null;
 let acceptingInput = false;
 let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
+let currentMode = "parker";
 let randomLength = 5;
 let parkerMaxNotes = 15;
+let parkerSpeedPercent = 100;
 let randomPlaybackSpeedPercent = 88;
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
@@ -117,21 +114,15 @@ function randomPlaybackToSliderPercent(value) {
   return RANDOM_SLIDER_MIN + ratio * (RANDOM_SLIDER_MAX - RANDOM_SLIDER_MIN);
 }
 
-function formatLength(value, isParker = elements.mode.value === "parker") {
-  return isParker && Number(value) === 16 ? "Illimité" : `${value} notes`;
-}
-
 function loadSettings() {
   const settings = readJson(SETTINGS_KEY, {});
+  currentMode = settings.mode === "random" ? "random" : "parker";
   randomLength = clamp(
     Math.round(settings.randomLength ?? settings.length ?? 5),
     3,
     15,
   );
-  parkerMaxNotes =
-    settings.parkerMaxNotes === null
-      ? 16
-      : clamp(Math.round(settings.parkerMaxNotes ?? 15), 5, 16);
+  parkerMaxNotes = clamp(Math.round(settings.parkerMaxNotes ?? 15), 5, 15);
   randomPlaybackSpeedPercent = clamp(
     Number(
       settings.randomPlaybackPercent ??
@@ -143,93 +134,83 @@ function loadSettings() {
     RANDOM_PLAYBACK_MIN_PERCENT,
     RANDOM_PLAYBACK_MAX_PERCENT,
   );
-  elements.randomSpeed.value = randomPlaybackToSliderPercent(
-    randomPlaybackSpeedPercent,
-  );
-  if (settings.parkerSpeed) elements.speed.value = settings.parkerSpeed;
+  parkerSpeedPercent = clamp(Number(settings.parkerSpeed ?? 100), 25, 100);
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
-  elements.gameSpeed.value = elements.speed.value;
-  elements.mode.value = settings.mode === "random" ? "random" : "parker";
-  updateSettingLabels();
   updateModeSettings();
 }
 
 function saveSettings() {
   writeJson(SETTINGS_KEY, {
     randomLength,
-    parkerMaxNotes: parkerMaxNotes === 16 ? null : parkerMaxNotes,
+    parkerMaxNotes,
     randomPlaybackPercent: randomPlaybackSpeedPercent,
-    parkerSpeed: Number(elements.speed.value),
+    parkerSpeed: parkerSpeedPercent,
     transposeOriginal: elements.transposeOriginal.checked,
-    mode: elements.mode.value,
+    mode: currentMode,
   });
 }
 
 function updateSettingLabels() {
-  const lengthText = formatLength(elements.length.value);
-  elements.lengthOutput.value = lengthText;
-  elements.gameLengthOutput.value =
-    lengthText === "Illimité" ? "∞" : elements.gameLength.value;
-  elements.randomSpeedOutput.value = `${Math.round(elements.randomSpeed.value)} %`;
-  elements.speedOutput.value = `${elements.speed.value} %`;
+  elements.gameLengthOutput.value = elements.gameLength.value;
   elements.gameSpeedOutput.value = `${Math.round(elements.gameSpeed.value)} %`;
 }
 
 function updateModeSettings() {
-  const isParker = elements.mode.value === "parker";
-  elements.randomSpeedSetting.hidden = isParker;
-  elements.speedSetting.hidden = !isParker;
+  const isParker = currentMode === "parker";
   elements.gameSpeedSetting.hidden = false;
-  elements.lengthLabel.textContent = isParker ? "Notes max" : "Nombre de notes";
   elements.gameLengthLabel.textContent = isParker ? "Notes max" : "Notes";
-  elements.length.min = isParker ? "5" : "3";
-  elements.length.max = isParker ? "16" : "15";
-  elements.length.value = isParker ? parkerMaxNotes : randomLength;
-  elements.gameLength.min = elements.length.min;
-  elements.gameLength.max = elements.length.max;
-  elements.gameLength.value = elements.length.value;
+  elements.gameLength.min = isParker ? "5" : "3";
+  elements.gameLength.max = "15";
+  elements.gameLength.value = isParker ? parkerMaxNotes : randomLength;
   if (isParker) {
     elements.gameSpeed.min = "25";
     elements.gameSpeed.max = "100";
     elements.gameSpeed.step = "5";
-    elements.gameSpeed.value = elements.speed.value;
+    elements.gameSpeed.value = parkerSpeedPercent;
   } else {
     elements.gameSpeed.min = String(RANDOM_SLIDER_MIN);
     elements.gameSpeed.max = String(RANDOM_SLIDER_MAX);
     elements.gameSpeed.step = "1";
-    elements.gameSpeed.value = elements.randomSpeed.value;
+    elements.gameSpeed.value = randomPlaybackToSliderPercent(
+      randomPlaybackSpeedPercent,
+    );
   }
   updateSettingLabels();
 }
 
 function syncLength(value) {
   const numericValue = Number(value);
-  if (elements.mode.value === "parker") parkerMaxNotes = numericValue;
+  if (currentMode === "parker") parkerMaxNotes = numericValue;
   else randomLength = numericValue;
-  elements.length.value = value;
   elements.gameLength.value = value;
   updateSettingLabels();
   saveSettings();
 }
 
 function syncParkerSpeed(value) {
-  elements.speed.value = value;
-  if (elements.mode.value === "parker") elements.gameSpeed.value = value;
+  parkerSpeedPercent = Number(value);
+  elements.gameSpeed.value = value;
   updateSettingLabels();
   saveSettings();
 }
 
 function syncRandomSpeed(value) {
-  elements.randomSpeed.value = value;
   randomPlaybackSpeedPercent = randomSliderToPlaybackPercent(value);
-  if (elements.mode.value === "random") elements.gameSpeed.value = value;
+  elements.gameSpeed.value = value;
   updateSettingLabels();
   saveSettings();
 }
 
 function syncGameSpeed(value) {
-  if (elements.mode.value === "parker") syncParkerSpeed(value);
+  if (currentMode === "parker") syncParkerSpeed(value);
   else syncRandomSpeed(value);
+}
+
+function startMode(mode) {
+  currentMode = mode;
+  updateModeSettings();
+  saveSettings();
+  startExercise();
 }
 
 function buildPiano(layout) {
@@ -373,8 +354,10 @@ function setPlaybackState(playing) {
 
 function setOriginalPlaybackState(playing) {
   isOriginalPlaying = playing;
-  elements.playOriginal.textContent = playing ? "Stop" : "Original";
+  elements.playOriginal.textContent = playing ? "Stop" : "Écouter Charlie Parker";
   elements.playOriginal.setAttribute("aria-pressed", String(playing));
+  elements.completionOriginal.textContent = playing ? "Stop" : "Écouter l’original";
+  elements.completionOriginal.setAttribute("aria-pressed", String(playing));
 }
 
 function stopAllTones() {
@@ -429,7 +412,7 @@ function loadOriginalAudio(path) {
   return decodedAudioBuffers.get(path);
 }
 
-async function playOriginalExcerpt() {
+async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
   const sourceMeta = exercise?.source;
   if (!sourceMeta?.audioFile) return;
 
@@ -448,9 +431,12 @@ async function playOriginalExcerpt() {
     const phraseStart = sourceMeta.audioOffset + sourceMeta.onsetStart;
     const phraseEnd = sourceMeta.audioOffset + sourceMeta.onsetEnd;
     const clipStart = Math.max(0, phraseStart);
-    const clipEnd = Math.min(recording.duration, phraseEnd);
+    const clipEnd = Math.min(
+      recording.duration,
+      phraseEnd + ORIGINAL_TAIL_SECONDS,
+    );
     let clip = sliceAudioBuffer(context, recording, clipStart, clipEnd);
-    const semitones = elements.transposeOriginal.checked
+    const semitones = !forceOriginalPitch && elements.transposeOriginal.checked
       ? sourceMeta.transposition
       : 0;
 
@@ -507,6 +493,14 @@ function toggleOriginalPlayback() {
   playOriginalExcerpt();
 }
 
+function toggleCompletionOriginal() {
+  if (isOriginalPlaying) {
+    stopAllTones();
+    return;
+  }
+  playOriginalExcerpt({ forceOriginalPitch: true });
+}
+
 function flashPlayedKey(midi, delayMs, durationMs) {
   const key = elements.piano.querySelector(`[data-midi="${midi}"]`);
   if (!key) return;
@@ -523,7 +517,7 @@ function playSequence() {
   elements.feedback.textContent = "Écoute…";
   let playbackDuration;
   if (exercise.timings) {
-    exercise.speedPercent = Number(elements.speed.value);
+    exercise.speedPercent = parkerSpeedPercent;
     const timeScale = 100 / exercise.speedPercent;
     exercise.notes.forEach((midi, index) => {
       const timing = exercise.timings[index];
@@ -540,7 +534,7 @@ function playSequence() {
     const lastTiming = exercise.timings.at(-1);
     playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
   } else {
-    exercise.speedPercent = Number(elements.randomSpeed.value);
+    exercise.speedPercent = Number(elements.gameSpeed.value);
     exercise.playbackRatePercent = randomPlaybackSpeedPercent;
     const notesPerMinute =
       RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE *
@@ -609,25 +603,26 @@ function markReferenceKey() {
 }
 
 function startExercise() {
+  hideCompletionModal();
   getAudioContext();
   if (!document.body.classList.contains("game-mode")) enterGameMode();
   saveSettings();
   const generated = makeSequence({
     length: randomLength,
-    maxNotes: parkerMaxNotes === 16 ? null : parkerMaxNotes,
-    mode: elements.mode.value,
+    maxNotes: parkerMaxNotes,
+    mode: currentMode,
   });
   exercise = {
     id: crypto.randomUUID(),
     startedAt: new Date().toISOString(),
     completedAt: null,
-    mode: elements.mode.value,
+    mode: currentMode,
     label: generated.meta.label,
     source: generated.meta.source,
     tempo: null,
     speedPercent: generated.timings
-      ? Number(elements.speed.value)
-      : Number(elements.randomSpeed.value),
+      ? parkerSpeedPercent
+      : Number(elements.gameSpeed.value),
     playbackRatePercent: generated.timings ? null : randomPlaybackSpeedPercent,
     originalTempo: generated.meta.originalTempo ?? null,
     notes: generated.notes,
@@ -683,6 +678,33 @@ function renderSource(source) {
   }
 }
 
+function hideCompletionModal() {
+  elements.completionModal.hidden = true;
+}
+
+function showCompletionModal() {
+  elements.completionOriginal.hidden = !exercise?.source?.audioFile;
+  elements.completionModal.hidden = false;
+  window.requestAnimationFrame(() => elements.completionNext.focus());
+}
+
+function prepareRepeatedExercise() {
+  exercise.id = crypto.randomUUID();
+  exercise.startedAt = new Date().toISOString();
+  exercise.completedAt = null;
+  exercise.attempts = [];
+  exercise.replayCount = 0;
+}
+
+function restartSameExercise() {
+  if (!exercise) return;
+  hideCompletionModal();
+  stopAllTones();
+  prepareRepeatedExercise();
+  resetExerciseProgress();
+  playSequence();
+}
+
 function togglePlayback() {
   if (!exercise) return;
   if (isPlaying) {
@@ -692,11 +714,7 @@ function togglePlayback() {
     return;
   }
   if (exercise.completedAt) {
-    exercise.id = crypto.randomUUID();
-    exercise.startedAt = new Date().toISOString();
-    exercise.completedAt = null;
-    exercise.attempts = [];
-    exercise.replayCount = 0;
+    prepareRepeatedExercise();
   }
   exercise.replayCount += 1;
   resetExerciseProgress();
@@ -807,6 +825,7 @@ function finishExercise() {
   elements.feedback.textContent = perfect
     ? "Phrase terminée — sans erreur !"
     : "Phrase terminée. Les erreurs ont été enregistrées.";
+  showCompletionModal();
 }
 
 function renderStats() {
@@ -1012,6 +1031,7 @@ async function enterGameMode() {
 
 async function leaveGameMode() {
   stopAllTones();
+  hideCompletionModal();
   acceptingInput = false;
   try {
     screen.orientation?.unlock?.();
@@ -1046,30 +1066,26 @@ function setUpGameMode() {
       activateGameLayout();
     } else {
       stopAllTones();
+      hideCompletionModal();
       acceptingInput = false;
       deactivateGameLayout();
     }
   });
 }
 
-elements.length.addEventListener("input", () => syncLength(elements.length.value));
 elements.gameLength.addEventListener("input", () =>
   syncLength(elements.gameLength.value),
 );
-elements.randomSpeed.addEventListener("input", () =>
-  syncRandomSpeed(elements.randomSpeed.value),
-);
-elements.speed.addEventListener("input", () => syncParkerSpeed(elements.speed.value));
 elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSpeed.value));
-elements.mode.addEventListener("change", () => {
-  updateModeSettings();
-  saveSettings();
-});
-elements.newExercise.addEventListener("click", startExercise);
+elements.startParker.addEventListener("click", () => startMode("parker"));
+elements.startRandom.addEventListener("click", () => startMode("random"));
 elements.nextExercise.addEventListener("click", startExercise);
 elements.replay.addEventListener("click", togglePlayback);
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
 elements.transposeOriginal.addEventListener("change", saveSettings);
+elements.completionOriginal.addEventListener("click", toggleCompletionOriginal);
+elements.restartExercise.addEventListener("click", restartSameExercise);
+elements.completionNext.addEventListener("click", startExercise);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.importJson.addEventListener("change", importJson);

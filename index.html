@@ -27,38 +27,14 @@
     </header>
 
     <main>
-      <section class="panel settings-panel" aria-labelledby="settings-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Réglages</p>
-            <h2 id="settings-title">Nouvelle phrase</h2>
-          </div>
-          <button class="primary-button" id="new-exercise">Commencer</button>
-        </div>
-
-        <div class="settings-grid">
-          <label id="length-setting">
-            <span><span id="length-label">Notes max</span> <output id="length-output">15 notes</output></span>
-            <input id="length" type="range" min="5" max="16" value="15" />
-          </label>
-
-          <label id="random-speed-setting">
-            <span>Vitesse <output id="random-speed-output">30 %</output></span>
-            <input id="random-speed" type="range" min="25" max="100" step="1" value="30" />
-          </label>
-
-          <label id="speed-setting" hidden>
-            <span>Vitesse <output id="speed-output">100 %</output></span>
-            <input id="speed" type="range" min="25" max="100" step="5" value="100" />
-          </label>
-
-          <label>
-            <span>Type de phrase</span>
-            <select id="mode">
-              <option value="parker">Phrases réelles — Charlie Parker</option>
-              <option value="random">Aléatoire — Markov Parker</option>
-            </select>
-          </label>
+      <section class="panel settings-panel" aria-label="Choisir un mode">
+        <div class="mode-launchers">
+          <button class="primary-button mode-launch" id="start-parker">
+            Phrases réelles de Charlie Parker
+          </button>
+          <button class="primary-button mode-launch" id="start-random">
+            Phrases générées sur Charlie Parker
+          </button>
         </div>
       </section>
 
@@ -71,7 +47,7 @@
           <div class="exercise-actions">
             <label class="game-length-setting" id="game-length-setting">
               <span><span id="game-length-label">Notes max</span> <output id="game-length-output">15</output></span>
-              <input id="game-length" type="range" min="5" max="16" value="15" />
+              <input id="game-length" type="range" min="5" max="15" value="15" />
             </label>
             <label class="game-speed-setting" id="game-speed-setting" hidden>
               <span>Vitesse <output id="game-speed-output">100 %</output></span>
@@ -79,21 +55,21 @@
             </label>
             <button class="ghost-button compact" id="replay" disabled>Réécouter</button>
             <div class="original-controls" id="original-controls" hidden>
+              <button
+                class="compact parker-listen-button"
+                id="play-original"
+                aria-pressed="false"
+                disabled
+              >
+                Écouter Charlie Parker
+              </button>
               <label
                 class="transpose-toggle"
                 title="Transposer la hauteur sans modifier la durée"
               >
                 <input id="transpose-original" type="checkbox" />
-                <span>Transposer</span>
+                <span>Transposer dans le ton actuel</span>
               </label>
-              <button
-                class="ghost-button compact"
-                id="play-original"
-                aria-pressed="false"
-                disabled
-              >
-                Original
-              </button>
             </div>
             <button class="ghost-button compact" id="next-exercise" disabled>Suivant</button>
             <button class="ghost-button compact" id="fullscreen-button">Plein écran</button>
@@ -168,6 +144,32 @@
       <span>Conçu pour une pratique courte et régulière.</span>
       <button class="text-button" id="reset-stats">Effacer les statistiques</button>
     </footer>
+
+    <div
+      class="completion-modal"
+      id="completion-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="completion-title"
+      hidden
+    >
+      <div class="completion-card">
+        <p class="eyebrow">Séquence réussie</p>
+        <h2 id="completion-title">On continue ?</h2>
+        <div class="completion-actions">
+          <button
+            class="ghost-button completion-original"
+            id="completion-original"
+            aria-pressed="false"
+            hidden
+          >
+            Écouter l’original
+          </button>
+          <button class="ghost-button" id="restart-exercise">Recommencer</button>
+          <button class="primary-button" id="completion-next">Suivant</button>
+        </div>
+      </div>
+    </div>
 
     <div class="rotate-overlay" aria-live="polite">
       <div>
