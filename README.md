@@ -3,21 +3,23 @@
 Application web mobile de dictée mélodique :
 
 - une séquence aléatoire de 3 à 10 notes ou une phrase Parker complète est jouée ;
-- la première note est affichée comme référence ;
+- la première note est jouée et affichée comme référence ;
 - les autres notes ne sont jamais montrées pendant la lecture ;
-- les notes suivantes sont saisies sur un piano de deux octaves ;
-- la correction est immédiate et l’octave jouée n’a pas d’importance ;
+- les notes suivantes sont saisies dans leur octave exacte sur un piano adaptatif ;
+- le clavier affiche au moins deux octaves et s’étend si l’ambitus l’exige ;
+- les notes déjà trouvées peuvent être réécoutées en touchant leur bouton ;
 - les résultats restent sur l’appareil et peuvent être exportés en JSON ou CSV ;
 - l’application fonctionne hors connexion après une première visite.
 
 ## Utilisation
 
-Ouvrir l’application publiée sur GitHub Pages, choisir le mode, puis toucher **Commencer**.
+Ouvrir l’application publiée sur GitHub Pages, choisir le mode, puis toucher **Commencer** :
+le mode de jeu s’ouvre automatiquement en plein écran paysage. Le clavier n’est pas affiché
+sur l’écran principal.
 Sur Android, l’installation depuis le navigateur permet de l’utiliser comme une application
-autonome. La PWA se lance en plein écran paysage. Le bouton **Plein écran** active aussi un
-mode de jeu dans le navigateur : l’interface secondaire disparaît et le piano utilise toute
-la largeur disponible. Si le navigateur ne peut pas verrouiller l’orientation, il demande de
-tourner manuellement l’appareil.
+autonome. Le jeu contient les commandes **Réécouter** et **Suivant** ainsi que le réglage de
+vitesse Parker. Si le navigateur ne peut pas verrouiller l’orientation, il demande de tourner
+manuellement l’appareil.
 
 Deux modes sont disponibles :
 
@@ -47,8 +49,13 @@ phrase, les mesures et un lien vers sa fiche source.
 
 Les hauteurs et positions proviennent du corpus de recherche public
 [WJazzD v1.2 (2016)](https://github.com/jazzomat/article_2016), fichier `score.zip`. Les
-phrases sont transposées aléatoirement par demi-tons, sans modifier leurs intervalles. La
-transposition appliquée est enregistrée dans les statistiques.
+phrases sont transposées uniformément dans les 12 classes chromatiques, sans modifier leurs
+intervalles et sans dépasser six demi-tons. Pour le triton, +6 et −6 se partagent le poids
+d’une seule transposition. La transposition appliquée est enregistrée dans les statistiques.
+
+Le clavier suit le registre réel de la phrase transposée. Il est composé de chunks indivisibles
+**do–mi** et **fa–si**, centrés autour de la phrase, avec un minimum de quatre chunks. Des
+chunks supplémentaires sont ajoutés lorsque l’ambitus l’exige.
 
 Les extraits commencent sur les frontières `PHRASE` annotées dans la WJazzD. Les positions
 et durées originales des notes sont conservées : articulations, tenues, silences et éventuels
