@@ -1,0 +1,19 @@
+{
+  "name": "Dictée musicale",
+  "short_name": "Dictée",
+  "description": "Entraînement à la dictée mélodique avec correction immédiate.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111017",
+  "theme_color": "#17151f",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
