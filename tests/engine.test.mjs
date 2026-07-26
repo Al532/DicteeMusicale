@@ -39,6 +39,8 @@ test("un extrait Parker conserve une source précise", () => {
   assert.equal(result.meta.source.url.startsWith("https://jazzomat.hfm-weimar.de/"), true);
   assert.ok(Number.isFinite(result.meta.source.barStart));
   assert.ok(Number.isFinite(result.meta.source.transposition));
+  assert.ok(result.meta.source.phrase);
+  assert.ok(Number.isFinite(result.meta.originalTempo));
 });
 
 test("la transposition Parker est chromatique et reste dans le clavier", () => {
@@ -48,6 +50,30 @@ test("la transposition Parker est chromatique et reste dans le clavier", () => {
   assert.ok(results.every((result) => result.notes.every((note) => note >= 48 && note <= 71)));
   assert.ok(results.every((result) => Number.isInteger(result.meta.source.transposition)));
   assert.ok(results.some((result) => Math.abs(result.meta.source.transposition) % 12 !== 0));
+});
+
+test("les rythmes Parker conservent durées, silences et départs de phrases annotés", () => {
+  const results = Array.from({ length: 24 }, (_, index) =>
+    makeSequence({ length: 10, mode: "jazz", random: seededRandom(index + 100) }),
+  );
+  for (const result of results) {
+    assert.equal(result.timings.length, result.notes.length);
+    assert.equal(result.timings[0].offset, 0);
+    assert.ok(result.timings.every((timing) => timing.duration > 0));
+    assert.ok(
+      result.timings.every(
+        (timing, index) => index === 0 || timing.offset >= result.timings[index - 1].offset,
+      ),
+    );
+  }
+  assert.ok(
+    results.some((result) =>
+      result.timings.slice(1).some((timing, index) => {
+        const previous = result.timings[index];
+        return timing.offset - (previous.offset + previous.duration) > 0.01;
+      }),
+    ),
+  );
 });
 
 test("la longueur est bornée", () => {
