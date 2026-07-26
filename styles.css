@@ -116,6 +116,10 @@ main {
   box-shadow: 0 20px 55px rgba(0, 0, 0, 0.18);
 }
 
+.exercise-panel {
+  display: none;
+}
+
 .section-heading {
   display: flex;
   gap: 14px;
