@@ -28,6 +28,14 @@ body {
     var(--bg);
 }
 
+html:has(body.game-mode),
+body.game-mode {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 button,
 input,
 select {
@@ -363,6 +371,10 @@ button:disabled {
   text-align: center;
 }
 
+.rotate-overlay {
+  display: none;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -459,6 +471,136 @@ footer {
   footer {
     gap: 16px;
     align-items: flex-start;
+  }
+}
+
+body.game-mode {
+  background: var(--bg);
+}
+
+.game-mode .site-header,
+.game-mode .settings-panel,
+.game-mode .stats-panel,
+.game-mode footer {
+  display: none;
+}
+
+.game-mode main {
+  display: block;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  padding:
+    max(8px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+}
+
+.game-mode .exercise-panel {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: clamp(5px, 1.4vh, 12px);
+  width: 100%;
+  height: 100%;
+  padding: clamp(8px, 1.5vw, 16px);
+  border-radius: 14px;
+}
+
+.game-mode .exercise-panel .section-heading {
+  display: flex;
+  grid-row: 1;
+  align-items: center;
+  margin: 0;
+}
+
+.game-mode .exercise-panel .section-heading h2 {
+  font-size: clamp(1rem, 2.6vw, 1.35rem);
+}
+
+.game-mode .exercise-panel .eyebrow,
+.game-mode .piano-hint {
+  display: none;
+}
+
+.game-mode .exercise-actions {
+  flex-wrap: nowrap;
+  margin: 0;
+}
+
+.game-mode .sequence {
+  grid-row: 2;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.game-mode .sequence li {
+  flex-basis: 30px;
+  height: clamp(29px, 8vh, 40px);
+}
+
+.game-mode .feedback,
+.game-mode .source-line {
+  min-height: 0;
+  margin: 0;
+  line-height: 1.15;
+}
+
+.game-mode .feedback {
+  grid-row: 3;
+  font-size: clamp(0.75rem, 2vw, 0.9rem);
+}
+
+.game-mode .source-line {
+  grid-row: 4;
+  font-size: clamp(0.62rem, 1.7vw, 0.75rem);
+}
+
+.game-mode .piano-shell {
+  grid-row: 5;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.game-mode .piano {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 105px;
+}
+
+@media (orientation: portrait) {
+  .game-mode .rotate-overlay {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    padding: 24px;
+    place-items: center;
+    text-align: center;
+    background: rgba(17, 16, 23, 0.98);
+  }
+
+  .rotate-overlay strong,
+  .rotate-overlay p {
+    display: block;
+  }
+
+  .rotate-overlay p {
+    margin: 8px 0 18px;
+    color: var(--muted);
+  }
+
+  .rotate-icon {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--accent);
+    font-size: 3rem;
+    line-height: 1;
   }
 }
 
