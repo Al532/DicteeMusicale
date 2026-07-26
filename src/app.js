@@ -33,6 +33,8 @@ const elements = {
   importJson: document.querySelector("#import-json"),
   resetStats: document.querySelector("#reset-stats"),
   installButton: document.querySelector("#install-button"),
+  fullscreenButton: document.querySelector("#fullscreen-button"),
+  exitPortraitMode: document.querySelector("#exit-portrait-mode"),
   sourceLine: document.querySelector("#source-line"),
   sourceDetails: document.querySelector("#source-details"),
   sourceLink: document.querySelector("#source-link"),
@@ -50,6 +52,7 @@ let exercise = null;
 let acceptingInput = false;
 let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
+const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 
 function readJson(key, fallback) {
   try {
@@ -571,6 +574,83 @@ function setUpInstallPrompt() {
   });
 }
 
+function updateGameModeButton() {
+  const active = document.body.classList.contains("game-mode");
+  elements.fullscreenButton.textContent = active ? "Quitter" : "Plein écran";
+  elements.fullscreenButton.setAttribute("aria-pressed", String(active));
+}
+
+function activateGameLayout() {
+  document.body.classList.add("game-mode");
+  updateGameModeButton();
+}
+
+function deactivateGameLayout() {
+  document.body.classList.remove("game-mode");
+  updateGameModeButton();
+}
+
+async function enterGameMode() {
+  activateGameLayout();
+
+  try {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+    }
+  } catch {
+    // Le mode de jeu CSS reste utilisable si le navigateur refuse le plein écran natif.
+  }
+
+  try {
+    await screen.orientation?.lock?.("landscape");
+  } catch {
+    // iOS et certains navigateurs imposent une rotation manuelle.
+  }
+}
+
+async function leaveGameMode() {
+  try {
+    screen.orientation?.unlock?.();
+  } catch {
+    // Le déverrouillage n’est pas exposé partout.
+  }
+
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
+  } catch {
+    // La mise en page normale est restaurée même si la sortie native échoue.
+  }
+
+  deactivateGameLayout();
+}
+
+function toggleGameMode() {
+  if (document.body.classList.contains("game-mode")) {
+    leaveGameMode();
+  } else {
+    enterGameMode();
+  }
+}
+
+function setUpGameMode() {
+  if (fullscreenDisplayMode.matches) activateGameLayout();
+  else updateGameModeButton();
+
+  document.addEventListener("fullscreenchange", () => {
+    if (document.fullscreenElement) {
+      activateGameLayout();
+    } else if (!fullscreenDisplayMode.matches) {
+      deactivateGameLayout();
+    }
+  });
+
+  fullscreenDisplayMode.addEventListener?.("change", (event) => {
+    if (event.matches) activateGameLayout();
+  });
+}
+
 elements.length.addEventListener("input", updateSettingLabels);
 elements.tempo.addEventListener("input", updateSettingLabels);
 elements.speed.addEventListener("input", updateSettingLabels);
@@ -582,9 +662,12 @@ elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.importJson.addEventListener("change", importJson);
 elements.resetStats.addEventListener("click", resetStats);
+elements.fullscreenButton.addEventListener("click", toggleGameMode);
+elements.exitPortraitMode.addEventListener("click", leaveGameMode);
 
 loadSettings();
 buildPiano();
 renderStats();
 registerOfflineSupport();
 setUpInstallPrompt();
+setUpGameMode();
