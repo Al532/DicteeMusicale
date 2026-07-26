@@ -128,44 +128,48 @@ function fittingTranspositions(notes) {
 function jazzSequence(length, random) {
   const candidates = [];
   for (const solo of PARKER_SOLOS) {
-    for (let start = 0; start <= solo.events.length - length; start += 1) {
+    for (const phrase of solo.phrases) {
+      const [start, end] = phrase;
+      if (end - start + 1 < length) continue;
       const events = solo.events.slice(start, start + length);
       const notes = events.map(([midi]) => midi);
-      const gaps = events.slice(1).map((event, index) => event[1] - events[index][1]);
       const transpositions = fittingTranspositions(notes);
-      if (
-        events[0][2] < 1 ||
-        !transpositions.length ||
-        gaps.some((gap) => gap > 1.15)
-      ) {
-        continue;
-      }
-      candidates.push({ solo, events, notes, transpositions });
+      if (!transpositions.length) continue;
+      candidates.push({ solo, phrase, events, notes, transpositions });
     }
   }
 
   const excerpt = randomChoice(candidates, random);
   const transposition = randomChoice(excerpt.transpositions, random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
-  const firstBar = excerpt.events[0][2];
-  const lastBar = excerpt.events.at(-1)[2];
+  const firstOnset = excerpt.events[0][1];
+  const timings = excerpt.events.map((event) => ({
+    offset: Number((event[1] - firstOnset).toFixed(4)),
+    duration: event[2],
+  }));
+  const firstBar = excerpt.events[0][3];
+  const lastBar = excerpt.events.at(-1)[3];
   const barLabel =
     firstBar === lastBar ? `mesure ${firstBar}` : `mesures ${firstBar}–${lastBar}`;
 
   return {
     notes: transposedNotes,
+    timings,
     meta: {
       label: `${excerpt.solo.performer} — ${excerpt.solo.title}`,
+      originalTempo: excerpt.solo.originalTempo,
       source: {
         kind: "transcription",
-        label: `${excerpt.solo.performer}, « ${excerpt.solo.title} », ${barLabel}`,
+        label: `${excerpt.solo.performer}, « ${excerpt.solo.title} », phrase ${excerpt.phrase[2]}, ${barLabel}`,
         dataset: excerpt.solo.dataset,
         url: excerpt.solo.sourceUrl,
         recordingDate: excerpt.solo.recordingDate,
+        phrase: excerpt.phrase[2],
         barStart: firstBar,
         barEnd: lastBar,
         onsetStart: excerpt.events[0][1],
         onsetEnd: excerpt.events.at(-1)[1],
+        originalTempo: excerpt.solo.originalTempo,
         transposition,
       },
     },
