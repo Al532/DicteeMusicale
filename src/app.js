@@ -58,6 +58,8 @@ let records = readJson(STORAGE_KEY, []);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
 let playbackTimer = null;
+let chickBuffer = null;
+let isPlaying = false;
 
 function readJson(key, fallback) {
   try {
@@ -79,8 +81,7 @@ function loadSettings() {
   }
   if (settings.parkerSpeed) elements.speed.value = settings.parkerSpeed;
   elements.gameSpeed.value = elements.speed.value;
-  elements.mode.value =
-    settings.mode === "parker" || settings.mode === "jazz" ? "parker" : "random";
+  elements.mode.value = settings.mode === "random" ? "random" : "parker";
   updateSettingLabels();
   updateModeSettings();
 }
@@ -220,6 +221,41 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
   overtone.stop(stop + 0.02);
 }
 
+function playChick(startAt) {
+  const context = getAudioContext();
+  if (!chickBuffer || chickBuffer.sampleRate !== context.sampleRate) {
+    const frameCount = Math.ceil(context.sampleRate * 0.045);
+    chickBuffer = context.createBuffer(1, frameCount, context.sampleRate);
+    const samples = chickBuffer.getChannelData(0);
+    for (let index = 0; index < frameCount; index += 1) {
+      samples[index] = Math.random() * 2 - 1;
+    }
+  }
+
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  const start = context.currentTime + startAt;
+  const stop = start + 0.045;
+  source.buffer = chickBuffer;
+  filter.type = "highpass";
+  filter.frequency.value = 5200;
+  filter.Q.value = 0.7;
+  gain.gain.setValueAtTime(0.032, start);
+  gain.gain.exponentialRampToValueAtTime(0.0001, stop);
+  source.connect(filter).connect(gain).connect(context.destination);
+  activeAudioSources.add(source);
+  source.addEventListener("ended", () => activeAudioSources.delete(source));
+  source.start(start);
+  source.stop(stop);
+}
+
+function setPlaybackState(playing) {
+  isPlaying = playing;
+  elements.replay.textContent = playing ? "Stop" : "Réécouter";
+  elements.replay.setAttribute("aria-pressed", String(playing));
+}
+
 function stopAllTones() {
   if (playbackTimer !== null) {
     window.clearTimeout(playbackTimer);
@@ -233,6 +269,7 @@ function stopAllTones() {
     }
   }
   activeAudioSources.clear();
+  setPlaybackState(false);
 }
 
 function flashPlayedKey(midi, delayMs, durationMs) {
@@ -245,6 +282,7 @@ function flashPlayedKey(midi, delayMs, durationMs) {
 function playSequence() {
   if (!exercise) return;
   stopAllTones();
+  setPlaybackState(true);
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "Écoute…";
@@ -261,6 +299,9 @@ function playSequence() {
         flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
       }
     });
+    for (const chick of exercise.chicks ?? []) {
+      playChick(chick.offset * timeScale);
+    }
     const lastTiming = exercise.timings.at(-1);
     playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
   } else {
@@ -279,6 +320,7 @@ function playSequence() {
 
   playbackTimer = window.setTimeout(() => {
     playbackTimer = null;
+    setPlaybackState(false);
     acceptingInput = exercise.currentIndex < exercise.notes.length;
     exercise.guessStartedAt = performance.now();
     elements.feedback.textContent =
@@ -346,6 +388,7 @@ function startExercise() {
     originalTempo: generated.meta.originalTempo ?? Number(elements.tempo.value),
     notes: generated.notes,
     timings: generated.timings ?? null,
+    chicks: generated.chicks ?? null,
     keyboard: generated.keyboard,
     currentIndex: 0,
     attempts: [],
@@ -384,8 +427,15 @@ function renderSource(source) {
   }
 }
 
-function replaySequence() {
+function togglePlayback() {
   if (!exercise) return;
+  if (isPlaying) {
+    stopAllTones();
+    acceptingInput = exercise.currentIndex < exercise.notes.length;
+    exercise.guessStartedAt = performance.now();
+    elements.feedback.textContent = "Lecture arrêtée. À toi.";
+    return;
+  }
   exercise.replayCount += 1;
   playSequence();
 }
@@ -719,7 +769,7 @@ elements.gameSpeed.addEventListener("input", () => syncSpeed(elements.gameSpeed.
 elements.mode.addEventListener("change", updateModeSettings);
 elements.newExercise.addEventListener("click", startExercise);
 elements.nextExercise.addEventListener("click", startExercise);
-elements.replay.addEventListener("click", replaySequence);
+elements.replay.addEventListener("click", togglePlayback);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.importJson.addEventListener("change", importJson);
