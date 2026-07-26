@@ -36,7 +36,11 @@ Les hauteurs et positions proviennent du corpus de recherche public
 [WJazzD v1.2 (2016)](https://github.com/jazzomat/article_2016), fichier `score.zip`. Les
 fragments sont transposés aléatoirement par demi-tons pour tenir sur le clavier, sans
 modifier leurs intervalles. La transposition appliquée est enregistrée dans les statistiques.
-Le rythme est volontairement égalisé : l’exercice porte uniquement sur les hauteurs.
+
+Les extraits commencent sur les frontières `PHRASE` annotées dans la WJazzD. Les positions
+et durées originales des notes sont conservées : articulations, tenues, silences et éventuels
+chevauchements restent donc audibles. Le réglage de tempo ralentit ou accélère l’ensemble
+sans modifier ces proportions rythmiques.
 
 Le fichier navigateur est généré depuis la base SQLite avec
 `scripts/generate_parker_data.py`, afin de conserver une provenance reproductible.
