@@ -225,6 +225,7 @@ export function summarizeRecords(records) {
   const intervalMap = new Map();
   for (const record of completed) {
     for (const attempt of record.attempts ?? []) {
+      if (!Number.isFinite(attempt.interval)) continue;
       const key = String(attempt.interval);
       const bucket = intervalMap.get(key) ?? {
         interval: attempt.interval,
