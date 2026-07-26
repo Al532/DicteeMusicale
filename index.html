@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#17151f" />
+    <meta
+      name="description"
+      content="Entraînement mobile à la dictée mélodique, avec correction immédiate et statistiques locales."
+    />
+    <title>Dictée musicale</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./src/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">Oreille relative</p>
+        <h1>Dictée musicale</h1>
+      </div>
+      <button class="ghost-button compact" id="install-button" hidden>Installer</button>
+    </header>
+
+    <main>
+      <section class="panel settings-panel" aria-labelledby="settings-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Réglages</p>
+            <h2 id="settings-title">Nouvelle phrase</h2>
+          </div>
+          <button class="primary-button" id="new-exercise">Commencer</button>
+        </div>
+
+        <div class="settings-grid">
+          <label>
+            <span>Longueur <output id="length-output">5 notes</output></span>
+            <input id="length" type="range" min="3" max="10" value="5" />
+          </label>
+
+          <label>
+            <span>Tempo <output id="tempo-output">88 BPM</output></span>
+            <input id="tempo" type="range" min="50" max="160" step="2" value="88" />
+          </label>
+
+          <label>
+            <span>Type de phrase</span>
+            <select id="mode">
+              <option value="melodic">Mélodique</option>
+              <option value="diatonic">Diatonique</option>
+              <option value="jazz">Vocabulaire jazz</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel exercise-panel" aria-labelledby="exercise-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow" id="exercise-kicker">Prêt</p>
+            <h2 id="exercise-title">Écoute, puis joue la suite</h2>
+          </div>
+          <div class="exercise-actions">
+            <button class="ghost-button compact" id="reference-note" disabled>Note de départ</button>
+            <button class="ghost-button compact" id="replay" disabled>Réécouter</button>
+          </div>
+        </div>
+
+        <ol class="sequence" id="sequence" aria-label="Progression dans la phrase"></ol>
+
+        <div class="feedback" id="feedback" role="status" aria-live="polite">
+          Lance une phrase pour commencer.
+        </div>
+        <p class="source-line" id="source-line" hidden>
+          <span id="source-details"></span>
+          <a id="source-link" href="#" target="_blank" rel="noreferrer">Source</a>
+        </p>
+
+        <div class="piano-shell">
+          <div class="piano" id="piano" aria-label="Piano de deux octaves"></div>
+        </div>
+
+        <p class="piano-hint">L’octave saisie n’a pas d’importance.</p>
+      </section>
+
+      <section class="panel stats-panel" aria-labelledby="stats-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Progression</p>
+            <h2 id="stats-title">Statistiques</h2>
+          </div>
+          <div class="stats-actions">
+            <button class="ghost-button compact" id="export-csv">CSV</button>
+            <button class="ghost-button compact" id="export-json">Sauvegarder</button>
+            <label class="ghost-button compact file-label">
+              Restaurer
+              <input id="import-json" type="file" accept="application/json,.json" />
+            </label>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article>
+            <strong id="stat-exercises">0</strong>
+            <span>phrases</span>
+          </article>
+          <article>
+            <strong id="stat-notes">0</strong>
+            <span>notes saisies</span>
+          </article>
+          <article>
+            <strong id="stat-accuracy">—</strong>
+            <span>justes du 1er coup</span>
+          </article>
+          <article>
+            <strong id="stat-response">—</strong>
+            <span>temps moyen</span>
+          </article>
+        </div>
+
+        <div class="weaknesses">
+          <h3>Intervalles à retravailler</h3>
+          <p id="weaknesses">Pas encore assez de données.</p>
+        </div>
+        <p class="privacy-note">
+          Les données restent sur cet appareil. Pense à les sauvegarder avant d’effacer les
+          données du navigateur.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span>Conçu pour une pratique courte et régulière.</span>
+      <button class="text-button" id="reset-stats">Effacer les statistiques</button>
+    </footer>
+  </body>
+</html>
