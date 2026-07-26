@@ -22,8 +22,8 @@ export function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
 }
 
-export function isCorrectPitchClass(targetMidi, guessMidi) {
-  return pitchClass(targetMidi) === pitchClass(guessMidi);
+export function isCorrectMidi(targetMidi, guessMidi) {
+  return targetMidi === guessMidi;
 }
 
 function randomInt(min, max, random) {
@@ -32,6 +32,53 @@ function randomInt(min, max, random) {
 
 function randomChoice(items, random) {
   return items[Math.floor(random() * items.length)];
+}
+
+export function randomParkerTransposition(random = Math.random) {
+  const pitchClassShift = randomInt(0, 11, random);
+  if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
+  return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
+}
+
+function chunkIndex(midi) {
+  const octave = Math.floor(midi / 12);
+  return octave * 2 + (pitchClass(midi) >= 5 ? 1 : 0);
+}
+
+function chunkBounds(index) {
+  const octave = Math.floor(index / 2);
+  const isFaChunk = index % 2 === 1;
+  return isFaChunk
+    ? { start: octave * 12 + 5, end: octave * 12 + 11 }
+    : { start: octave * 12, end: octave * 12 + 4 };
+}
+
+export function keyboardLayoutForNotes(notes, minimumChunks = 4) {
+  if (!notes.length) throw new Error("Une phrase est nécessaire pour construire le clavier.");
+  const phraseMin = Math.min(...notes);
+  const phraseMax = Math.max(...notes);
+  const phraseCenter = (phraseMin + phraseMax) / 2;
+  let firstChunk = chunkIndex(phraseMin);
+  let lastChunk = chunkIndex(phraseMax);
+
+  while (lastChunk - firstChunk + 1 < minimumChunks) {
+    const leftStart = chunkBounds(firstChunk - 1).start;
+    const currentEnd = chunkBounds(lastChunk).end;
+    const currentStart = chunkBounds(firstChunk).start;
+    const rightEnd = chunkBounds(lastChunk + 1).end;
+    const leftDistance = Math.abs((leftStart + currentEnd) / 2 - phraseCenter);
+    const rightDistance = Math.abs((currentStart + rightEnd) / 2 - phraseCenter);
+    if (leftDistance <= rightDistance) firstChunk -= 1;
+    else lastChunk += 1;
+  }
+
+  return {
+    startMidi: chunkBounds(firstChunk).start,
+    endMidi: chunkBounds(lastChunk).end,
+    chunkCount: lastChunk - firstChunk + 1,
+    firstChunk,
+    lastChunk,
+  };
 }
 
 function buildParkerIntervalPool() {
@@ -97,7 +144,7 @@ function parkerSequence(random) {
   }
 
   const excerpt = randomChoice(candidates, random);
-  const transposition = randomInt(53, 65, random) - excerpt.notes[0];
+  const transposition = randomParkerTransposition(random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
   const timings = excerpt.events.map((event) => ({
@@ -136,8 +183,14 @@ function parkerSequence(random) {
 
 export function makeSequence({ length = 5, mode = "random", random = Math.random } = {}) {
   const safeLength = Math.max(3, Math.min(10, Math.round(length)));
-  if (mode === "parker" || mode === "jazz") return parkerSequence(random);
-  return randomSequence(safeLength, random);
+  const sequence =
+    mode === "parker" || mode === "jazz"
+      ? parkerSequence(random)
+      : randomSequence(safeLength, random);
+  return {
+    ...sequence,
+    keyboard: keyboardLayoutForNotes(sequence.notes),
+  };
 }
 
 export function intervalLabel(semitones) {
