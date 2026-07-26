@@ -34,113 +34,70 @@ function randomChoice(items, random) {
   return items[Math.floor(random() * items.length)];
 }
 
-function weightedChoice(items, random) {
-  const total = items.reduce((sum, item) => sum + item.weight, 0);
-  let cursor = random() * total;
-  for (const item of items) {
-    cursor -= item.weight;
-    if (cursor <= 0) return item.value;
+function buildParkerIntervalPool() {
+  const intervals = [];
+  for (const solo of PARKER_SOLOS) {
+    for (const [start, end] of solo.phrases) {
+      for (let index = start + 1; index <= end; index += 1) {
+        const previous = solo.events[index - 1]?.[0];
+        const current = solo.events[index]?.[0];
+        if (Number.isFinite(previous) && Number.isFinite(current)) {
+          intervals.push(current - previous);
+        }
+      }
+    }
   }
-  return items.at(-1).value;
+  return intervals;
 }
 
-function reflectIntoRange(note) {
-  let reflected = note;
-  while (reflected < MIN_MIDI || reflected > MAX_MIDI) {
-    if (reflected < MIN_MIDI) reflected = MIN_MIDI + (MIN_MIDI - reflected);
-    if (reflected > MAX_MIDI) reflected = MAX_MIDI - (reflected - MAX_MIDI);
-  }
-  return reflected;
-}
+const PARKER_INTERVAL_POOL = buildParkerIntervalPool();
 
-function melodicSequence(length, random) {
-  const intervals = [
-    { value: -7, weight: 1 },
-    { value: -5, weight: 3 },
-    { value: -4, weight: 4 },
-    { value: -3, weight: 6 },
-    { value: -2, weight: 8 },
-    { value: -1, weight: 7 },
-    { value: 1, weight: 7 },
-    { value: 2, weight: 8 },
-    { value: 3, weight: 6 },
-    { value: 4, weight: 4 },
-    { value: 5, weight: 3 },
-    { value: 7, weight: 1 },
-  ];
+export const PARKER_INTERVAL_SAMPLE_SIZE = PARKER_INTERVAL_POOL.length;
+export const PARKER_INTERVAL_COUNTS = Object.freeze(
+  PARKER_INTERVAL_POOL.reduce((counts, interval) => {
+    counts[interval] = (counts[interval] ?? 0) + 1;
+    return counts;
+  }, {}),
+);
+
+function randomSequence(length, random) {
   const notes = [randomInt(53, 65, random)];
 
   while (notes.length < length) {
-    const interval = weightedChoice(intervals, random);
-    notes.push(reflectIntoRange(notes.at(-1) + interval));
+    const previous = notes.at(-1);
+    const availableIntervals = PARKER_INTERVAL_POOL.filter((interval) => {
+      const candidate = previous + interval;
+      return candidate >= MIN_MIDI && candidate <= MAX_MIDI;
+    });
+    notes.push(previous + randomChoice(availableIntervals, random));
   }
 
   return {
     notes,
     meta: {
-      label: "Phrase mélodique",
-      source: { kind: "generated", label: "Phrase générée par l’application" },
+      label: "Aléatoire — statistiques Parker",
+      source: {
+        kind: "generated",
+        label: `Générée par tirage dans ${PARKER_INTERVAL_SAMPLE_SIZE} intervalles Parker`,
+      },
     },
   };
 }
 
-function diatonicSequence(length, random) {
-  const root = randomInt(0, 11, random);
-  const scale = random() < 0.78 ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
-  const candidates = [];
-  for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi += 1) {
-    const scaleDegree = scale.indexOf(pitchClass(midi - root));
-    if (scaleDegree !== -1) candidates.push({ midi, scaleDegree });
-  }
-
-  let candidateIndex = randomInt(3, candidates.length - 4, random);
-  const notes = [candidates[candidateIndex].midi];
-  const moves = [-3, -2, -1, -1, 1, 1, 2, 3];
-
-  while (notes.length < length) {
-    let move = randomChoice(moves, random);
-    if (candidateIndex + move < 0 || candidateIndex + move >= candidates.length) move *= -1;
-    candidateIndex += move;
-    notes.push(candidates[candidateIndex].midi);
-  }
-
-  return {
-    notes,
-    meta: {
-      label: scale[2] === 4 ? "Phrase diatonique majeure" : "Phrase diatonique mineure",
-      source: { kind: "generated", label: "Phrase générée par l’application" },
-    },
-  };
-}
-
-function fittingTranspositions(notes) {
-  const lowest = Math.min(...notes);
-  const highest = Math.max(...notes);
-  const shifts = [];
-  for (let shift = MIN_MIDI - lowest; shift <= MAX_MIDI - highest; shift += 1) {
-    if (lowest + shift >= MIN_MIDI && highest + shift <= MAX_MIDI) {
-      shifts.push(shift);
-    }
-  }
-  return shifts;
-}
-
-function jazzSequence(length, random) {
+function parkerSequence(random) {
   const candidates = [];
   for (const solo of PARKER_SOLOS) {
     for (const phrase of solo.phrases) {
       const [start, end] = phrase;
-      if (end - start + 1 < length) continue;
-      const events = solo.events.slice(start, start + length);
+      const events = solo.events.slice(start, end + 1);
       const notes = events.map(([midi]) => midi);
-      const transpositions = fittingTranspositions(notes);
-      if (!transpositions.length) continue;
-      candidates.push({ solo, phrase, events, notes, transpositions });
+      if (notes.length < 2) continue;
+      candidates.push({ solo, phrase, events, notes });
     }
   }
 
   const excerpt = randomChoice(candidates, random);
-  const transposition = randomChoice(excerpt.transpositions, random);
+  const transposition = randomInt(53, 65, random) - excerpt.notes[0];
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
   const timings = excerpt.events.map((event) => ({
@@ -165,6 +122,7 @@ function jazzSequence(length, random) {
         url: excerpt.solo.sourceUrl,
         recordingDate: excerpt.solo.recordingDate,
         phrase: excerpt.phrase[2],
+        noteCount: transposedNotes.length,
         barStart: firstBar,
         barEnd: lastBar,
         onsetStart: excerpt.events[0][1],
@@ -176,11 +134,10 @@ function jazzSequence(length, random) {
   };
 }
 
-export function makeSequence({ length = 5, mode = "melodic", random = Math.random } = {}) {
+export function makeSequence({ length = 5, mode = "random", random = Math.random } = {}) {
   const safeLength = Math.max(3, Math.min(10, Math.round(length)));
-  if (mode === "diatonic") return diatonicSequence(safeLength, random);
-  if (mode === "jazz") return jazzSequence(safeLength, random);
-  return melodicSequence(safeLength, random);
+  if (mode === "parker" || mode === "jazz") return parkerSequence(random);
+  return randomSequence(safeLength, random);
 }
 
 export function intervalLabel(semitones) {
@@ -200,7 +157,8 @@ export function intervalLabel(semitones) {
     12: "octave",
   };
   const direction = semitones > 0 ? "↑" : "↓";
-  return `${direction} ${names[Math.min(12, Math.abs(semitones))] ?? `${Math.abs(semitones)} demi-tons`}`;
+  const size = Math.abs(semitones);
+  return `${direction} ${names[size] ?? `${size} demi-tons`}`;
 }
 
 export function summarizeRecords(records) {
