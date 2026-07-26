@@ -23,6 +23,39 @@ SOURCE_PAGES = {
     47: "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo68.html",
 }
 
+AUDIO_REFERENCES = {
+    42: {
+        "file": "audio/parker/billies-bounce.mp3",
+        "source": "https://www.youtube.com/watch?v=89jYv-h7OJA",
+        "offset": 39.466,
+    },
+    43: {
+        "file": "audio/parker/donna-lee.mp3",
+        "source": "https://www.youtube.com/watch?v=jvMeB6dHP94",
+        "offset": 31.786,
+    },
+    44: {
+        "file": "audio/parker/ornithology.mp3",
+        "source": "https://www.youtube.com/watch?v=OKQcgu8dbuw",
+        "offset": 37.082,
+    },
+    45: {
+        "file": "audio/parker/scrapple-from-the-apple.mp3",
+        "source": "https://www.youtube.com/watch?v=GQ84uSuzXTc",
+        "offset": 23.714,
+    },
+    46: {
+        "file": "audio/parker/thriving-on-a-riff.mp3",
+        "source": "https://www.youtube.com/watch?v=SwJBVVgGfS0",
+        "offset": 34.874,
+    },
+    47: {
+        "file": "audio/parker/yardbird-suite.mp3",
+        "source": "https://www.youtube.com/watch?v=HqGJt6ca6eY",
+        "offset": 39.634,
+    },
+}
+
 
 def build_corpus(database: Path) -> list[dict]:
     connection = sqlite3.connect(database)
@@ -95,6 +128,9 @@ def build_corpus(database: Path) -> list[dict]:
                 "originalTempo": info["avgtempo"],
                 "dataset": "Weimar Jazz Database v1.2 (2016)",
                 "sourceUrl": source_url,
+                "audioFile": AUDIO_REFERENCES[melid]["file"],
+                "audioSourceUrl": AUDIO_REFERENCES[melid]["source"],
+                "audioOffset": AUDIO_REFERENCES[melid]["offset"],
                 "events": [
                     [row["pitch"], row["onset"], row["duration"], row["bar"]]
                     for row in events

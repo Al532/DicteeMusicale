@@ -74,6 +74,23 @@
               <input id="game-speed" type="range" min="25" max="100" step="5" value="100" />
             </label>
             <button class="ghost-button compact" id="replay" disabled>Réécouter</button>
+            <div class="original-controls" id="original-controls" hidden>
+              <label
+                class="transpose-toggle"
+                title="Transposer la hauteur sans modifier la durée"
+              >
+                <input id="transpose-original" type="checkbox" />
+                <span>Transposer</span>
+              </label>
+              <button
+                class="ghost-button compact"
+                id="play-original"
+                aria-pressed="false"
+                disabled
+              >
+                Original
+              </button>
+            </div>
             <button class="ghost-button compact" id="next-exercise" disabled>Suivant</button>
             <button class="ghost-button compact" id="fullscreen-button">Plein écran</button>
           </div>
@@ -87,6 +104,9 @@
         <p class="source-line" id="source-line" hidden>
           <span id="source-details"></span>
           <a id="source-link" href="#" target="_blank" rel="noreferrer">Source</a>
+          <a id="audio-source-link" href="#" target="_blank" rel="noreferrer" hidden>
+            Enregistrement
+          </a>
         </p>
 
         <div class="piano-shell">

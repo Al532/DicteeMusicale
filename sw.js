@@ -1,11 +1,18 @@
-const CACHE_NAME = "dictee-musicale-v9";
+const CACHE_NAME = "dictee-musicale-v10";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./src/app.js",
+  "./src/audio.js",
   "./src/engine.js",
   "./data/parker-solos.js",
+  "./audio/parker/billies-bounce.mp3",
+  "./audio/parker/donna-lee.mp3",
+  "./audio/parker/ornithology.mp3",
+  "./audio/parker/scrapple-from-the-apple.mp3",
+  "./audio/parker/thriving-on-a-riff.mp3",
+  "./audio/parker/yardbird-suite.mp3",
   "./manifest.webmanifest",
   "./icon.svg",
 ];

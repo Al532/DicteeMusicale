@@ -27,6 +27,9 @@ Deux modes sont disponibles, avec **Phrases réelles** sélectionné par défaut
 - **Phrases réelles — Charlie Parker** : une des 104 phrases annotées est jouée intégralement.
   Un réglage de 25 à 100 % permet de ralentir la vitesse originale ; sa modification est prise
   en compte lors de chaque réécoute. Le bouton **Réécouter** devient **Stop** pendant la lecture.
+  Le bouton **Original** fait entendre l’enregistrement de référence, avec trois secondes de
+  contexte avant la phrase et 1,5 seconde après. Le toggle **Transposer** aligne sa hauteur sur
+  la transposition courante sans accélérer ni ralentir l’audio.
 - **Aléatoire — Markov Parker** : de 3 à 10 notes, avec une vitesse réglable de 50 à
   320 %. À 100 %, une nouvelle note commence toutes les 600 ms ; 320 % correspond exactement
   au double de l’ancien maximum. Chaque note est tenue legato jusqu’à l’attaque suivante.
@@ -53,6 +56,16 @@ transcrits dans la
 *Thriving on a Riff* et *Yardbird Suite*. Chaque exercice affiche le morceau, le numéro de
 phrase, les mesures et un lien vers sa fiche source.
 
+Les six enregistrements fournis sont rangés dans `audio/parker/` sous des noms stables.
+Chaque exercice affiche aussi son lien d’enregistrement source :
+[Billie’s Bounce](https://www.youtube.com/watch?v=89jYv-h7OJA),
+[Donna Lee](https://www.youtube.com/watch?v=jvMeB6dHP94),
+[Ornithology](https://www.youtube.com/watch?v=OKQcgu8dbuw),
+[Scrapple from the Apple](https://www.youtube.com/watch?v=GQ84uSuzXTc),
+[Thriving on a Riff](https://www.youtube.com/watch?v=SwJBVVgGfS0) et
+[Yardbird Suite](https://www.youtube.com/watch?v=HqGJt6ca6eY). Ils sont inclus dans le cache
+hors connexion de l’application.
+
 Les hauteurs et positions proviennent du corpus de recherche public
 [WJazzD v1.2 (2016)](https://github.com/jazzomat/article_2016), fichier `score.zip`. Les
 phrases sont transposées uniformément dans les 12 classes chromatiques, sans modifier leurs
@@ -74,6 +87,9 @@ Le fichier navigateur est généré depuis la base SQLite avec
 `scripts/generate_parker_data.py`, afin de conserver une provenance reproductible. La version
 historique de la base ne numérote pas directement les temps dans sa table `beats` : leur phase
 est retrouvée de façon déterministe à partir des numéros de temps des notes de chaque solo.
+Les décalages entre la timeline WJazzD et les fichiers audio sont estimés par alignement des
+hauteurs avec `scripts/calibrate_parker_audio.py`, puis enregistrés explicitement dans les
+données générées.
 
 ## Développement
 

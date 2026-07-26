@@ -6,11 +6,14 @@ import {
   pitchClass,
   summarizeRecords,
 } from "./engine.js";
+import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
 
 const STORAGE_KEY = "dictee-musicale.records.v1";
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE = 100;
 const LEGATO_RELEASE_SECONDS = 0.035;
+const ORIGINAL_CONTEXT_BEFORE_SECONDS = 3;
+const ORIGINAL_CONTEXT_AFTER_SECONDS = 1.5;
 
 const elements = {
   length: document.querySelector("#length"),
@@ -43,6 +46,10 @@ const elements = {
   sourceLine: document.querySelector("#source-line"),
   sourceDetails: document.querySelector("#source-details"),
   sourceLink: document.querySelector("#source-link"),
+  audioSourceLink: document.querySelector("#audio-source-link"),
+  originalControls: document.querySelector("#original-controls"),
+  playOriginal: document.querySelector("#play-original"),
+  transposeOriginal: document.querySelector("#transpose-original"),
   stats: {
     exercises: document.querySelector("#stat-exercises"),
     notes: document.querySelector("#stat-notes"),
@@ -59,9 +66,12 @@ let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
+const decodedAudioBuffers = new Map();
 let playbackTimer = null;
 let chickBuffer = null;
 let isPlaying = false;
+let isOriginalPlaying = false;
+let originalPlaybackToken = 0;
 
 function readJson(key, fallback) {
   try {
@@ -84,6 +94,7 @@ function loadSettings() {
     elements.randomSpeed.value = savedRandomSpeed;
   }
   if (settings.parkerSpeed) elements.speed.value = settings.parkerSpeed;
+  elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
   elements.gameSpeed.value = elements.speed.value;
   elements.mode.value = settings.mode === "random" ? "random" : "parker";
   updateSettingLabels();
@@ -95,6 +106,7 @@ function saveSettings() {
     length: Number(elements.length.value),
     randomSpeedPercent: Number(elements.randomSpeed.value),
     parkerSpeed: Number(elements.speed.value),
+    transposeOriginal: elements.transposeOriginal.checked,
     mode: elements.mode.value,
   });
 }
@@ -284,7 +296,14 @@ function setPlaybackState(playing) {
   elements.replay.setAttribute("aria-pressed", String(playing));
 }
 
+function setOriginalPlaybackState(playing) {
+  isOriginalPlaying = playing;
+  elements.playOriginal.textContent = playing ? "Stop" : "Original";
+  elements.playOriginal.setAttribute("aria-pressed", String(playing));
+}
+
 function stopAllTones() {
+  originalPlaybackToken += 1;
   if (playbackTimer !== null) {
     window.clearTimeout(playbackTimer);
     playbackTimer = null;
@@ -298,6 +317,118 @@ function stopAllTones() {
   }
   activeAudioSources.clear();
   setPlaybackState(false);
+  setOriginalPlaybackState(false);
+}
+
+function restoreExerciseInput(message = null) {
+  if (!exercise) return;
+  acceptingInput = exercise.currentIndex < exercise.notes.length;
+  if (!acceptingInput) return;
+  exercise.guessStartedAt = performance.now();
+  elements.feedback.className = "feedback";
+  elements.feedback.textContent =
+    message ??
+    `À toi : joue la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
+}
+
+function loadOriginalAudio(path) {
+  if (!decodedAudioBuffers.has(path)) {
+    const loading = fetch(new URL(path, document.baseURI))
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Enregistrement indisponible (${response.status})`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((bytes) => getAudioContext().decodeAudioData(bytes))
+      .catch((error) => {
+        decodedAudioBuffers.delete(path);
+        throw error;
+      });
+    decodedAudioBuffers.set(path, loading);
+  }
+  return decodedAudioBuffers.get(path);
+}
+
+async function playOriginalExcerpt() {
+  const sourceMeta = exercise?.source;
+  if (!sourceMeta?.audioFile) return;
+
+  stopAllTones();
+  const token = originalPlaybackToken;
+  setOriginalPlaybackState(true);
+  acceptingInput = false;
+  elements.feedback.className = "feedback";
+  elements.feedback.textContent = "Chargement de l’enregistrement…";
+
+  try {
+    const context = getAudioContext();
+    const recording = await loadOriginalAudio(sourceMeta.audioFile);
+    if (token !== originalPlaybackToken) return;
+
+    const phraseStart = sourceMeta.audioOffset + sourceMeta.onsetStart;
+    const phraseEnd = sourceMeta.audioOffset + sourceMeta.onsetEnd;
+    const clipStart = Math.max(0, phraseStart - ORIGINAL_CONTEXT_BEFORE_SECONDS);
+    const clipEnd = Math.min(
+      recording.duration,
+      phraseEnd + ORIGINAL_CONTEXT_AFTER_SECONDS,
+    );
+    let clip = sliceAudioBuffer(context, recording, clipStart, clipEnd);
+    const semitones = elements.transposeOriginal.checked
+      ? sourceMeta.transposition
+      : 0;
+
+    if (semitones) {
+      elements.feedback.textContent = "Transposition de l’enregistrement…";
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      if (token !== originalPlaybackToken) return;
+      clip = pitchShiftAudioBuffer(context, clip, semitones);
+    }
+    if (token !== originalPlaybackToken) return;
+
+    const recordingSource = context.createBufferSource();
+    const gain = context.createGain();
+    recordingSource.buffer = clip;
+    gain.gain.value = 0.82;
+    recordingSource.connect(gain).connect(context.destination);
+    activeAudioSources.add(recordingSource);
+    recordingSource.addEventListener("ended", () => {
+      activeAudioSources.delete(recordingSource);
+      if (token !== originalPlaybackToken || !isOriginalPlaying) return;
+      if (playbackTimer !== null) {
+        window.clearTimeout(playbackTimer);
+        playbackTimer = null;
+      }
+      setOriginalPlaybackState(false);
+      restoreExerciseInput();
+    });
+
+    const transpositionLabel = semitones
+      ? ` transposé ${semitones > 0 ? "+" : ""}${semitones}`
+      : "";
+    elements.feedback.textContent = `Enregistrement original${transpositionLabel}…`;
+    recordingSource.start();
+    playbackTimer = window.setTimeout(() => {
+      playbackTimer = null;
+      setOriginalPlaybackState(false);
+      restoreExerciseInput();
+    }, clip.duration * 1000 + 100);
+  } catch {
+    if (token !== originalPlaybackToken) return;
+    setOriginalPlaybackState(false);
+    restoreExerciseInput("Impossible de lire cet enregistrement.");
+    elements.feedback.className = "feedback error";
+  }
+}
+
+function toggleOriginalPlayback() {
+  if (!exercise?.source?.audioFile) return;
+  if (isOriginalPlaying) {
+    stopAllTones();
+    restoreExerciseInput("Lecture originale arrêtée. À toi.");
+    return;
+  }
+  playOriginalExcerpt();
 }
 
 function flashPlayedKey(midi, delayMs, durationMs) {
@@ -431,6 +562,10 @@ function startExercise() {
 
   elements.kicker.textContent = generated.meta.label;
   renderSource(generated.meta.source);
+  const hasOriginal = Boolean(generated.meta.source.audioFile);
+  elements.originalControls.hidden = !hasOriginal;
+  elements.playOriginal.disabled = !hasOriginal;
+  elements.transposeOriginal.disabled = !hasOriginal;
   elements.replay.disabled = false;
   elements.nextExercise.disabled = false;
   buildPiano(generated.keyboard);
@@ -457,6 +592,14 @@ function renderSource(source) {
   } else {
     elements.sourceLink.hidden = true;
     elements.sourceLink.removeAttribute("href");
+  }
+  if (source.audioSourceUrl) {
+    elements.audioSourceLink.hidden = false;
+    elements.audioSourceLink.href = source.audioSourceUrl;
+    elements.audioSourceLink.textContent = "Enregistrement source";
+  } else {
+    elements.audioSourceLink.hidden = true;
+    elements.audioSourceLink.removeAttribute("href");
   }
 }
 
@@ -805,6 +948,8 @@ elements.mode.addEventListener("change", updateModeSettings);
 elements.newExercise.addEventListener("click", startExercise);
 elements.nextExercise.addEventListener("click", startExercise);
 elements.replay.addEventListener("click", togglePlayback);
+elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
+elements.transposeOriginal.addEventListener("change", saveSettings);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.importJson.addEventListener("change", importJson);

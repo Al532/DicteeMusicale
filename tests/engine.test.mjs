@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { stat } from "node:fs/promises";
 import { PARKER_SOLOS } from "../data/parker-solos.js";
 
 import {
@@ -215,7 +216,24 @@ test("un extrait Parker conserve une source précise", () => {
   assert.ok(Number.isFinite(result.meta.source.transposition));
   assert.ok(result.meta.source.phrase);
   assert.ok(Number.isFinite(result.meta.originalTempo));
+  assert.match(result.meta.source.audioFile, /^audio\/parker\/.+\.mp3$/);
+  assert.match(result.meta.source.audioSourceUrl, /^https:\/\/www\.youtube\.com\/watch\?v=/);
+  assert.ok(Number.isFinite(result.meta.source.audioOffset));
+  assert.ok(result.meta.source.onsetEnd > result.meta.source.onsetStart);
   assert.equal(result.notes.length, result.meta.source.noteCount);
+});
+
+test("les six enregistrements Parker sont présents sous leur nom stable", async () => {
+  assert.equal(PARKER_SOLOS.length, 6);
+  await Promise.all(
+    PARKER_SOLOS.map(async (solo) => {
+      assert.match(solo.audioFile, /^audio\/parker\/[a-z0-9-]+\.mp3$/);
+      assert.match(solo.audioSourceUrl, /^https:\/\/www\.youtube\.com\/watch\?v=/);
+      assert.ok(Number.isFinite(solo.audioOffset));
+      const file = await stat(new URL(`../${solo.audioFile}`, import.meta.url));
+      assert.ok(file.size > 1_000_000);
+    }),
+  );
 });
 
 test("le mode Parker joue la phrase entière quelle que soit la longueur demandée", () => {
