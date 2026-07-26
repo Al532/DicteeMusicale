@@ -196,3 +196,19 @@ test("les statistiques ne comptent que les phrases terminées", () => {
   assert.equal(summary.accuracy, 0.5);
   assert.equal(summary.averageResponseMs, 1500);
 });
+
+test("la première note compte comme saisie mais pas comme intervalle", () => {
+  const summary = summarizeRecords([
+    {
+      completedAt: "2026-07-26T12:00:00Z",
+      attempts: Array.from({ length: 3 }, () => ({
+        interval: null,
+        guesses: [{ midi: 60 }],
+        responseMs: 500,
+      })),
+    },
+  ]);
+  assert.equal(summary.notes, 3);
+  assert.equal(summary.accuracy, 1);
+  assert.deepEqual(summary.weakIntervals, []);
+});
