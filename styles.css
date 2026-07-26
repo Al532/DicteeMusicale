@@ -212,6 +212,12 @@ button:disabled {
   justify-content: flex-end;
 }
 
+#fullscreen-button,
+#next-exercise,
+.game-speed-setting {
+  display: none;
+}
+
 .sequence {
   display: flex;
   flex-wrap: wrap;
@@ -234,6 +240,20 @@ button:disabled {
   background: var(--panel-raised);
   font-size: clamp(0.72rem, 3vw, 0.92rem);
   font-weight: 800;
+}
+
+.sequence li > button {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  border: 0;
+  background: transparent;
+}
+
+.sequence li > button:disabled {
+  opacity: 1;
 }
 
 .sequence li.reference {
@@ -283,6 +303,7 @@ button:disabled {
 }
 
 .piano-shell {
+  display: none;
   width: 100%;
   overflow-x: auto;
   padding-bottom: 3px;
@@ -314,7 +335,7 @@ button:disabled {
 .key.white {
   z-index: 1;
   bottom: 0;
-  width: calc(100% / 14);
+  width: calc(100% / var(--white-key-count, 14));
   color: #453f49;
   border-right: 1px solid #bbb5b6;
   background: linear-gradient(#fffdf9, #ddd8d1);
@@ -322,12 +343,16 @@ button:disabled {
 
 .key.black {
   z-index: 2;
-  width: calc(100% / 14 * 0.62);
+  width: calc(100% / var(--white-key-count, 14) * 0.62);
   height: 62%;
   color: #ddd8e2;
   border: 1px solid #08070a;
   background: linear-gradient(#2e2b33, #0c0b0e 80%);
   box-shadow: 0 8px 13px rgba(0, 0, 0, 0.38);
+}
+
+.key.white.chunk-start {
+  border-left: 2px solid #77717d;
 }
 
 .key span {
@@ -499,7 +524,7 @@ body.game-mode {
 
 .game-mode .exercise-panel {
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: clamp(5px, 1.4vh, 12px);
   width: 100%;
   height: 100%;
@@ -524,7 +549,30 @@ body.game-mode {
 }
 
 .game-mode .exercise-actions {
+  align-items: center;
   flex-wrap: nowrap;
+  margin: 0;
+}
+
+.game-mode #fullscreen-button,
+.game-mode #next-exercise {
+  display: inline-flex;
+}
+
+.game-mode .game-speed-setting:not([hidden]) {
+  display: grid;
+  grid-template-columns: minmax(80px, 13vw);
+  gap: 2px;
+  min-width: 80px;
+}
+
+.game-mode .game-speed-setting span {
+  margin: 0;
+  font-size: clamp(0.58rem, 1.5vw, 0.7rem);
+}
+
+.game-mode .game-speed-setting input {
+  height: 12px;
   margin: 0;
 }
 
@@ -559,6 +607,7 @@ body.game-mode {
 }
 
 .game-mode .piano-shell {
+  display: block;
   grid-row: 5;
   height: 100%;
   min-height: 0;
