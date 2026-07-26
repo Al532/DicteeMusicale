@@ -51,6 +51,24 @@ test("la lecture audio commence bien par la première note", () => {
   assert.doesNotMatch(playback, /exercise\.notes\.slice\(1\)/);
 });
 
+test("les notes restent pleines presque jusqu’à leur fin annotée", () => {
+  assert.match(
+    app,
+    /safeDuration - Math\.min\(0\.035, safeDuration \* 0\.15\)/,
+  );
+  assert.doesNotMatch(app, /safeDuration \* 0\.72/);
+});
+
+test("la première note doit être saisie avant d’apparaître dans la séquence", () => {
+  assert.match(app, /currentIndex: 0/);
+  assert.match(app, /const isRecorded = index < exercise\.currentIndex/);
+  assert.match(
+    app,
+    /if \(isRecorded\) \{\s*slot\.className = index === 0 \? "reference" : "solved"/,
+  );
+  assert.match(app, /markReferenceKey\(\)/);
+});
+
 test("la PWA se lance en plein écran paysage", () => {
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "landscape");
@@ -89,7 +107,10 @@ test("les notes validées sont des boutons audibles", () => {
 });
 
 test("Suivant est disponible en jeu et Note de départ a disparu", () => {
-  assert.match(index, /id="next-exercise" disabled>Suivant</);
+  assert.match(
+    index,
+    /class="ghost-button compact" id="next-exercise" disabled>Suivant</,
+  );
   assert.doesNotMatch(index, /id="reference-note"/);
   assert.match(app, /elements\.nextExercise\.addEventListener\("click", startExercise\)/);
   assert.doesNotMatch(app, /playReference|referenceNote/);
