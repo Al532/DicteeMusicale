@@ -12,6 +12,7 @@ const manifest = JSON.parse(
 test("Phrases réelles est le premier mode et le choix par défaut", () => {
   const optionValues = [...index.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(optionValues, ["parker", "random"]);
+  assert.match(index, /<option value="random">Aléatoire — Markov Parker<\/option>/);
   assert.match(app, /settings\.mode === "random" \? "random" : "parker"/);
 });
 
