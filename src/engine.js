@@ -17,6 +17,9 @@ export const NOTE_NAMES = [
 
 const MIN_MIDI = 48;
 const MAX_MIDI = 71;
+export const PARKER_MARKOV_MAX_ORDER = 6;
+export const PARKER_MARKOV_MIN_CONTEXT_COUNT = 2;
+export const PARKER_MARKOV_MAX_COPY_RUN = 7;
 
 export function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
@@ -32,6 +35,16 @@ function randomInt(min, max, random) {
 
 function randomChoice(items, random) {
   return items[Math.floor(random() * items.length)];
+}
+
+function weightedChoice(entries, random) {
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  let draw = random() * total;
+  for (const [value, count] of entries) {
+    draw -= count;
+    if (draw < 0) return value;
+  }
+  return entries.at(-1)[0];
 }
 
 export function randomParkerTransposition(random = Math.random) {
@@ -81,10 +94,11 @@ export function keyboardLayoutForNotes(notes, minimumChunks = 4) {
   };
 }
 
-function buildParkerIntervalPool() {
-  const intervals = [];
+function buildParkerIntervalSequences() {
+  const sequences = [];
   for (const solo of PARKER_SOLOS) {
     for (const [start, end] of solo.phrases) {
+      const intervals = [];
       for (let index = start + 1; index <= end; index += 1) {
         const previous = solo.events[index - 1]?.[0];
         const current = solo.events[index]?.[0];
@@ -92,12 +106,14 @@ function buildParkerIntervalPool() {
           intervals.push(current - previous);
         }
       }
+      if (intervals.length) sequences.push(intervals);
     }
   }
-  return intervals;
+  return sequences;
 }
 
-const PARKER_INTERVAL_POOL = buildParkerIntervalPool();
+const PARKER_INTERVAL_SEQUENCES = buildParkerIntervalSequences();
+const PARKER_INTERVAL_POOL = PARKER_INTERVAL_SEQUENCES.flat();
 
 export const PARKER_INTERVAL_SAMPLE_SIZE = PARKER_INTERVAL_POOL.length;
 export const PARKER_INTERVAL_COUNTS = Object.freeze(
@@ -107,25 +123,140 @@ export const PARKER_INTERVAL_COUNTS = Object.freeze(
   }, {}),
 );
 
+function addCount(map, key) {
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function buildParkerMarkovModel() {
+  const transitions = Array.from(
+    { length: PARKER_MARKOV_MAX_ORDER + 1 },
+    () => new Map(),
+  );
+  const phraseStarts = new Map();
+
+  for (const sequence of PARKER_INTERVAL_SEQUENCES) {
+    addCount(phraseStarts, sequence[0]);
+    for (let index = 0; index < sequence.length; index += 1) {
+      const maxOrder = Math.min(PARKER_MARKOV_MAX_ORDER, index);
+      for (let order = 0; order <= maxOrder; order += 1) {
+        const key = sequence.slice(index - order, index).join(",");
+        let entry = transitions[order].get(key);
+        if (!entry) {
+          entry = { count: 0, next: new Map() };
+          transitions[order].set(key, entry);
+        }
+        entry.count += 1;
+        addCount(entry.next, sequence[index]);
+      }
+    }
+  }
+
+  return { transitions, phraseStarts };
+}
+
+const PARKER_MARKOV_MODEL = buildParkerMarkovModel();
+
+function containsSubsequence(sequence, candidate) {
+  if (candidate.length > sequence.length) return false;
+  for (let start = 0; start <= sequence.length - candidate.length; start += 1) {
+    if (candidate.every((interval, index) => interval === sequence[start + index])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isExactCorpusPhrase(intervals) {
+  return PARKER_INTERVAL_SEQUENCES.some(
+    (sequence) =>
+      sequence.length === intervals.length &&
+      sequence.every((interval, index) => interval === intervals[index]),
+  );
+}
+
+function exceedsCorpusCopyRun(intervals) {
+  if (intervals.length <= PARKER_MARKOV_MAX_COPY_RUN) return false;
+  const suffix = intervals.slice(-(PARKER_MARKOV_MAX_COPY_RUN + 1));
+  return PARKER_INTERVAL_SEQUENCES.some((sequence) =>
+    containsSubsequence(sequence, suffix),
+  );
+}
+
+function availableMarkovEntries(entry, previousMidi, history, isFinal) {
+  return [...entry.next.entries()].filter(([interval]) => {
+    const candidateMidi = previousMidi + interval;
+    if (candidateMidi < MIN_MIDI || candidateMidi > MAX_MIDI) return false;
+    const candidateHistory = [...history, interval];
+    if (exceedsCorpusCopyRun(candidateHistory)) return false;
+    return !isFinal || !isExactCorpusPhrase(candidateHistory);
+  });
+}
+
+function nextMarkovInterval(history, previousMidi, isFinal, random) {
+  if (!history.length) {
+    const startEntry = { next: PARKER_MARKOV_MODEL.phraseStarts };
+    const available = availableMarkovEntries(
+      startEntry,
+      previousMidi,
+      history,
+      isFinal,
+    );
+    if (available.length) {
+      return { interval: weightedChoice(available, random), order: 0 };
+    }
+  }
+
+  const maxOrder = Math.min(PARKER_MARKOV_MAX_ORDER, history.length);
+  for (let order = maxOrder; order >= 0; order -= 1) {
+    const key = order === 0 ? "" : history.slice(-order).join(",");
+    const entry = PARKER_MARKOV_MODEL.transitions[order].get(key);
+    if (!entry) continue;
+    if (order > 0 && entry.count < PARKER_MARKOV_MIN_CONTEXT_COUNT) continue;
+    const available = availableMarkovEntries(
+      entry,
+      previousMidi,
+      history,
+      isFinal,
+    );
+    if (available.length) {
+      return { interval: weightedChoice(available, random), order };
+    }
+  }
+
+  throw new Error("Aucune transition Parker compatible avec le registre.");
+}
+
 function randomSequence(length, random) {
   const notes = [randomInt(53, 65, random)];
+  const intervals = [];
+  const ordersUsed = [];
 
   while (notes.length < length) {
     const previous = notes.at(-1);
-    const availableIntervals = PARKER_INTERVAL_POOL.filter((interval) => {
-      const candidate = previous + interval;
-      return candidate >= MIN_MIDI && candidate <= MAX_MIDI;
-    });
-    notes.push(previous + randomChoice(availableIntervals, random));
+    const isFinal = notes.length === length - 1;
+    const { interval, order } = nextMarkovInterval(
+      intervals,
+      previous,
+      isFinal,
+      random,
+    );
+    intervals.push(interval);
+    ordersUsed.push(order);
+    notes.push(previous + interval);
   }
 
   return {
     notes,
     meta: {
-      label: "Aléatoire — statistiques Parker",
+      label: "Aléatoire — Markov Parker",
       source: {
         kind: "generated",
-        label: `Générée par tirage dans ${PARKER_INTERVAL_SAMPLE_SIZE} intervalles Parker`,
+        label:
+          `Générée par Markov d’ordre variable (max. ${PARKER_MARKOV_MAX_ORDER}) ` +
+          `sur ${PARKER_INTERVAL_SAMPLE_SIZE} intervalles Parker`,
+        model: "variable-order-markov",
+        maxOrder: PARKER_MARKOV_MAX_ORDER,
+        ordersUsed,
       },
     },
   };
