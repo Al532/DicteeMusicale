@@ -206,6 +206,7 @@ button:disabled {
 
 .sequence {
   display: flex;
+  flex-wrap: wrap;
   gap: 7px;
   margin: 0 0 16px;
   padding: 0;
@@ -214,7 +215,8 @@ button:disabled {
 
 .sequence li {
   display: grid;
-  flex: 1;
+  flex: 1 0 36px;
+  max-width: 54px;
   min-width: 0;
   height: 42px;
   place-items: center;
