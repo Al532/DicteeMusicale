@@ -1,7 +1,7 @@
 import {
   NOTE_NAMES,
   intervalLabel,
-  isCorrectPitchClass,
+  isCorrectMidi,
   makeSequence,
   pitchClass,
   summarizeRecords,
@@ -17,13 +17,16 @@ const elements = {
   tempoOutput: document.querySelector("#tempo-output"),
   speed: document.querySelector("#speed"),
   speedOutput: document.querySelector("#speed-output"),
+  gameSpeed: document.querySelector("#game-speed"),
+  gameSpeedOutput: document.querySelector("#game-speed-output"),
+  gameSpeedSetting: document.querySelector("#game-speed-setting"),
   lengthSetting: document.querySelector("#length-setting"),
   tempoSetting: document.querySelector("#tempo-setting"),
   speedSetting: document.querySelector("#speed-setting"),
   mode: document.querySelector("#mode"),
   newExercise: document.querySelector("#new-exercise"),
+  nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
-  referenceNote: document.querySelector("#reference-note"),
   sequence: document.querySelector("#sequence"),
   feedback: document.querySelector("#feedback"),
   kicker: document.querySelector("#exercise-kicker"),
@@ -53,6 +56,8 @@ let acceptingInput = false;
 let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
+const activeAudioSources = new Set();
+let playbackTimer = null;
 
 function readJson(key, fallback) {
   try {
@@ -73,6 +78,7 @@ function loadSettings() {
     elements.tempo.value = settings.randomTempo ?? settings.tempo;
   }
   if (settings.parkerSpeed) elements.speed.value = settings.parkerSpeed;
+  elements.gameSpeed.value = elements.speed.value;
   elements.mode.value =
     settings.mode === "parker" || settings.mode === "jazz" ? "parker" : "random";
   updateSettingLabels();
@@ -92,6 +98,7 @@ function updateSettingLabels() {
   elements.lengthOutput.value = `${elements.length.value} notes`;
   elements.tempoOutput.value = `${elements.tempo.value} BPM`;
   elements.speedOutput.value = `${elements.speed.value} %`;
+  elements.gameSpeedOutput.value = `${elements.gameSpeed.value} %`;
 }
 
 function updateModeSettings() {
@@ -99,50 +106,65 @@ function updateModeSettings() {
   elements.lengthSetting.hidden = isParker;
   elements.tempoSetting.hidden = isParker;
   elements.speedSetting.hidden = !isParker;
+  elements.gameSpeedSetting.hidden = !isParker;
 }
 
-function buildPiano() {
+function syncSpeed(value) {
+  elements.speed.value = value;
+  elements.gameSpeed.value = value;
+  updateSettingLabels();
+  saveSettings();
+}
+
+function buildPiano(layout) {
+  elements.piano.replaceChildren();
   const blackPitchClasses = new Set([1, 3, 6, 8, 10]);
   const whiteMidi = [];
-  for (let midi = 48; midi <= 71; midi += 1) {
+  for (let midi = layout.startMidi; midi <= layout.endMidi; midi += 1) {
     if (!blackPitchClasses.has(pitchClass(midi))) whiteMidi.push(midi);
   }
+  const whiteCount = whiteMidi.length;
+  elements.piano.style.setProperty("--white-key-count", String(whiteCount));
+  elements.piano.setAttribute(
+    "aria-label",
+    `Piano de ${layout.chunkCount} zones, du ${noteLabel(layout.startMidi)} au ${noteLabel(layout.endMidi)}`,
+  );
 
   for (const [whiteIndex, midi] of whiteMidi.entries()) {
     const key = createKey(midi, "white");
-    key.style.left = `${(whiteIndex * 100) / 14}%`;
+    key.style.left = `${(whiteIndex * 100) / whiteCount}%`;
+    if (pitchClass(midi) === 0 || pitchClass(midi) === 5) {
+      key.classList.add("chunk-start");
+    }
     elements.piano.append(key);
   }
 
-  const blackKeys = [
-    [49, 1],
-    [51, 2],
-    [54, 4],
-    [56, 5],
-    [58, 6],
-    [61, 8],
-    [63, 9],
-    [66, 11],
-    [68, 12],
-    [70, 13],
-  ];
-  for (const [midi, whiteBoundary] of blackKeys) {
+  for (let midi = layout.startMidi; midi <= layout.endMidi; midi += 1) {
+    if (!blackPitchClasses.has(pitchClass(midi))) continue;
+    const previousWhiteIndex = whiteMidi.indexOf(midi - 1);
+    if (previousWhiteIndex < 0) continue;
     const key = createKey(midi, "black");
-    key.style.left = `calc(${(whiteBoundary * 100) / 14}% - (100% / 14 * 0.31))`;
+    const whiteBoundary = previousWhiteIndex + 1;
+    key.style.left =
+      `calc(${(whiteBoundary * 100) / whiteCount}% - ` +
+      `(100% / ${whiteCount} * 0.31))`;
     elements.piano.append(key);
   }
+}
+
+function noteLabel(midi) {
+  return `${NOTE_NAMES[pitchClass(midi)]}${Math.floor(midi / 12) - 1}`;
 }
 
 function createKey(midi, color) {
   const key = document.createElement("button");
-  const octave = Math.floor(midi / 12) - 1;
   key.type = "button";
   key.className = `key ${color}`;
   key.dataset.midi = String(midi);
-  key.setAttribute("aria-label", `${NOTE_NAMES[pitchClass(midi)]} ${octave}`);
+  key.setAttribute("aria-label", noteLabel(midi));
   if (color === "white") {
     const label = document.createElement("span");
-    label.textContent = NOTE_NAMES[pitchClass(midi)];
+    label.textContent = noteLabel(midi);
     key.append(label);
   }
   key.addEventListener("pointerdown", () => handlePianoInput(midi, key));
@@ -185,10 +207,29 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
 
   oscillator.connect(gain).connect(context.destination);
   overtone.connect(overtoneGain).connect(context.destination);
+  activeAudioSources.add(oscillator);
+  activeAudioSources.add(overtone);
+  oscillator.addEventListener("ended", () => activeAudioSources.delete(oscillator));
+  overtone.addEventListener("ended", () => activeAudioSources.delete(overtone));
   oscillator.start(start);
   overtone.start(start);
   oscillator.stop(stop + 0.02);
   overtone.stop(stop + 0.02);
+}
+
+function stopAllTones() {
+  if (playbackTimer !== null) {
+    window.clearTimeout(playbackTimer);
+    playbackTimer = null;
+  }
+  for (const source of activeAudioSources) {
+    try {
+      source.stop();
+    } catch {
+      // La source est peut-être déjà terminée.
+    }
+  }
+  activeAudioSources.clear();
 }
 
 function flashPlayedKey(midi, delayMs, durationMs) {
@@ -200,6 +241,7 @@ function flashPlayedKey(midi, delayMs, durationMs) {
 
 function playSequence() {
   if (!exercise) return;
+  stopAllTones();
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "Écoute…";
@@ -232,10 +274,12 @@ function playSequence() {
     playbackDuration = exercise.notes.length * beatMs;
   }
 
-  window.setTimeout(() => {
+  playbackTimer = window.setTimeout(() => {
+    playbackTimer = null;
     acceptingInput = exercise.currentIndex < exercise.notes.length;
     exercise.guessStartedAt = performance.now();
-    elements.feedback.textContent = "À toi : joue la deuxième note.";
+    elements.feedback.textContent =
+      `À toi : joue la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
   }, playbackDuration);
 }
 
@@ -245,18 +289,32 @@ function renderSequence() {
 
   exercise.notes.forEach((midi, index) => {
     const slot = document.createElement("li");
+    const button = document.createElement("button");
+    const isRecorded = index < exercise.currentIndex;
+    button.type = "button";
     if (index === 0) {
-      slot.textContent = NOTE_NAMES[pitchClass(midi)];
       slot.className = "reference";
+      button.textContent = noteLabel(midi);
     } else if (index < exercise.currentIndex) {
-      slot.textContent = NOTE_NAMES[pitchClass(midi)];
       slot.className = "solved";
+      button.textContent = noteLabel(midi);
     } else {
-      slot.textContent = "•";
+      button.textContent = "•";
+      button.disabled = true;
       if (index === exercise.currentIndex) slot.className = "current";
     }
+    if (isRecorded) {
+      button.setAttribute("aria-label", `Écouter ${noteLabel(midi)}`);
+      button.addEventListener("click", () => playRecordedNote(midi));
+    }
+    slot.append(button);
     elements.sequence.append(slot);
   });
+}
+
+function playRecordedNote(midi) {
+  playTone(midi, 0, 0.48, true);
+  flashPlayedKey(midi, 0, 460);
 }
 
 function markReferenceKey() {
@@ -269,6 +327,8 @@ function markReferenceKey() {
 }
 
 function startExercise() {
+  getAudioContext();
+  if (!document.body.classList.contains("game-mode")) enterGameMode();
   saveSettings();
   const generated = makeSequence({
     length: Number(elements.length.value),
@@ -286,6 +346,7 @@ function startExercise() {
     originalTempo: generated.meta.originalTempo ?? Number(elements.tempo.value),
     notes: generated.notes,
     timings: generated.timings ?? null,
+    keyboard: generated.keyboard,
     currentIndex: 1,
     attempts: [],
     replayCount: 0,
@@ -295,7 +356,8 @@ function startExercise() {
   elements.kicker.textContent = generated.meta.label;
   renderSource(generated.meta.source);
   elements.replay.disabled = false;
-  elements.referenceNote.disabled = false;
+  elements.nextExercise.disabled = false;
+  buildPiano(generated.keyboard);
   renderSequence();
   markReferenceKey();
   playSequence();
@@ -328,12 +390,6 @@ function replaySequence() {
   playSequence();
 }
 
-function playReference() {
-  if (!exercise) return;
-  playTone(exercise.notes[0], 0, 0.62, true);
-  flashPlayedKey(exercise.notes[0], 0, 600);
-}
-
 function handlePianoInput(midi, key) {
   playTone(midi, 0, 0.36);
   key.classList.add("active");
@@ -361,7 +417,7 @@ function handlePianoInput(midi, key) {
     at: new Date().toISOString(),
   });
 
-  if (!isCorrectPitchClass(target, midi)) {
+  if (!isCorrectMidi(target, midi)) {
     key.classList.add("wrong-key");
     window.setTimeout(() => key.classList.remove("wrong-key"), 260);
     elements.feedback.className = "feedback error";
@@ -594,7 +650,11 @@ async function enterGameMode() {
   activateGameLayout();
 
   try {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    if (
+      !fullscreenDisplayMode.matches &&
+      !document.fullscreenElement &&
+      document.documentElement.requestFullscreen
+    ) {
       await document.documentElement.requestFullscreen({ navigationUI: "hide" });
     }
   } catch {
@@ -609,6 +669,8 @@ async function enterGameMode() {
 }
 
 async function leaveGameMode() {
+  stopAllTones();
+  acceptingInput = false;
   try {
     screen.orientation?.unlock?.();
   } catch {
@@ -635,29 +697,27 @@ function toggleGameMode() {
 }
 
 function setUpGameMode() {
-  if (fullscreenDisplayMode.matches) activateGameLayout();
-  else updateGameModeButton();
+  updateGameModeButton();
 
   document.addEventListener("fullscreenchange", () => {
     if (document.fullscreenElement) {
       activateGameLayout();
-    } else if (!fullscreenDisplayMode.matches) {
+    } else {
+      stopAllTones();
+      acceptingInput = false;
       deactivateGameLayout();
     }
-  });
-
-  fullscreenDisplayMode.addEventListener?.("change", (event) => {
-    if (event.matches) activateGameLayout();
   });
 }
 
 elements.length.addEventListener("input", updateSettingLabels);
 elements.tempo.addEventListener("input", updateSettingLabels);
-elements.speed.addEventListener("input", updateSettingLabels);
+elements.speed.addEventListener("input", () => syncSpeed(elements.speed.value));
+elements.gameSpeed.addEventListener("input", () => syncSpeed(elements.gameSpeed.value));
 elements.mode.addEventListener("change", updateModeSettings);
 elements.newExercise.addEventListener("click", startExercise);
+elements.nextExercise.addEventListener("click", startExercise);
 elements.replay.addEventListener("click", replaySequence);
-elements.referenceNote.addEventListener("click", playReference);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.importJson.addEventListener("change", importJson);
@@ -666,7 +726,6 @@ elements.fullscreenButton.addEventListener("click", toggleGameMode);
 elements.exitPortraitMode.addEventListener("click", leaveGameMode);
 
 loadSettings();
-buildPiano();
 renderStats();
 registerOfflineSupport();
 setUpInstallPrompt();
