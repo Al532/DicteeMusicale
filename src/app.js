@@ -15,6 +15,11 @@ const elements = {
   lengthOutput: document.querySelector("#length-output"),
   tempo: document.querySelector("#tempo"),
   tempoOutput: document.querySelector("#tempo-output"),
+  speed: document.querySelector("#speed"),
+  speedOutput: document.querySelector("#speed-output"),
+  lengthSetting: document.querySelector("#length-setting"),
+  tempoSetting: document.querySelector("#tempo-setting"),
+  speedSetting: document.querySelector("#speed-setting"),
   mode: document.querySelector("#mode"),
   newExercise: document.querySelector("#new-exercise"),
   replay: document.querySelector("#replay"),
@@ -61,15 +66,21 @@ function writeJson(key, value) {
 function loadSettings() {
   const settings = readJson(SETTINGS_KEY, {});
   if (settings.length) elements.length.value = settings.length;
-  if (settings.tempo) elements.tempo.value = settings.tempo;
-  if (settings.mode) elements.mode.value = settings.mode;
+  if (settings.randomTempo ?? settings.tempo) {
+    elements.tempo.value = settings.randomTempo ?? settings.tempo;
+  }
+  if (settings.parkerSpeed) elements.speed.value = settings.parkerSpeed;
+  elements.mode.value =
+    settings.mode === "parker" || settings.mode === "jazz" ? "parker" : "random";
   updateSettingLabels();
+  updateModeSettings();
 }
 
 function saveSettings() {
   writeJson(SETTINGS_KEY, {
     length: Number(elements.length.value),
-    tempo: Number(elements.tempo.value),
+    randomTempo: Number(elements.tempo.value),
+    parkerSpeed: Number(elements.speed.value),
     mode: elements.mode.value,
   });
 }
@@ -77,6 +88,14 @@ function saveSettings() {
 function updateSettingLabels() {
   elements.lengthOutput.value = `${elements.length.value} notes`;
   elements.tempoOutput.value = `${elements.tempo.value} BPM`;
+  elements.speedOutput.value = `${elements.speed.value} %`;
+}
+
+function updateModeSettings() {
+  const isParker = elements.mode.value === "parker";
+  elements.lengthSetting.hidden = isParker;
+  elements.tempoSetting.hidden = isParker;
+  elements.speedSetting.hidden = !isParker;
 }
 
 function buildPiano() {
@@ -183,23 +202,29 @@ function playSequence() {
   elements.feedback.textContent = "Écoute…";
   let playbackDuration;
   if (exercise.timings) {
-    const timeScale = exercise.originalTempo / exercise.tempo;
+    exercise.speedPercent = Number(elements.speed.value);
+    const timeScale = 100 / exercise.speedPercent;
     exercise.notes.forEach((midi, index) => {
       const timing = exercise.timings[index];
       const startSeconds = timing.offset * timeScale;
       const durationSeconds = timing.duration * timeScale;
       playTone(midi, startSeconds, durationSeconds, index === 0);
-      flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
+      if (index === 0) {
+        flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
+      }
     });
     const lastTiming = exercise.timings.at(-1);
     playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
   } else {
+    exercise.tempo = Number(elements.tempo.value);
     const beatMs = 60_000 / exercise.tempo;
     const toneDuration = Math.min(0.62, (beatMs / 1000) * 0.8);
     exercise.notes.forEach((midi, index) => {
       const delayMs = index * beatMs;
       playTone(midi, delayMs / 1000, toneDuration, index === 0);
-      flashPlayedKey(midi, delayMs, toneDuration * 1000);
+      if (index === 0) {
+        flashPlayedKey(midi, delayMs, toneDuration * 1000);
+      }
     });
     playbackDuration = exercise.notes.length * beatMs;
   }
@@ -253,7 +278,8 @@ function startExercise() {
     mode: elements.mode.value,
     label: generated.meta.label,
     source: generated.meta.source,
-    tempo: Number(elements.tempo.value),
+    tempo: generated.timings ? null : Number(elements.tempo.value),
+    speedPercent: generated.timings ? Number(elements.speed.value) : null,
     originalTempo: generated.meta.originalTempo ?? Number(elements.tempo.value),
     notes: generated.notes,
     timings: generated.timings ?? null,
@@ -367,6 +393,7 @@ function finishExercise() {
     label: exercise.label,
     source: exercise.source,
     tempo: exercise.tempo,
+    speedPercent: exercise.speedPercent,
     originalTempo: exercise.originalTempo,
     notes: exercise.notes,
     replayCount: exercise.replayCount,
@@ -444,6 +471,7 @@ function exportCsv() {
       "mesure_fin",
       "transposition_demi_tons",
       "tempo_lecture",
+      "vitesse_pourcent",
       "tempo_original",
       "position",
       "note_precedente_midi",
@@ -470,6 +498,7 @@ function exportCsv() {
         record.source?.barEnd,
         record.source?.transposition,
         record.tempo,
+        record.speedPercent,
         record.originalTempo,
         attempt.position + 1,
         attempt.previousMidi,
@@ -544,6 +573,8 @@ function setUpInstallPrompt() {
 
 elements.length.addEventListener("input", updateSettingLabels);
 elements.tempo.addEventListener("input", updateSettingLabels);
+elements.speed.addEventListener("input", updateSettingLabels);
+elements.mode.addEventListener("change", updateModeSettings);
 elements.newExercise.addEventListener("click", startExercise);
 elements.replay.addEventListener("click", replaySequence);
 elements.referenceNote.addEventListener("click", playReference);
