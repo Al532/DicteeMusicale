@@ -5,6 +5,9 @@ import { PARKER_SOLOS } from "../data/parker-solos.js";
 import {
   PARKER_INTERVAL_COUNTS,
   PARKER_INTERVAL_SAMPLE_SIZE,
+  PARKER_MARKOV_MAX_COPY_RUN,
+  PARKER_MARKOV_MAX_ORDER,
+  PARKER_MARKOV_MIN_CONTEXT_COUNT,
   isCorrectMidi,
   keyboardLayoutForNotes,
   makeSequence,
@@ -19,6 +22,56 @@ function seededRandom(seed = 1) {
     state = (1664525 * state + 1013904223) >>> 0;
     return state / 2 ** 32;
   };
+}
+
+const CORPUS_INTERVAL_SEQUENCES = PARKER_SOLOS.flatMap((solo) =>
+  solo.phrases.map(([start, end]) => {
+    const notes = solo.events.slice(start, end + 1).map(([midi]) => midi);
+    return notes.slice(1).map((note, index) => note - notes[index]);
+  }),
+);
+
+function intervalsOf(notes) {
+  return notes.slice(1).map((note, index) => note - notes[index]);
+}
+
+function containsSubsequence(sequence, candidate) {
+  if (candidate.length > sequence.length) return false;
+  for (let start = 0; start <= sequence.length - candidate.length; start += 1) {
+    if (candidate.every((interval, index) => interval === sequence[start + index])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function longestCorpusMatch(sequence) {
+  for (let length = sequence.length; length > 0; length -= 1) {
+    for (let start = 0; start <= sequence.length - length; start += 1) {
+      const candidate = sequence.slice(start, start + length);
+      if (CORPUS_INTERVAL_SEQUENCES.some((corpus) => containsSubsequence(corpus, candidate))) {
+        return length;
+      }
+    }
+  }
+  return 0;
+}
+
+function contextSupport(context) {
+  let count = 0;
+  for (const sequence of CORPUS_INTERVAL_SEQUENCES) {
+    for (let index = context.length; index < sequence.length; index += 1) {
+      if (
+        context.every(
+          (interval, contextIndex) =>
+            interval === sequence[index - context.length + contextIndex],
+        )
+      ) {
+        count += 1;
+      }
+    }
+  }
+  return count;
 }
 
 test("la correction exige la hauteur MIDI exacte", () => {
@@ -79,7 +132,7 @@ test("les 104 phrases restent entièrement visibles dans les 13 transpositions s
   assert.equal(checked, 104 * 13);
 });
 
-test("le mode aléatoire utilise les 1 584 intervalles intra-phrase du corpus", () => {
+test("le mode aléatoire Markov utilise les 1 584 intervalles intra-phrase du corpus", () => {
   assert.equal(PARKER_INTERVAL_SAMPLE_SIZE, 1584);
   for (const length of [3, 5, 10]) {
     const result = makeSequence({ length, mode: "random", random: seededRandom(length) });
@@ -94,6 +147,62 @@ test("le mode aléatoire utilise les 1 584 intervalles intra-phrase du corpus", 
       const interval = result.notes[index] - result.notes[index - 1];
       assert.ok(PARKER_INTERVAL_COUNTS[interval] > 0);
     }
+    assert.equal(result.meta.source.model, "variable-order-markov");
+    assert.equal(result.meta.source.maxOrder, 6);
+  }
+});
+
+test("le Markov utilise le plus long contexte suffisamment représenté", () => {
+  const results = Array.from({ length: 120 }, (_, index) =>
+    makeSequence({ length: 10, mode: "random", random: seededRandom(index + 500) }),
+  );
+  let highestOrder = 0;
+
+  for (const result of results) {
+    const intervals = intervalsOf(result.notes);
+    const orders = result.meta.source.ordersUsed;
+    assert.equal(orders.length, intervals.length);
+    assert.equal(orders[0], 0);
+    for (let index = 0; index < orders.length; index += 1) {
+      const order = orders[index];
+      assert.ok(order >= 0 && order <= PARKER_MARKOV_MAX_ORDER);
+      if (order > 0) {
+        const context = intervals.slice(index - order, index);
+        assert.ok(contextSupport(context) >= PARKER_MARKOV_MIN_CONTEXT_COUNT);
+      }
+      highestOrder = Math.max(highestOrder, order);
+    }
+  }
+
+  assert.equal(highestOrder, PARKER_MARKOV_MAX_ORDER);
+});
+
+test("le Markov reste varié sans recopier une phrase ou un long fragment", () => {
+  const generated = [];
+  for (let length = 3; length <= 10; length += 1) {
+    for (let seed = 1; seed <= 40; seed += 1) {
+      generated.push(
+        intervalsOf(
+          makeSequence({
+            length,
+            mode: "random",
+            random: seededRandom(length * 1000 + seed),
+          }).notes,
+        ),
+      );
+    }
+  }
+
+  assert.ok(new Set(generated.map((sequence) => sequence.join(","))).size > 250);
+  for (const sequence of generated) {
+    assert.ok(
+      !CORPUS_INTERVAL_SEQUENCES.some(
+        (corpus) =>
+          corpus.length === sequence.length &&
+          corpus.every((interval, index) => interval === sequence[index]),
+      ),
+    );
+    assert.ok(longestCorpusMatch(sequence) <= PARKER_MARKOV_MAX_COPY_RUN);
   }
 });
 
