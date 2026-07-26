@@ -141,7 +141,10 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
   const overtoneGain = context.createGain();
   const frequency = 440 * 2 ** ((midi - 69) / 12);
   const start = context.currentTime + startAt;
-  const stop = start + duration;
+  const safeDuration = Math.max(0.012, duration);
+  const stop = start + safeDuration;
+  const attack = Math.min(0.012, safeDuration * 0.25);
+  const release = Math.max(attack + 0.001, safeDuration * 0.72);
 
   oscillator.type = "triangle";
   oscillator.frequency.value = frequency;
@@ -150,10 +153,12 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
 
   const volume = emphasis ? 0.2 : 0.145;
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.018);
+  gain.gain.exponentialRampToValueAtTime(volume, start + attack);
+  gain.gain.setValueAtTime(volume, start + release);
   gain.gain.exponentialRampToValueAtTime(0.0001, stop);
   overtoneGain.gain.setValueAtTime(0.0001, start);
-  overtoneGain.gain.exponentialRampToValueAtTime(volume * 0.14, start + 0.012);
+  overtoneGain.gain.exponentialRampToValueAtTime(volume * 0.14, start + attack);
+  overtoneGain.gain.setValueAtTime(volume * 0.14, start + release);
   overtoneGain.gain.exponentialRampToValueAtTime(0.0001, stop);
 
   oscillator.connect(gain).connect(context.destination);
@@ -176,16 +181,29 @@ function playSequence() {
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "Écoute…";
-  const beatMs = 60_000 / exercise.tempo;
-  const toneDuration = Math.min(0.62, (beatMs / 1000) * 0.8);
+  let playbackDuration;
+  if (exercise.timings) {
+    const timeScale = exercise.originalTempo / exercise.tempo;
+    exercise.notes.forEach((midi, index) => {
+      const timing = exercise.timings[index];
+      const startSeconds = timing.offset * timeScale;
+      const durationSeconds = timing.duration * timeScale;
+      playTone(midi, startSeconds, durationSeconds, index === 0);
+      flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
+    });
+    const lastTiming = exercise.timings.at(-1);
+    playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
+  } else {
+    const beatMs = 60_000 / exercise.tempo;
+    const toneDuration = Math.min(0.62, (beatMs / 1000) * 0.8);
+    exercise.notes.forEach((midi, index) => {
+      const delayMs = index * beatMs;
+      playTone(midi, delayMs / 1000, toneDuration, index === 0);
+      flashPlayedKey(midi, delayMs, toneDuration * 1000);
+    });
+    playbackDuration = exercise.notes.length * beatMs;
+  }
 
-  exercise.notes.forEach((midi, index) => {
-    const delayMs = index * beatMs;
-    playTone(midi, delayMs / 1000, toneDuration, index === 0);
-    flashPlayedKey(midi, delayMs, toneDuration * 1000);
-  });
-
-  const playbackDuration = exercise.notes.length * beatMs;
   window.setTimeout(() => {
     acceptingInput = exercise.currentIndex < exercise.notes.length;
     exercise.guessStartedAt = performance.now();
@@ -236,7 +254,9 @@ function startExercise() {
     label: generated.meta.label,
     source: generated.meta.source,
     tempo: Number(elements.tempo.value),
+    originalTempo: generated.meta.originalTempo ?? Number(elements.tempo.value),
     notes: generated.notes,
+    timings: generated.timings ?? null,
     currentIndex: 1,
     attempts: [],
     replayCount: 0,
@@ -258,7 +278,11 @@ function renderSource(source) {
     Number.isFinite(source.transposition) && source.transposition !== 0
       ? ` · transposition ${source.transposition > 0 ? "+" : ""}${source.transposition} demi-tons`
       : "";
-  elements.sourceDetails.textContent = `Source : ${source.label}${transposition}.`;
+  const originalTempo = Number.isFinite(source.originalTempo)
+    ? ` · tempo original ${Math.round(source.originalTempo)} BPM`
+    : "";
+  elements.sourceDetails.textContent =
+    `Source : ${source.label}${transposition}${originalTempo}.`;
   if (source.url) {
     elements.sourceLink.hidden = false;
     elements.sourceLink.href = source.url;
@@ -343,6 +367,7 @@ function finishExercise() {
     label: exercise.label,
     source: exercise.source,
     tempo: exercise.tempo,
+    originalTempo: exercise.originalTempo,
     notes: exercise.notes,
     replayCount: exercise.replayCount,
     attempts: exercise.attempts,
@@ -418,7 +443,8 @@ function exportCsv() {
       "mesure_debut",
       "mesure_fin",
       "transposition_demi_tons",
-      "tempo",
+      "tempo_lecture",
+      "tempo_original",
       "position",
       "note_precedente_midi",
       "note_cible",
@@ -444,6 +470,7 @@ function exportCsv() {
         record.source?.barEnd,
         record.source?.transposition,
         record.tempo,
+        record.originalTempo,
         attempt.position + 1,
         attempt.previousMidi,
         NOTE_NAMES[attempt.targetPitchClass],
