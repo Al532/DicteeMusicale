@@ -151,14 +151,28 @@ function parkerSequence(random) {
     offset: Number((event[1] - firstOnset).toFixed(4)),
     duration: event[2],
   }));
+  const lastEvent = excerpt.events.at(-1);
+  const playbackEnd = lastEvent[1] + lastEvent[2];
+  const chicks = (excerpt.solo.beats ?? [])
+    .filter(
+      ([onset, beat, period]) =>
+        onset >= firstOnset &&
+        onset < playbackEnd &&
+        (beat === 2 || (period >= 4 && beat === 4)),
+    )
+    .map(([onset, beat]) => ({
+      offset: Number((onset - firstOnset).toFixed(4)),
+      beat,
+    }));
   const firstBar = excerpt.events[0][3];
-  const lastBar = excerpt.events.at(-1)[3];
+  const lastBar = lastEvent[3];
   const barLabel =
     firstBar === lastBar ? `mesure ${firstBar}` : `mesures ${firstBar}–${lastBar}`;
 
   return {
     notes: transposedNotes,
     timings,
+    chicks,
     meta: {
       label: `${excerpt.solo.performer} — ${excerpt.solo.title}`,
       originalTempo: excerpt.solo.originalTempo,
