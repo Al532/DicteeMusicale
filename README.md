@@ -14,7 +14,10 @@ Application web mobile de dictée mélodique :
 
 Ouvrir l’application publiée sur GitHub Pages, choisir le mode, puis toucher **Commencer**.
 Sur Android, l’installation depuis le navigateur permet de l’utiliser comme une application
-autonome.
+autonome. La PWA se lance en plein écran paysage. Le bouton **Plein écran** active aussi un
+mode de jeu dans le navigateur : l’interface secondaire disparaît et le piano utilise toute
+la largeur disponible. Si le navigateur ne peut pas verrouiller l’orientation, il demande de
+tourner manuellement l’appareil.
 
 Deux modes sont disponibles :
 
