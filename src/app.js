@@ -188,7 +188,10 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
   const safeDuration = Math.max(0.012, duration);
   const stop = start + safeDuration;
   const attack = Math.min(0.012, safeDuration * 0.25);
-  const release = Math.max(attack + 0.001, safeDuration * 0.72);
+  const release = Math.max(
+    attack + 0.001,
+    safeDuration - Math.min(0.035, safeDuration * 0.15),
+  );
 
   oscillator.type = "triangle";
   oscillator.frequency.value = frequency;
@@ -292,11 +295,8 @@ function renderSequence() {
     const button = document.createElement("button");
     const isRecorded = index < exercise.currentIndex;
     button.type = "button";
-    if (index === 0) {
-      slot.className = "reference";
-      button.textContent = noteLabel(midi);
-    } else if (index < exercise.currentIndex) {
-      slot.className = "solved";
+    if (isRecorded) {
+      slot.className = index === 0 ? "reference" : "solved";
       button.textContent = noteLabel(midi);
     } else {
       button.textContent = "•";
@@ -347,7 +347,7 @@ function startExercise() {
     notes: generated.notes,
     timings: generated.timings ?? null,
     keyboard: generated.keyboard,
-    currentIndex: 1,
+    currentIndex: 0,
     attempts: [],
     replayCount: 0,
     guessStartedAt: null,
@@ -399,12 +399,14 @@ function handlePianoInput(midi, key) {
   const target = exercise.notes[exercise.currentIndex];
   let attempt = exercise.attempts.find((item) => item.position === exercise.currentIndex);
   if (!attempt) {
+    const previousMidi =
+      exercise.currentIndex > 0 ? exercise.notes[exercise.currentIndex - 1] : null;
     attempt = {
       position: exercise.currentIndex,
       targetMidi: target,
       targetPitchClass: pitchClass(target),
-      previousMidi: exercise.notes[exercise.currentIndex - 1],
-      interval: target - exercise.notes[exercise.currentIndex - 1],
+      previousMidi,
+      interval: previousMidi === null ? null : target - previousMidi,
       guesses: [],
       responseMs: null,
     };
