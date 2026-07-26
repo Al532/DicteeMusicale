@@ -69,8 +69,12 @@
             <h2 id="exercise-title">Écoute, puis joue la suite</h2>
           </div>
           <div class="exercise-actions">
-            <button class="ghost-button compact" id="reference-note" disabled>Note de départ</button>
+            <label class="game-speed-setting" id="game-speed-setting" hidden>
+              <span>Vitesse <output id="game-speed-output">100 %</output></span>
+              <input id="game-speed" type="range" min="25" max="100" step="5" value="100" />
+            </label>
             <button class="ghost-button compact" id="replay" disabled>Réécouter</button>
+            <button class="primary-button compact" id="next-exercise" disabled>Suivant</button>
             <button class="ghost-button compact" id="fullscreen-button">Plein écran</button>
           </div>
         </div>
@@ -86,10 +90,8 @@
         </p>
 
         <div class="piano-shell">
-          <div class="piano" id="piano" aria-label="Piano de deux octaves"></div>
+          <div class="piano" id="piano" aria-label="Piano"></div>
         </div>
-
-        <p class="piano-hint">L’octave saisie n’a pas d’importance.</p>
       </section>
 
       <section class="panel stats-panel" aria-labelledby="stats-title">
