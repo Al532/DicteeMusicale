@@ -34,22 +34,26 @@
         </div>
 
         <div class="settings-grid">
-          <label>
+          <label id="length-setting">
             <span>Longueur <output id="length-output">5 notes</output></span>
             <input id="length" type="range" min="3" max="10" value="5" />
           </label>
 
-          <label>
+          <label id="tempo-setting">
             <span>Tempo <output id="tempo-output">88 BPM</output></span>
             <input id="tempo" type="range" min="50" max="160" step="2" value="88" />
+          </label>
+
+          <label id="speed-setting" hidden>
+            <span>Vitesse <output id="speed-output">100 %</output></span>
+            <input id="speed" type="range" min="25" max="100" step="5" value="100" />
           </label>
 
           <label>
             <span>Type de phrase</span>
             <select id="mode">
-              <option value="melodic">Mélodique</option>
-              <option value="diatonic">Diatonique</option>
-              <option value="jazz">Vocabulaire jazz</option>
+              <option value="random">Aléatoire — statistiques Parker</option>
+              <option value="parker">Phrases réelles — Charlie Parker</option>
             </select>
           </label>
         </div>
