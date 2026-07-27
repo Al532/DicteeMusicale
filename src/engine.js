@@ -53,6 +53,19 @@ export function randomParkerTransposition(random = Math.random) {
   return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
 }
 
+export function randomDifferentParkerTransposition(
+  currentTransposition,
+  random = Math.random,
+) {
+  const currentPitchClass = pitchClass(currentTransposition);
+  const choices = Array.from({ length: 12 }, (_, index) => index).filter(
+    (candidate) => candidate !== currentPitchClass,
+  );
+  const pitchClassShift = randomChoice(choices, random);
+  if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
+  return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
+}
+
 function chunkIndex(midi) {
   const octave = Math.floor(midi / 12);
   return octave * 2 + (pitchClass(midi) >= 5 ? 1 : 0);

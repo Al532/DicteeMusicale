@@ -2,8 +2,10 @@ import {
   NOTE_NAMES,
   intervalLabel,
   isCorrectMidi,
+  keyboardLayoutForNotes,
   makeSequence,
   pitchClass,
+  randomDifferentParkerTransposition,
   summarizeRecords,
 } from "./engine.js";
 import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
@@ -50,7 +52,9 @@ const elements = {
   completionModal: document.querySelector("#completion-modal"),
   completionOriginal: document.querySelector("#completion-original"),
   restartExercise: document.querySelector("#restart-exercise"),
+  transposeExercise: document.querySelector("#transpose-exercise"),
   completionNext: document.querySelector("#completion-next"),
+  completionExit: document.querySelector("#completion-exit"),
   stats: {
     exercises: document.querySelector("#stat-exercises"),
     notes: document.querySelector("#stat-notes"),
@@ -594,6 +598,10 @@ function startExercise() {
     playbackRatePercent: generated.timings ? null : randomPlaybackSpeedPercent,
     originalTempo: generated.meta.originalTempo ?? null,
     notes: generated.notes,
+    originalNotes: generated.notes.map(
+      (midi) => midi - (generated.meta.source.transposition ?? 0),
+    ),
+    transposition: generated.meta.source.transposition ?? 0,
     timings: generated.timings ?? null,
     chicks: generated.chicks ?? null,
     keyboard: generated.keyboard,
@@ -671,6 +679,25 @@ function restartSameExercise() {
   stopAllTones();
   prepareRepeatedExercise();
   resetExerciseProgress();
+  playSequence();
+}
+
+function transposeSameExercise() {
+  if (!exercise) return;
+  hideCompletionModal();
+  stopAllTones();
+  const transposition = randomDifferentParkerTransposition(
+    exercise.transposition,
+  );
+  exercise.transposition = transposition;
+  exercise.notes = exercise.originalNotes.map((midi) => midi + transposition);
+  exercise.source = { ...exercise.source, transposition };
+  exercise.keyboard = keyboardLayoutForNotes(exercise.notes);
+  prepareRepeatedExercise();
+  resetExerciseProgress();
+  renderSource(exercise.source);
+  buildPiano(exercise.keyboard);
+  markReferenceKey();
   playSequence();
 }
 
@@ -1056,7 +1083,9 @@ elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
 elements.transposeOriginal.addEventListener("change", saveSettings);
 elements.completionOriginal.addEventListener("click", toggleCompletionOriginal);
 elements.restartExercise.addEventListener("click", restartSameExercise);
+elements.transposeExercise.addEventListener("click", transposeSameExercise);
 elements.completionNext.addEventListener("click", startExercise);
+elements.completionExit.addEventListener("click", leaveGameMode);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.importJson.addEventListener("change", importJson);

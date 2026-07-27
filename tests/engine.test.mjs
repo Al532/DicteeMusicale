@@ -13,6 +13,7 @@ import {
   keyboardLayoutForNotes,
   makeSequence,
   pitchClass,
+  randomDifferentParkerTransposition,
   randomParkerTransposition,
   summarizeRecords,
 } from "../src/engine.js";
@@ -100,6 +101,17 @@ test("les 12 transpositions, dont la tonalité originale, sont équiprobables", 
   const positiveTritone = randomParkerTransposition(() => [6.25 / 12, 0.75][draw++]);
   assert.equal(negativeTritone, -6);
   assert.equal(positiveTritone, 6);
+});
+
+test("une nouvelle transposition choisit uniformément l’un des 11 autres tons", () => {
+  const shifts = Array.from({ length: 11 }, (_, bucket) =>
+    randomDifferentParkerTransposition(0, () => (bucket + 0.25) / 11),
+  );
+  assert.deepEqual(
+    [...new Set(shifts.map((shift) => pitchClass(shift)))].sort((a, b) => a - b),
+    Array.from({ length: 11 }, (_, index) => index + 1),
+  );
+  assert.ok(shifts.every((shift) => shift >= -6 && shift <= 6));
 });
 
 test("le clavier glissant couvre la phrase avec au moins quatre chunks entiers", () => {

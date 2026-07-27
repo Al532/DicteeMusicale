@@ -12,12 +12,9 @@ const manifest = JSON.parse(
 
 test("l’identité et les indications correspondent à l’entraînement Bird", () => {
   assert.match(index, /<title>Sur les traces de Bird - Ear Training<\/title>/);
-  assert.match(index, /<h1>Sur les traces de Bird - Ear Training<\/h1>/);
-  assert.match(index, /Dictée mélodique à partir des solos de Charlie Parker/);
-  assert.match(
-    index,
-    /Écoute une phrase réelle ou générée à partir de son langage mélodique,[\s\S]*?retrouve-la intégralement au clavier\./,
-  );
+  assert.match(index, /<p class="eyebrow">Ear Training<\/p>/);
+  assert.match(index, /<h1>Sur les traces de Bird<\/h1>/);
+  assert.doesNotMatch(index, /class="site-(?:subtitle|description)"/);
   assert.match(index, /id="exercise-title">Écoute, puis retrouve la phrase<\/h2>/);
   assert.match(index, /Phrase retrouvée[\s\S]*?id="completion-title">Bien joué !<\/h2>/);
   assert.match(app, /Erreur — on réécoute depuis le début\./);
@@ -303,16 +300,27 @@ test("les toggles de lecture gardent une largeur fixe pour ne pas déplacer les 
   assert.match(styles, /\.parker-listen-button \{[\s\S]*?width: 168px;/);
 });
 
-test("la réussite ouvre une modale Recommencer ou Suivant", () => {
+test("la réussite ouvre une modale avec les quatre suites possibles", () => {
   assert.match(index, /id="completion-modal"[\s\S]*?role="dialog"/);
   assert.match(index, /id="restart-exercise">Recommencer<\/button>/);
+  assert.match(index, /id="transpose-exercise">Transposer<\/button>/);
   assert.match(index, /id="completion-next">Suivant<\/button>/);
+  assert.match(index, /id="completion-exit">Quitter<\/button>/);
   assert.match(app, /function finishExercise\(\) \{[\s\S]*?showCompletionModal\(\)/);
   assert.match(
     app,
     /function restartSameExercise\(\) \{[\s\S]*?prepareRepeatedExercise\(\);[\s\S]*?resetExerciseProgress\(\);[\s\S]*?playSequence\(\)/,
   );
+  assert.match(
+    app,
+    /function transposeSameExercise\(\) \{[\s\S]*?randomDifferentParkerTransposition\([\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
+  );
   assert.match(app, /elements\.completionNext\.addEventListener\("click", startExercise\)/);
+  assert.match(
+    app,
+    /elements\.transposeExercise\.addEventListener\("click", transposeSameExercise\)/,
+  );
+  assert.match(app, /elements\.completionExit\.addEventListener\("click", leaveGameMode\)/);
   assert.match(styles, /\.completion-modal:not\(\[hidden\]\) \{\s*display: grid;/);
 });
 
@@ -337,7 +345,7 @@ test("la modale n’offre l’original qu’en mode Phrases réelles", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v13/);
+  assert.match(serviceWorker, /dictee-musicale-v14/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",
