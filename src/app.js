@@ -1,9 +1,11 @@
 import {
+  DEFAULT_PERFORMERS,
   NOTE_NAMES,
+  WJAZZD_PERFORMERS,
   intervalLabel,
   isCorrectMidi,
+  makeJazzTranspositionCycle,
   keyboardLayoutForNotes,
-  makeParkerTranspositionCycle,
   makeSequence,
   pitchClass,
   summarizeRecords,
@@ -30,8 +32,15 @@ const elements = {
   gameSpeed: document.querySelector("#game-speed"),
   gameSpeedOutput: document.querySelector("#game-speed-output"),
   gameSpeedSetting: document.querySelector("#game-speed-setting"),
-  startParker: document.querySelector("#start-parker"),
+  startReal: document.querySelector("#start-real"),
   startRandom: document.querySelector("#start-random"),
+  musicianPicker: document.querySelector("#musician-picker"),
+  musicianList: document.querySelector("#musician-list"),
+  musicianSelectionCount: document.querySelector("#musician-selection-count"),
+  selectionWarning: document.querySelector("#selection-warning"),
+  selectDefaultPerformers: document.querySelector("#select-default-performers"),
+  selectAllPerformers: document.querySelector("#select-all-performers"),
+  clearPerformers: document.querySelector("#clear-performers"),
   nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
   feedback: document.querySelector("#feedback"),
@@ -71,11 +80,12 @@ let exercise = null;
 let acceptingInput = false;
 let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
-let currentMode = "parker";
+let currentMode = "jazz";
 let randomLength = 5;
-let parkerMaxNotes = 15;
-let parkerSpeedPercent = 100;
+let realMaxNotes = 15;
+let realSpeedPercent = 100;
 let randomPlaybackSpeedPercent = 88;
+let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
 const decodedAudioBuffers = new Map();
@@ -123,13 +133,17 @@ function randomPlaybackToSliderPercent(value) {
 
 function loadSettings() {
   const settings = readJson(SETTINGS_KEY, {});
-  currentMode = settings.mode === "random" ? "random" : "parker";
+  currentMode = settings.mode === "random" ? "random" : "jazz";
   randomLength = clamp(
     Math.round(settings.randomLength ?? settings.length ?? 5),
     3,
     15,
   );
-  parkerMaxNotes = clamp(Math.round(settings.parkerMaxNotes ?? 15), 5, 15);
+  realMaxNotes = clamp(
+    Math.round(settings.realMaxNotes ?? settings.parkerMaxNotes ?? 15),
+    5,
+    15,
+  );
   randomPlaybackSpeedPercent = clamp(
     Number(
       settings.randomPlaybackPercent ??
@@ -141,20 +155,95 @@ function loadSettings() {
     RANDOM_PLAYBACK_MIN_PERCENT,
     RANDOM_PLAYBACK_MAX_PERCENT,
   );
-  parkerSpeedPercent = clamp(Number(settings.parkerSpeed ?? 100), 25, 100);
+  realSpeedPercent = clamp(
+    Number(settings.realSpeed ?? settings.parkerSpeed ?? 100),
+    25,
+    100,
+  );
+  const knownPerformers = new Set(
+    WJAZZD_PERFORMERS.map(({ name }) => name),
+  );
+  const savedPerformers = Array.isArray(settings.selectedPerformers)
+    ? settings.selectedPerformers.filter((name) => knownPerformers.has(name))
+    : DEFAULT_PERFORMERS;
+  selectedPerformers = new Set(savedPerformers);
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
   updateModeSettings();
+  renderPerformerOptions();
+  updatePerformerSelectionState();
 }
 
 function saveSettings() {
   writeJson(SETTINGS_KEY, {
     randomLength,
-    parkerMaxNotes,
+    realMaxNotes,
     randomPlaybackPercent: randomPlaybackSpeedPercent,
-    parkerSpeed: parkerSpeedPercent,
+    realSpeed: realSpeedPercent,
+    selectedPerformers: [...selectedPerformers],
     transposeOriginal: elements.transposeOriginal.checked,
     mode: currentMode,
   });
+}
+
+function updatePerformerSelectionState() {
+  const selectedSoloCount = WJAZZD_PERFORMERS.reduce(
+    (sum, { name, soloCount }) =>
+      sum + (selectedPerformers.has(name) ? soloCount : 0),
+    0,
+  );
+  elements.musicianSelectionCount.textContent =
+    `${selectedPerformers.size} sur ${WJAZZD_PERFORMERS.length}` +
+    ` · ${selectedSoloCount} solos`;
+  const hasSelection = selectedPerformers.size > 0;
+  elements.startReal.disabled = !hasSelection;
+  elements.startRandom.disabled = !hasSelection;
+  elements.selectionWarning.hidden = hasSelection;
+}
+
+function updatePerformerCheckboxes() {
+  for (const input of elements.musicianList.querySelectorAll(
+    'input[type="checkbox"]',
+  )) {
+    input.checked = selectedPerformers.has(input.value);
+  }
+}
+
+function setPerformerSelection(names) {
+  selectedPerformers = new Set(names);
+  updatePerformerCheckboxes();
+  updatePerformerSelectionState();
+  saveSettings();
+}
+
+function renderPerformerOptions() {
+  const performers = [...WJAZZD_PERFORMERS].sort((left, right) =>
+    left.name.localeCompare(right.name, "fr"),
+  );
+  const fragment = document.createDocumentFragment();
+  for (const { name, soloCount } of performers) {
+    const label = document.createElement("label");
+    label.className = "musician-option";
+    label.title = `${name} — ${soloCount} solo${soloCount > 1 ? "s" : ""}`;
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = name;
+    input.checked = selectedPerformers.has(name);
+    input.addEventListener("change", () => {
+      if (input.checked) selectedPerformers.add(name);
+      else selectedPerformers.delete(name);
+      updatePerformerSelectionState();
+      saveSettings();
+    });
+
+    const musicianName = document.createElement("span");
+    musicianName.textContent = name;
+    const count = document.createElement("small");
+    count.textContent = String(soloCount);
+    label.append(input, musicianName, count);
+    fragment.append(label);
+  }
+  elements.musicianList.replaceChildren(fragment);
 }
 
 function updateSettingLabels() {
@@ -163,17 +252,17 @@ function updateSettingLabels() {
 }
 
 function updateModeSettings() {
-  const isParker = currentMode === "parker";
+  const isReal = currentMode === "jazz";
   elements.gameSpeedSetting.hidden = false;
-  elements.gameLengthLabel.textContent = isParker ? "Notes max" : "Notes";
-  elements.gameLength.min = isParker ? "5" : "3";
+  elements.gameLengthLabel.textContent = isReal ? "Notes max" : "Notes";
+  elements.gameLength.min = isReal ? "5" : "3";
   elements.gameLength.max = "15";
-  elements.gameLength.value = isParker ? parkerMaxNotes : randomLength;
-  if (isParker) {
+  elements.gameLength.value = isReal ? realMaxNotes : randomLength;
+  if (isReal) {
     elements.gameSpeed.min = "25";
     elements.gameSpeed.max = "100";
     elements.gameSpeed.step = "5";
-    elements.gameSpeed.value = parkerSpeedPercent;
+    elements.gameSpeed.value = realSpeedPercent;
   } else {
     elements.gameSpeed.min = String(RANDOM_SLIDER_MIN);
     elements.gameSpeed.max = String(RANDOM_SLIDER_MAX);
@@ -187,15 +276,15 @@ function updateModeSettings() {
 
 function syncLength(value) {
   const numericValue = Number(value);
-  if (currentMode === "parker") parkerMaxNotes = numericValue;
+  if (currentMode === "jazz") realMaxNotes = numericValue;
   else randomLength = numericValue;
   elements.gameLength.value = value;
   updateSettingLabels();
   saveSettings();
 }
 
-function syncParkerSpeed(value) {
-  parkerSpeedPercent = Number(value);
+function syncRealSpeed(value) {
+  realSpeedPercent = Number(value);
   elements.gameSpeed.value = value;
   updateSettingLabels();
   saveSettings();
@@ -209,11 +298,16 @@ function syncRandomSpeed(value) {
 }
 
 function syncGameSpeed(value) {
-  if (currentMode === "parker") syncParkerSpeed(value);
+  if (currentMode === "jazz") syncRealSpeed(value);
   else syncRandomSpeed(value);
 }
 
 function startMode(mode) {
+  if (!selectedPerformers.size) {
+    elements.selectionWarning.hidden = false;
+    elements.musicianPicker.open = true;
+    return;
+  }
   currentMode = mode;
   updateModeSettings();
   saveSettings();
@@ -361,7 +455,7 @@ function setPlaybackState(playing) {
 
 function setOriginalPlaybackState(playing) {
   isOriginalPlaying = playing;
-  elements.playOriginal.textContent = playing ? "Stop" : "Écouter Charlie Parker";
+  elements.playOriginal.textContent = playing ? "Stop" : "Écouter l’original";
   elements.playOriginal.setAttribute("aria-pressed", String(playing));
   elements.completionOriginal.textContent = playing ? "Stop" : "Écouter l’original";
   elements.completionOriginal.setAttribute("aria-pressed", String(playing));
@@ -529,7 +623,7 @@ function playSequence() {
   elements.feedback.textContent = "Écoute bien…";
   let playbackDuration;
   if (exercise.timings) {
-    exercise.speedPercent = parkerSpeedPercent;
+    exercise.speedPercent = realSpeedPercent;
     const timeScale = 100 / exercise.speedPercent;
     exercise.notes.forEach((midi, index) => {
       const timing = exercise.timings[index];
@@ -591,8 +685,9 @@ async function startExercise() {
   saveSettings();
   const generated = makeSequence({
     length: randomLength,
-    maxNotes: parkerMaxNotes,
+    maxNotes: realMaxNotes,
     mode: currentMode,
+    selectedPerformers: [...selectedPerformers],
   });
   exercise = {
     id: crypto.randomUUID(),
@@ -603,7 +698,7 @@ async function startExercise() {
     source: generated.meta.source,
     tempo: null,
     speedPercent: generated.timings
-      ? parkerSpeedPercent
+      ? realSpeedPercent
       : Number(elements.gameSpeed.value),
     playbackRatePercent: generated.timings ? null : randomPlaybackSpeedPercent,
     originalTempo: generated.meta.originalTempo ?? null,
@@ -612,7 +707,7 @@ async function startExercise() {
       (midi) => midi - (generated.meta.source.transposition ?? 0),
     ),
     transposition: generated.meta.source.transposition ?? 0,
-    transpositionCycle: makeParkerTranspositionCycle({
+    transpositionCycle: makeJazzTranspositionCycle({
       excludeTransposition: generated.meta.source.transposition ?? 0,
     }),
     timings: generated.timings ?? null,
@@ -721,7 +816,7 @@ function transposeSameExercise() {
   hideCompletionModal();
   stopAllTones();
   if (!exercise.transpositionCycle.length) {
-    exercise.transpositionCycle = makeParkerTranspositionCycle({
+    exercise.transpositionCycle = makeJazzTranspositionCycle({
       avoidFirstTransposition: exercise.transposition,
     });
   }
@@ -922,7 +1017,7 @@ function exportCsv() {
       "mesure_fin",
       "transposition_demi_tons",
       "vitesse_aleatoire_pourcent",
-      "vitesse_parker_pourcent",
+      "vitesse_phrases_reelles_pourcent",
       "tempo_original",
       "position",
       "note_precedente_midi",
@@ -949,7 +1044,9 @@ function exportCsv() {
         record.source?.barEnd,
         record.source?.transposition,
         record.mode === "random" ? (record.speedPercent ?? record.tempo) : null,
-        record.mode === "parker" ? record.speedPercent : null,
+        record.mode === "jazz" || record.mode === "parker"
+          ? record.speedPercent
+          : null,
         record.originalTempo,
         attempt.position + 1,
         attempt.previousMidi,
@@ -1112,8 +1209,17 @@ elements.gameLength.addEventListener("input", () =>
   syncLength(elements.gameLength.value),
 );
 elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSpeed.value));
-elements.startParker.addEventListener("click", () => startMode("parker"));
+elements.startReal.addEventListener("click", () => startMode("jazz"));
 elements.startRandom.addEventListener("click", () => startMode("random"));
+elements.selectDefaultPerformers.addEventListener("click", () =>
+  setPerformerSelection(DEFAULT_PERFORMERS),
+);
+elements.selectAllPerformers.addEventListener("click", () =>
+  setPerformerSelection(WJAZZD_PERFORMERS.map(({ name }) => name)),
+);
+elements.clearPerformers.addEventListener("click", () =>
+  setPerformerSelection([]),
+);
 elements.nextExercise.addEventListener("click", startExercise);
 elements.replay.addEventListener("click", togglePlayback);
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);

@@ -10,10 +10,14 @@ const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
 
-test("l’identité et les indications correspondent à l’entraînement Bird", () => {
-  assert.match(index, /<title>Sur les traces de Bird - Ear Training<\/title>/);
+test("l’identité et les indications correspondent à l’entraînement jazz", () => {
+  assert.match(
+    index,
+    /<title>Sur les traces des maîtres du jazz - Ear Training<\/title>/,
+  );
   assert.match(index, /<p class="eyebrow">Ear Training<\/p>/);
-  assert.match(index, /<h1>Sur les traces de Bird<\/h1>/);
+  assert.match(index, /<h1>Sur les traces des maîtres du jazz<\/h1>/);
+  assert.doesNotMatch(index, /Sur les traces de Bird|sur Charlie Parker/);
   assert.doesNotMatch(index, /class="site-(?:subtitle|description)"/);
   assert.match(index, /id="exercise-title">Écoute, puis retrouve la phrase<\/h2>/);
   assert.match(index, /Phrase retrouvée[\s\S]*?id="completion-title">Bien joué !<\/h2>/);
@@ -21,22 +25,29 @@ test("l’identité et les indications correspondent à l’entraînement Bird",
   assert.match(app, /À toi — retrouve la note/);
 });
 
-test("l’accueil ne propose que les deux boutons de lancement", () => {
+test("l’accueil propose les deux modes et le filtre des musiciens", () => {
   const home = index.match(
     /<section class="panel settings-panel"[\s\S]*?<\/section>/,
   )?.[0];
   assert.ok(home);
-  assert.match(home, /id="start-parker"[\s\S]*?Phrases réelles de Charlie Parker/);
-  assert.match(home, /id="start-random"[\s\S]*?Phrases générées sur Charlie Parker/);
-  assert.equal(home.match(/<button/g)?.length, 2);
-  assert.doesNotMatch(home, /<(?:input|select|label)\b/);
-  assert.match(app, /let currentMode = "parker"/);
+  assert.match(home, /id="start-real"[\s\S]*?Phrases réelles/);
+  assert.match(home, /id="start-random"[\s\S]*?Phrases générées/);
+  assert.match(home, /id="musician-picker"/);
+  assert.match(home, /id="musician-list"/);
+  assert.match(home, /id="select-default-performers"/);
+  assert.match(home, /id="select-all-performers"/);
+  assert.match(home, /id="clear-performers"/);
+  assert.match(app, /let currentMode = "jazz"/);
+  assert.match(app, /selectedPerformers = new Set\(DEFAULT_PERFORMERS\)/);
+  assert.match(app, /selectedPerformers: \[\.\.\.selectedPerformers\]/);
+  assert.match(app, /function renderPerformerOptions\(\)/);
+  assert.match(app, /function updatePerformerSelectionState\(\)/);
   assert.match(app, /function startMode\(mode\)/);
 });
 
-test("la vitesse Parker va de 25 à 100 % et vaut 100 % par défaut", () => {
-  assert.match(app, /let parkerSpeedPercent = 100/);
-  assert.match(app, /exercise\.speedPercent = parkerSpeedPercent/);
+test("la vitesse des phrases réelles va de 25 à 100 % et vaut 100 % par défaut", () => {
+  assert.match(app, /let realSpeedPercent = 100/);
+  assert.match(app, /exercise\.speedPercent = realSpeedPercent/);
   assert.match(app, /const timeScale = 100 \/ exercise\.speedPercent/);
   assert.match(
     index,
@@ -57,16 +68,16 @@ test("la vitesse aléatoire affiche 25–100 % et double son maximum réel", () 
 });
 
 test("la longueur reste disponible dans les deux modes", () => {
-  assert.match(app, /elements\.gameLength\.min = isParker \? "5" : "3"/);
+  assert.match(app, /elements\.gameLength\.min = isReal \? "5" : "3"/);
   assert.match(app, /elements\.gameLength\.max = "15"/);
-  assert.match(app, /maxNotes: parkerMaxNotes/);
+  assert.match(app, /maxNotes: realMaxNotes/);
   assert.doesNotMatch(app, /Illimité|=== 16/);
 });
 
 test("le slider plein écran s’adapte aux deux modes", () => {
   assert.match(
     app,
-    /if \(isParker\) \{[\s\S]*?gameSpeed\.min = "25";[\s\S]*?gameSpeed\.max = "100";/,
+    /if \(isReal\) \{[\s\S]*?gameSpeed\.min = "25";[\s\S]*?gameSpeed\.max = "100";/,
   );
   assert.match(
     app,
@@ -144,7 +155,7 @@ test("chaque bouton d’accueil ouvre son mode de jeu", () => {
     app,
     /async function startExercise\(\) \{[\s\S]*?await enterGameMode\(\);[\s\S]*?makeSequence/,
   );
-  assert.match(app, /elements\.startParker\.addEventListener\("click", \(\) => startMode\("parker"\)\)/);
+  assert.match(app, /elements\.startReal\.addEventListener\("click", \(\) => startMode\("jazz"\)\)/);
   assert.match(app, /elements\.startRandom\.addEventListener\("click", \(\) => startMode\("random"\)\)/);
   assert.match(styles, /\.piano-shell \{\s*display: none;/);
   assert.match(styles, /\.game-mode \.piano-shell \{\s*display: block;/);
@@ -184,7 +195,7 @@ test("Réécouter devient Stop pendant la lecture et arrête toutes les sources"
   assert.match(app, /elements\.replay\.addEventListener\("click", togglePlayback\)/);
 });
 
-test("les chicks ne sont programmés que pour la lecture rythmée Parker", () => {
+test("les chicks ne sont programmés que pour la lecture rythmée réelle", () => {
   const playback = app.match(
     /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
@@ -199,7 +210,7 @@ test("les chicks ne sont programmés que pour la lecture rythmée Parker", () =>
 
 test("le lecteur original commence à la frontière et conserve une courte fin", () => {
   assert.match(index, /id="original-controls" hidden/);
-  assert.match(index, /id="play-original"[\s\S]*?>\s*Écouter Charlie Parker\s*</);
+  assert.match(index, /id="play-original"[\s\S]*?>\s*Écouter l’original\s*</);
   assert.match(index, /id="audio-source-link"/);
   assert.doesNotMatch(app, /ORIGINAL_CONTEXT_(?:BEFORE|AFTER)_SECONDS/);
   assert.match(
@@ -230,10 +241,10 @@ test("le toggle transpose l’original sans changer sa durée", () => {
   assert.match(app, /elements\.transposeOriginal\.addEventListener\("change", saveSettings\)/);
 });
 
-test("l’écoute Parker est visible et son toggle lui est directement rattaché", () => {
+test("l’écoute originale est visible seulement quand un fichier est disponible", () => {
   assert.match(
     app,
-    /elements\.playOriginal\.textContent = playing \? "Stop" : "Écouter Charlie Parker"/,
+    /elements\.playOriginal\.textContent = playing \? "Stop" : "Écouter l’original"/,
   );
   assert.match(index, /<span>Transposer<\/span>/);
   assert.match(app, /elements\.originalControls\.hidden = !hasOriginal/);
@@ -241,7 +252,7 @@ test("l’écoute Parker est visible et son toggle lui est directement rattaché
     styles,
     /\.game-mode \.original-controls:not\(\[hidden\]\) \{\s*display: grid;/,
   );
-  assert.match(styles, /\.parker-listen-button \{[\s\S]*?background: var\(--accent\)/);
+  assert.match(styles, /\.original-listen-button \{[\s\S]*?background: var\(--accent\)/);
   assert.match(app, /elements\.playOriginal\.addEventListener\("click", toggleOriginalPlayback\)/);
 });
 
@@ -297,7 +308,7 @@ test("le nombre de notes est réglable aussi dans l’interface de jeu", () => {
 
 test("les toggles de lecture gardent une largeur fixe pour ne pas déplacer les sliders", () => {
   assert.match(styles, /#replay \{[\s\S]*?width: 92px;[\s\S]*?min-width: 92px;/);
-  assert.match(styles, /\.parker-listen-button \{[\s\S]*?width: 168px;/);
+  assert.match(styles, /\.original-listen-button \{[\s\S]*?width: 168px;/);
 });
 
 test("la réussite ouvre une modale avec les quatre suites possibles", () => {
@@ -319,7 +330,7 @@ test("la réussite ouvre une modale avec les quatre suites possibles", () => {
   );
   assert.match(
     app,
-    /function transposeSameExercise\(\) \{[\s\S]*?makeParkerTranspositionCycle\([\s\S]*?exercise\.transpositionCycle\.shift\(\)[\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
+    /function transposeSameExercise\(\) \{[\s\S]*?makeJazzTranspositionCycle\([\s\S]*?exercise\.transpositionCycle\.shift\(\)[\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
   );
   assert.match(app, /elements\.completionNext\.addEventListener\("click", startExercise\)/);
   assert.match(
@@ -387,7 +398,8 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v16/);
+  assert.match(serviceWorker, /dictee-musicale-v17/);
+  assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",

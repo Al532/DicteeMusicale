@@ -9,9 +9,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta
       name="description"
-      content="Dictée mélodique à partir de phrases réelles et générées sur le langage de Charlie Parker."
+      content="Dictée mélodique à partir de phrases réelles et générées sur le langage des grands solistes de jazz."
     />
-    <title>Sur les traces de Bird - Ear Training</title>
+    <title>Sur les traces des maîtres du jazz - Ear Training</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
@@ -21,7 +21,7 @@
     <header class="site-header">
       <div>
         <p class="eyebrow">Ear Training</p>
-        <h1>Sur les traces de Bird</h1>
+        <h1>Sur les traces des maîtres du jazz</h1>
       </div>
       <button class="ghost-button compact" id="install-button" hidden>Installer</button>
     </header>
@@ -29,13 +29,40 @@
     <main>
       <section class="panel settings-panel" aria-label="Choisir un mode">
         <div class="mode-launchers">
-          <button class="primary-button mode-launch" id="start-parker">
-            Phrases réelles de Charlie Parker
+          <button class="primary-button mode-launch" id="start-real">
+            Phrases réelles
           </button>
           <button class="primary-button mode-launch" id="start-random">
-            Phrases générées sur Charlie Parker
+            Phrases générées
           </button>
         </div>
+        <details class="musician-picker" id="musician-picker">
+          <summary>
+            <span>Musiciens inclus</span>
+            <strong id="musician-selection-count"></strong>
+          </summary>
+          <div class="musician-picker-content">
+            <div class="musician-picker-actions">
+              <button class="ghost-button compact" id="select-default-performers" type="button">
+                Jazz classique
+              </button>
+              <button class="ghost-button compact" id="select-all-performers" type="button">
+                Tous
+              </button>
+              <button class="ghost-button compact" id="clear-performers" type="button">
+                Aucun
+              </button>
+            </div>
+            <div
+              class="musician-list"
+              id="musician-list"
+              aria-label="Musiciens à inclure dans le corpus"
+            ></div>
+          </div>
+        </details>
+        <p class="selection-warning" id="selection-warning" hidden>
+          Sélectionne au moins un musicien.
+        </p>
       </section>
 
       <section class="panel exercise-panel" aria-labelledby="exercise-title">
@@ -56,12 +83,12 @@
             <button class="ghost-button compact" id="replay" disabled>Réécouter</button>
             <div class="original-controls" id="original-controls" hidden>
               <button
-                class="compact parker-listen-button"
+                class="compact original-listen-button"
                 id="play-original"
                 aria-pressed="false"
                 disabled
               >
-                Écouter Charlie Parker
+                Écouter l’original
               </button>
               <label
                 class="transpose-toggle"

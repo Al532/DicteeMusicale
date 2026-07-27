@@ -1,4 +1,10 @@
-import { PARKER_SOLOS } from "../data/parker-solos.js";
+import {
+  DEFAULT_PERFORMERS,
+  WJAZZD_PERFORMERS,
+  WJAZZD_SOLOS,
+} from "../data/wjazzd-solos.js";
+
+export { DEFAULT_PERFORMERS, WJAZZD_PERFORMERS };
 
 export const NOTE_NAMES = [
   "Do",
@@ -17,9 +23,8 @@ export const NOTE_NAMES = [
 
 const MIN_MIDI = 48;
 const MAX_MIDI = 71;
-export const PARKER_MARKOV_MAX_ORDER = 6;
-export const PARKER_MARKOV_MIN_CONTEXT_COUNT = 2;
-export const PARKER_MARKOV_MAX_COPY_RUN = 7;
+export const JAZZ_MARKOV_MAX_ORDER = 6;
+export const JAZZ_MARKOV_MIN_CONTEXT_COUNT = 2;
 
 export function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
@@ -47,13 +52,13 @@ function weightedChoice(entries, random) {
   return entries.at(-1)[0];
 }
 
-export function randomParkerTransposition(random = Math.random) {
+export function randomJazzTransposition(random = Math.random) {
   const pitchClassShift = randomInt(0, 11, random);
   if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
   return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
 }
 
-export function randomDifferentParkerTransposition(
+export function randomDifferentJazzTransposition(
   currentTransposition,
   random = Math.random,
 ) {
@@ -66,12 +71,12 @@ export function randomDifferentParkerTransposition(
   return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
 }
 
-function signedParkerTransposition(pitchClassShift, random) {
+function signedJazzTransposition(pitchClassShift, random) {
   if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
   return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
 }
 
-export function makeParkerTranspositionCycle({
+export function makeJazzTranspositionCycle({
   excludeTransposition = null,
   avoidFirstTransposition = null,
   random = Math.random,
@@ -81,7 +86,7 @@ export function makeParkerTranspositionCycle({
     : null;
   const cycle = Array.from({ length: 12 }, (_, index) => index)
     .filter((candidate) => candidate !== excludedPitchClass)
-    .map((candidate) => signedParkerTransposition(candidate, random));
+    .map((candidate) => signedJazzTransposition(candidate, random));
 
   for (let index = cycle.length - 1; index > 0; index -= 1) {
     const swapIndex = randomInt(0, index, random);
@@ -144,9 +149,35 @@ export function keyboardLayoutForNotes(notes, minimumChunks = 4) {
   };
 }
 
-function buildParkerIntervalSequences() {
+const KNOWN_PERFORMERS = new Set(
+  WJAZZD_PERFORMERS.map(({ name }) => name),
+);
+const modelCache = new Map();
+
+export function normalizePerformerSelection(
+  selectedPerformers = DEFAULT_PERFORMERS,
+) {
+  const requested = new Set(selectedPerformers);
+  return WJAZZD_PERFORMERS
+    .map(({ name }) => name)
+    .filter((name) => requested.has(name) && KNOWN_PERFORMERS.has(name));
+}
+
+function selectedSolos(selectedPerformers) {
+  const performers = normalizePerformerSelection(selectedPerformers);
+  if (!performers.length) {
+    throw new Error("Sélectionne au moins un musicien.");
+  }
+  const selected = new Set(performers);
+  return {
+    performers,
+    solos: WJAZZD_SOLOS.filter((solo) => selected.has(solo.performer)),
+  };
+}
+
+function buildJazzIntervalSequences(solos) {
   const sequences = [];
-  for (const solo of PARKER_SOLOS) {
+  for (const solo of solos) {
     for (const [start, end] of solo.phrases) {
       const intervals = [];
       for (let index = start + 1; index <= end; index += 1) {
@@ -162,32 +193,28 @@ function buildParkerIntervalSequences() {
   return sequences;
 }
 
-const PARKER_INTERVAL_SEQUENCES = buildParkerIntervalSequences();
-const PARKER_INTERVAL_POOL = PARKER_INTERVAL_SEQUENCES.flat();
-
-export const PARKER_INTERVAL_SAMPLE_SIZE = PARKER_INTERVAL_POOL.length;
-export const PARKER_INTERVAL_COUNTS = Object.freeze(
-  PARKER_INTERVAL_POOL.reduce((counts, interval) => {
-    counts[interval] = (counts[interval] ?? 0) + 1;
-    return counts;
-  }, {}),
-);
-
 function addCount(map, key) {
   map.set(key, (map.get(key) ?? 0) + 1);
 }
 
-function buildParkerMarkovModel() {
+function buildJazzMarkovModel(performers, solos) {
+  const intervalSequences = buildJazzIntervalSequences(solos);
   const transitions = Array.from(
-    { length: PARKER_MARKOV_MAX_ORDER + 1 },
+    { length: JAZZ_MARKOV_MAX_ORDER + 1 },
     () => new Map(),
   );
   const phraseStarts = new Map();
+  const intervalCounts = {};
+  let intervalSampleSize = 0;
 
-  for (const sequence of PARKER_INTERVAL_SEQUENCES) {
+  for (const sequence of intervalSequences) {
     addCount(phraseStarts, sequence[0]);
+    intervalSampleSize += sequence.length;
+    for (const interval of sequence) {
+      intervalCounts[interval] = (intervalCounts[interval] ?? 0) + 1;
+    }
     for (let index = 0; index < sequence.length; index += 1) {
-      const maxOrder = Math.min(PARKER_MARKOV_MAX_ORDER, index);
+      const maxOrder = Math.min(JAZZ_MARKOV_MAX_ORDER, index);
       for (let order = 0; order <= maxOrder; order += 1) {
         const key = sequence.slice(index - order, index).join(",");
         let entry = transitions[order].get(key);
@@ -201,94 +228,86 @@ function buildParkerMarkovModel() {
     }
   }
 
-  return { transitions, phraseStarts };
+  return {
+    performers,
+    solos,
+    intervalSequences,
+    intervalCounts: Object.freeze(intervalCounts),
+    intervalSampleSize,
+    transitions,
+    phraseStarts,
+  };
 }
 
-const PARKER_MARKOV_MODEL = buildParkerMarkovModel();
-
-function containsSubsequence(sequence, candidate) {
-  if (candidate.length > sequence.length) return false;
-  for (let start = 0; start <= sequence.length - candidate.length; start += 1) {
-    if (candidate.every((interval, index) => interval === sequence[start + index])) {
-      return true;
+function getJazzMarkovModel(selectedPerformers) {
+  const { performers, solos } = selectedSolos(selectedPerformers);
+  const key = performers.join("\u0000");
+  if (!modelCache.has(key)) {
+    if (modelCache.size >= 4) {
+      modelCache.delete(modelCache.keys().next().value);
     }
+    modelCache.set(key, buildJazzMarkovModel(performers, solos));
   }
-  return false;
+  return modelCache.get(key);
 }
 
-function isExactCorpusPhrase(intervals) {
-  return PARKER_INTERVAL_SEQUENCES.some(
-    (sequence) =>
-      sequence.length === intervals.length &&
-      sequence.every((interval, index) => interval === intervals[index]),
-  );
+export function jazzCorpusSummary(
+  selectedPerformers = DEFAULT_PERFORMERS,
+) {
+  const model = getJazzMarkovModel(selectedPerformers);
+  return {
+    performerCount: model.performers.length,
+    soloCount: model.solos.length,
+    phraseCount: model.intervalSequences.length,
+    intervalSampleSize: model.intervalSampleSize,
+    intervalCounts: model.intervalCounts,
+  };
 }
 
-function exceedsCorpusCopyRun(intervals) {
-  if (intervals.length <= PARKER_MARKOV_MAX_COPY_RUN) return false;
-  const suffix = intervals.slice(-(PARKER_MARKOV_MAX_COPY_RUN + 1));
-  return PARKER_INTERVAL_SEQUENCES.some((sequence) =>
-    containsSubsequence(sequence, suffix),
-  );
-}
-
-function availableMarkovEntries(entry, previousMidi, history, isFinal) {
+function availableMarkovEntries(entry, previousMidi) {
   return [...entry.next.entries()].filter(([interval]) => {
     const candidateMidi = previousMidi + interval;
-    if (candidateMidi < MIN_MIDI || candidateMidi > MAX_MIDI) return false;
-    const candidateHistory = [...history, interval];
-    if (exceedsCorpusCopyRun(candidateHistory)) return false;
-    return !isFinal || !isExactCorpusPhrase(candidateHistory);
+    return candidateMidi >= MIN_MIDI && candidateMidi <= MAX_MIDI;
   });
 }
 
-function nextMarkovInterval(history, previousMidi, isFinal, random) {
+function nextMarkovInterval(history, previousMidi, random, model) {
   if (!history.length) {
-    const startEntry = { next: PARKER_MARKOV_MODEL.phraseStarts };
-    const available = availableMarkovEntries(
-      startEntry,
-      previousMidi,
-      history,
-      isFinal,
-    );
+    const startEntry = { next: model.phraseStarts };
+    const available = availableMarkovEntries(startEntry, previousMidi);
     if (available.length) {
       return { interval: weightedChoice(available, random), order: 0 };
     }
   }
 
-  const maxOrder = Math.min(PARKER_MARKOV_MAX_ORDER, history.length);
+  const maxOrder = Math.min(JAZZ_MARKOV_MAX_ORDER, history.length);
   for (let order = maxOrder; order >= 0; order -= 1) {
     const key = order === 0 ? "" : history.slice(-order).join(",");
-    const entry = PARKER_MARKOV_MODEL.transitions[order].get(key);
+    const entry = model.transitions[order].get(key);
     if (!entry) continue;
-    if (order > 0 && entry.count < PARKER_MARKOV_MIN_CONTEXT_COUNT) continue;
-    const available = availableMarkovEntries(
-      entry,
-      previousMidi,
-      history,
-      isFinal,
-    );
+    if (order > 0 && entry.count < JAZZ_MARKOV_MIN_CONTEXT_COUNT) continue;
+    const available = availableMarkovEntries(entry, previousMidi);
     if (available.length) {
       return { interval: weightedChoice(available, random), order };
     }
   }
 
-  throw new Error("Aucune transition Parker compatible avec le registre.");
+  throw new Error("Aucune transition compatible avec le registre.");
 }
 
-function randomSequence(length, random) {
+function randomSequence(length, random, selectedPerformers) {
+  const model = getJazzMarkovModel(selectedPerformers);
   const notes = [randomInt(53, 65, random)];
   const intervals = [];
   const ordersUsed = [];
 
   while (notes.length < length) {
     const previous = notes.at(-1);
-    const isFinal = notes.length === length - 1;
     const { interval, order } = nextMarkovInterval(
       intervals,
       previous,
-      isFinal,
       random,
+      model,
     );
     intervals.push(interval);
     ordersUsed.push(order);
@@ -298,23 +317,27 @@ function randomSequence(length, random) {
   return {
     notes,
     meta: {
-      label: "Aléatoire — Markov Parker",
+      label: "Phrases générées",
       source: {
         kind: "generated",
         label:
-          `Générée par Markov d’ordre variable (max. ${PARKER_MARKOV_MAX_ORDER}) ` +
-          `sur ${PARKER_INTERVAL_SAMPLE_SIZE} intervalles Parker`,
+          `Générée par Markov d’ordre variable (max. ${JAZZ_MARKOV_MAX_ORDER}) ` +
+          `sur ${model.intervalSampleSize.toLocaleString("fr-FR")} intervalles ` +
+          `de ${model.performers.length} soliste${model.performers.length > 1 ? "s" : ""}`,
         model: "variable-order-markov",
-        maxOrder: PARKER_MARKOV_MAX_ORDER,
+        maxOrder: JAZZ_MARKOV_MAX_ORDER,
+        intervalSampleSize: model.intervalSampleSize,
+        performers: model.performers,
         ordersUsed,
       },
     },
   };
 }
 
-function parkerSequence(random, maxNotes = 15) {
+function jazzSequence(random, maxNotes = 15, selectedPerformers) {
+  const { performers, solos } = selectedSolos(selectedPerformers);
   const candidates = [];
-  for (const solo of PARKER_SOLOS) {
+  for (const solo of solos) {
     for (const phrase of solo.phrases) {
       const [start, end] = phrase;
       const events = solo.events.slice(start, end + 1);
@@ -336,7 +359,7 @@ function parkerSequence(random, maxNotes = 15) {
     notes: events.map(([midi]) => midi),
   };
   const wasTruncated = excerpt.events.length < selected.events.length;
-  const transposition = randomParkerTransposition(random);
+  const transposition = randomJazzTransposition(random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
   const timings = excerpt.events.map((event) => ({
@@ -347,10 +370,10 @@ function parkerSequence(random, maxNotes = 15) {
   const playbackEnd = lastEvent[1] + lastEvent[2];
   const chicks = (excerpt.solo.beats ?? [])
     .filter(
-      ([onset, beat, period]) =>
+      ([onset, beat]) =>
         onset >= firstOnset &&
         onset < playbackEnd &&
-        (beat === 2 || (period >= 4 && beat === 4)),
+        (beat === 2 || beat === 4),
     )
     .map(([onset, beat]) => ({
       offset: Number((onset - firstOnset).toFixed(4)),
@@ -392,6 +415,7 @@ function parkerSequence(random, maxNotes = 15) {
         onsetStart: excerpt.events[0][1],
         onsetEnd: excerpt.events.at(-1)[1] + excerpt.events.at(-1)[2],
         originalTempo: excerpt.solo.originalTempo,
+        performers,
         transposition,
       },
     },
@@ -402,13 +426,14 @@ export function makeSequence({
   length = 5,
   maxNotes = 15,
   mode = "random",
+  selectedPerformers = DEFAULT_PERFORMERS,
   random = Math.random,
 } = {}) {
   const safeLength = Math.max(3, Math.min(15, Math.round(length)));
   const sequence =
     mode === "parker" || mode === "jazz"
-      ? parkerSequence(random, maxNotes)
-      : randomSequence(safeLength, random);
+      ? jazzSequence(random, maxNotes, selectedPerformers)
+      : randomSequence(safeLength, random, selectedPerformers);
   return {
     ...sequence,
     keyboard: keyboardLayoutForNotes(sequence.notes),

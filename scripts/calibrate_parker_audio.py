@@ -24,7 +24,10 @@ MIDI_MAX = 96
 
 def load_corpus(path: Path) -> list[dict]:
     text = path.read_text(encoding="utf-8")
-    payload = text.split("export const PARKER_SOLOS = ", 1)[1].rsplit(";", 1)[0]
+    payload = (
+        text.split("export const WJAZZD_SOLOS = ", 1)[1]
+        .split(";\nexport const WJAZZD_PERFORMERS", 1)[0]
+    )
     return json.loads(payload)
 
 
@@ -144,17 +147,19 @@ def calibrate(solo: dict, audio_path: Path) -> list[tuple[float, float]]:
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    corpus = load_corpus(root / "data/parker-solos.js")
+    corpus = load_corpus(root / "data/wjazzd-solos.js")
     audio_paths = {
         "Billie's Bounce": root / "audio/parker/billies-bounce.mp3",
         "Donna Lee": root / "audio/parker/donna-lee.mp3",
         "Ornithology": root / "audio/parker/ornithology.mp3",
-        "Scrapple From The Apple": root / "audio/parker/scrapple-from-the-apple.mp3",
-        "Thriving On A Riff": root / "audio/parker/thriving-on-a-riff.mp3",
+        "Scrapple from the Apple": root / "audio/parker/scrapple-from-the-apple.mp3",
+        "Thriving on a Riff": root / "audio/parker/thriving-on-a-riff.mp3",
         "Yardbird Suite": root / "audio/parker/yardbird-suite.mp3",
     }
     selected = set(sys.argv[1:])
     for solo in corpus:
+        if solo["title"] not in audio_paths:
+            continue
         if selected and solo["title"] not in selected:
             continue
         print(solo["title"])
