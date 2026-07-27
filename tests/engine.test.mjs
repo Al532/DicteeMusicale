@@ -11,6 +11,7 @@ import {
   PARKER_MARKOV_MIN_CONTEXT_COUNT,
   isCorrectMidi,
   keyboardLayoutForNotes,
+  makeParkerTranspositionCycle,
   makeSequence,
   pitchClass,
   randomDifferentParkerTransposition,
@@ -112,6 +113,36 @@ test("une nouvelle transposition choisit uniformément l’un des 11 autres tons
     Array.from({ length: 11 }, (_, index) => index + 1),
   );
   assert.ok(shifts.every((shift) => shift >= -6 && shift <= 6));
+});
+
+test("les transpositions suivent des cycles complets sans répétition", () => {
+  const initialTransposition = 4;
+  const firstCycle = [
+    initialTransposition,
+    ...makeParkerTranspositionCycle({
+      excludeTransposition: initialTransposition,
+      random: seededRandom(42),
+    }),
+  ];
+  assert.deepEqual(
+    [...new Set(firstCycle.map((shift) => pitchClass(shift)))].sort((a, b) => a - b),
+    Array.from({ length: 12 }, (_, index) => index),
+  );
+
+  const lastTransposition = firstCycle.at(-1);
+  const secondCycle = makeParkerTranspositionCycle({
+    avoidFirstTransposition: lastTransposition,
+    random: seededRandom(43),
+  });
+  assert.equal(secondCycle.length, 12);
+  assert.deepEqual(
+    [...new Set(secondCycle.map((shift) => pitchClass(shift)))].sort((a, b) => a - b),
+    Array.from({ length: 12 }, (_, index) => index),
+  );
+  assert.notEqual(
+    pitchClass(secondCycle[0]),
+    pitchClass(lastTransposition),
+  );
 });
 
 test("le clavier glissant couvre la phrase avec au moins quatre chunks entiers", () => {

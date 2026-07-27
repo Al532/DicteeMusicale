@@ -66,6 +66,43 @@ export function randomDifferentParkerTransposition(
   return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
 }
 
+function signedParkerTransposition(pitchClassShift, random) {
+  if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
+  return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
+}
+
+export function makeParkerTranspositionCycle({
+  excludeTransposition = null,
+  avoidFirstTransposition = null,
+  random = Math.random,
+} = {}) {
+  const excludedPitchClass = Number.isFinite(excludeTransposition)
+    ? pitchClass(excludeTransposition)
+    : null;
+  const cycle = Array.from({ length: 12 }, (_, index) => index)
+    .filter((candidate) => candidate !== excludedPitchClass)
+    .map((candidate) => signedParkerTransposition(candidate, random));
+
+  for (let index = cycle.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(0, index, random);
+    [cycle[index], cycle[swapIndex]] = [cycle[swapIndex], cycle[index]];
+  }
+
+  if (
+    cycle.length > 1 &&
+    Number.isFinite(avoidFirstTransposition) &&
+    pitchClass(cycle[0]) === pitchClass(avoidFirstTransposition)
+  ) {
+    const swapIndex = cycle.findIndex(
+      (candidate) =>
+        pitchClass(candidate) !== pitchClass(avoidFirstTransposition),
+    );
+    [cycle[0], cycle[swapIndex]] = [cycle[swapIndex], cycle[0]];
+  }
+
+  return cycle;
+}
+
 function chunkIndex(midi) {
   const octave = Math.floor(midi / 12);
   return octave * 2 + (pitchClass(midi) >= 5 ? 1 : 0);

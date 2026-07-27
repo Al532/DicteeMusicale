@@ -142,7 +142,7 @@ test("le bouton de jeu demande le plein écran et verrouille le paysage", () => 
 test("chaque bouton d’accueil ouvre son mode de jeu", () => {
   assert.match(
     app,
-    /function startExercise\(\) \{[\s\S]*?enterGameMode\(\);[\s\S]*?makeSequence/,
+    /async function startExercise\(\) \{[\s\S]*?await enterGameMode\(\);[\s\S]*?makeSequence/,
   );
   assert.match(app, /elements\.startParker\.addEventListener\("click", \(\) => startMode\("parker"\)\)/);
   assert.match(app, /elements\.startRandom\.addEventListener\("click", \(\) => startMode\("random"\)\)/);
@@ -303,9 +303,15 @@ test("les toggles de lecture gardent une largeur fixe pour ne pas déplacer les 
 test("la réussite ouvre une modale avec les quatre suites possibles", () => {
   assert.match(index, /id="completion-modal"[\s\S]*?role="dialog"/);
   assert.match(index, /id="restart-exercise">Recommencer<\/button>/);
-  assert.match(index, /id="transpose-exercise">Transposer<\/button>/);
+  assert.match(
+    index,
+    /class="primary-button" id="transpose-exercise">Transposer<\/button>/,
+  );
   assert.match(index, /id="completion-next">Suivant<\/button>/);
-  assert.match(index, /id="completion-exit">Quitter<\/button>/);
+  assert.match(
+    index,
+    /id="completion-exit"[\s\S]*?aria-label="Quitter le mode jeu"[\s\S]*?>\s*×\s*<\/button>/,
+  );
   assert.match(app, /function finishExercise\(\) \{[\s\S]*?scheduleCompletionModal\(\)/);
   assert.match(
     app,
@@ -313,7 +319,7 @@ test("la réussite ouvre une modale avec les quatre suites possibles", () => {
   );
   assert.match(
     app,
-    /function transposeSameExercise\(\) \{[\s\S]*?randomDifferentParkerTransposition\([\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
+    /function transposeSameExercise\(\) \{[\s\S]*?makeParkerTranspositionCycle\([\s\S]*?exercise\.transpositionCycle\.shift\(\)[\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
   );
   assert.match(app, /elements\.completionNext\.addEventListener\("click", startExercise\)/);
   assert.match(
@@ -357,8 +363,31 @@ test("la modale attend la fin du dernier geste avant de s’afficher", () => {
   );
 });
 
+test("la première phrase attend la mise en place du mode jeu", () => {
+  assert.match(app, /const GAME_MODE_START_DELAY_MS = 900/);
+  assert.match(
+    app,
+    /const enteringGameMode = !document\.body\.classList\.contains\("game-mode"\);[\s\S]*?if \(enteringGameMode\) await enterGameMode\(\)/,
+  );
+  assert.match(
+    app,
+    /if \(enteringGameMode\) \{[\s\S]*?Prépare-toi…[\s\S]*?window\.setTimeout\([\s\S]*?playSequence\(\);[\s\S]*?GAME_MODE_START_DELAY_MS/,
+  );
+  assert.match(
+    app,
+    /function stopAllTones\(\) \{[\s\S]*?window\.clearTimeout\(gameModeStartTimer\)/,
+  );
+});
+
+test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
+  assert.match(
+    index,
+    /class="primary-button" id="transpose-exercise">Transposer<\/button>[\s\S]*?class="primary-button" id="completion-next">Suivant<\/button>/,
+  );
+});
+
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v15/);
+  assert.match(serviceWorker, /dictee-musicale-v16/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",

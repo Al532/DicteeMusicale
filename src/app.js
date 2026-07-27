@@ -3,9 +3,9 @@ import {
   intervalLabel,
   isCorrectMidi,
   keyboardLayoutForNotes,
+  makeParkerTranspositionCycle,
   makeSequence,
   pitchClass,
-  randomDifferentParkerTransposition,
   summarizeRecords,
 } from "./engine.js";
 import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
@@ -21,6 +21,7 @@ const RANDOM_PLAYBACK_MIN_PERCENT = 50;
 const RANDOM_PLAYBACK_MAX_PERCENT = 640;
 const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
+const GAME_MODE_START_DELAY_MS = 900;
 
 const elements = {
   gameLength: document.querySelector("#game-length"),
@@ -81,6 +82,7 @@ const decodedAudioBuffers = new Map();
 let playbackTimer = null;
 let restartTimer = null;
 let completionTimer = null;
+let gameModeStartTimer = null;
 let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
@@ -367,6 +369,10 @@ function setOriginalPlaybackState(playing) {
 
 function stopAllTones() {
   originalPlaybackToken += 1;
+  if (gameModeStartTimer !== null) {
+    window.clearTimeout(gameModeStartTimer);
+    gameModeStartTimer = null;
+  }
   if (playbackTimer !== null) {
     window.clearTimeout(playbackTimer);
     playbackTimer = null;
@@ -517,6 +523,7 @@ function playSequence() {
   if (!exercise) return;
   stopAllTones();
   setPlaybackState(true);
+  elements.replay.disabled = false;
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "Écoute bien…";
@@ -576,10 +583,11 @@ function markReferenceKey() {
   key?.classList.add("reference-key");
 }
 
-function startExercise() {
+async function startExercise() {
   hideCompletionModal();
   getAudioContext();
-  if (!document.body.classList.contains("game-mode")) enterGameMode();
+  const enteringGameMode = !document.body.classList.contains("game-mode");
+  if (enteringGameMode) await enterGameMode();
   saveSettings();
   const generated = makeSequence({
     length: randomLength,
@@ -604,6 +612,9 @@ function startExercise() {
       (midi) => midi - (generated.meta.source.transposition ?? 0),
     ),
     transposition: generated.meta.source.transposition ?? 0,
+    transpositionCycle: makeParkerTranspositionCycle({
+      excludeTransposition: generated.meta.source.transposition ?? 0,
+    }),
     timings: generated.timings ?? null,
     chicks: generated.chicks ?? null,
     keyboard: generated.keyboard,
@@ -619,11 +630,21 @@ function startExercise() {
   elements.originalControls.hidden = !hasOriginal;
   elements.playOriginal.disabled = !hasOriginal;
   elements.transposeOriginal.disabled = !hasOriginal;
-  elements.replay.disabled = false;
+  elements.replay.disabled = enteringGameMode;
   elements.nextExercise.disabled = false;
   buildPiano(generated.keyboard);
   markReferenceKey();
-  playSequence();
+  if (enteringGameMode) {
+    acceptingInput = false;
+    elements.feedback.className = "feedback";
+    elements.feedback.textContent = "Prépare-toi…";
+    gameModeStartTimer = window.setTimeout(() => {
+      gameModeStartTimer = null;
+      playSequence();
+    }, GAME_MODE_START_DELAY_MS);
+  } else {
+    playSequence();
+  }
 }
 
 function renderSource(source) {
@@ -699,9 +720,12 @@ function transposeSameExercise() {
   if (!exercise) return;
   hideCompletionModal();
   stopAllTones();
-  const transposition = randomDifferentParkerTransposition(
-    exercise.transposition,
-  );
+  if (!exercise.transpositionCycle.length) {
+    exercise.transpositionCycle = makeParkerTranspositionCycle({
+      avoidFirstTransposition: exercise.transposition,
+    });
+  }
+  const transposition = exercise.transpositionCycle.shift();
   exercise.transposition = transposition;
   exercise.notes = exercise.originalNotes.map((midi) => midi + transposition);
   exercise.source = { ...exercise.source, transposition };
