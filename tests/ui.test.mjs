@@ -306,7 +306,7 @@ test("la réussite ouvre une modale avec les quatre suites possibles", () => {
   assert.match(index, /id="transpose-exercise">Transposer<\/button>/);
   assert.match(index, /id="completion-next">Suivant<\/button>/);
   assert.match(index, /id="completion-exit">Quitter<\/button>/);
-  assert.match(app, /function finishExercise\(\) \{[\s\S]*?showCompletionModal\(\)/);
+  assert.match(app, /function finishExercise\(\) \{[\s\S]*?scheduleCompletionModal\(\)/);
   assert.match(
     app,
     /function restartSameExercise\(\) \{[\s\S]*?prepareRepeatedExercise\(\);[\s\S]*?resetExerciseProgress\(\);[\s\S]*?playSequence\(\)/,
@@ -330,6 +330,7 @@ test("la modale n’offre l’original qu’en mode Phrases réelles", () => {
     app,
     /function showCompletionModal\(\) \{\s*elements\.completionOriginal\.hidden = !exercise\?\.source\?\.audioFile/,
   );
+  assert.match(styles, /\[hidden\] \{\s*display: none !important;/);
   assert.match(app, /const hasOriginal = Boolean\(generated\.meta\.source\.audioFile\)/);
   const modalPlayback = app.match(
     /function toggleCompletionOriginal\(\) \{([\s\S]*?)\n\}/,
@@ -344,8 +345,20 @@ test("la modale n’offre l’original qu’en mode Phrases réelles", () => {
   assert.match(styles, /\.completion-original \{[\s\S]*?grid-column: 1 \/ -1;/);
 });
 
+test("la modale attend la fin du dernier geste avant de s’afficher", () => {
+  assert.match(app, /const COMPLETION_MODAL_DELAY_MS = 350/);
+  assert.match(
+    app,
+    /function scheduleCompletionModal\(\) \{[\s\S]*?window\.setTimeout\([\s\S]*?showCompletionModal\(\);[\s\S]*?COMPLETION_MODAL_DELAY_MS/,
+  );
+  assert.match(
+    app,
+    /function hideCompletionModal\(\) \{[\s\S]*?window\.clearTimeout\(completionTimer\);[\s\S]*?completionTimer = null;/,
+  );
+});
+
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v14/);
+  assert.match(serviceWorker, /dictee-musicale-v15/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",

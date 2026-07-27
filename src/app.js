@@ -20,6 +20,7 @@ const RANDOM_SLIDER_MAX = 100;
 const RANDOM_PLAYBACK_MIN_PERCENT = 50;
 const RANDOM_PLAYBACK_MAX_PERCENT = 640;
 const ORIGINAL_TAIL_SECONDS = 0.25;
+const COMPLETION_MODAL_DELAY_MS = 350;
 
 const elements = {
   gameLength: document.querySelector("#game-length"),
@@ -79,6 +80,7 @@ const activeAudioSources = new Set();
 const decodedAudioBuffers = new Map();
 let playbackTimer = null;
 let restartTimer = null;
+let completionTimer = null;
 let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
@@ -656,6 +658,10 @@ function renderSource(source) {
 }
 
 function hideCompletionModal() {
+  if (completionTimer !== null) {
+    window.clearTimeout(completionTimer);
+    completionTimer = null;
+  }
   elements.completionModal.hidden = true;
 }
 
@@ -663,6 +669,13 @@ function showCompletionModal() {
   elements.completionOriginal.hidden = !exercise?.source?.audioFile;
   elements.completionModal.hidden = false;
   window.requestAnimationFrame(() => elements.completionNext.focus());
+}
+
+function scheduleCompletionModal() {
+  completionTimer = window.setTimeout(() => {
+    completionTimer = null;
+    showCompletionModal();
+  }, COMPLETION_MODAL_DELAY_MS);
 }
 
 function prepareRepeatedExercise() {
@@ -819,7 +832,7 @@ function finishExercise() {
   elements.feedback.textContent = perfect
     ? "Phrase terminée — sans erreur !"
     : "Phrase terminée. Les erreurs ont été enregistrées.";
-  showCompletionModal();
+  scheduleCompletionModal();
 }
 
 function renderStats() {
