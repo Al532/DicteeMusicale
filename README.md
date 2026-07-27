@@ -1,14 +1,13 @@
-# Dictée musicale
+# Sur les traces de Bird - Ear Training
 
-Application web mobile de dictée mélodique :
+Dictée mélodique à partir des solos de Charlie Parker. Écoute une phrase réelle ou générée
+à partir de son langage mélodique, puis retrouve-la intégralement au clavier.
 
 - une séquence aléatoire de 3 à 15 notes ou un extrait de phrase Parker est joué ;
-- la première note est jouée et repérée sur le clavier, mais doit être saisie avant d’être
-  révélée dans la séquence ;
+- la première note est jouée et repérée sur le clavier, mais doit être saisie ;
 - les autres notes ne sont jamais montrées pendant la lecture ;
 - les notes suivantes sont saisies dans leur octave exacte sur un piano adaptatif ;
 - le clavier affiche au moins deux octaves et s’étend si l’ambitus l’exige ;
-- les notes déjà trouvées peuvent être réécoutées en touchant leur bouton ;
 - les résultats restent sur l’appareil et peuvent être exportés en JSON ou CSV ;
 - l’application fonctionne hors connexion après une première visite.
 
@@ -34,8 +33,8 @@ Deux modes sont disponibles, avec **Phrases réelles** sélectionné par défaut
   Le bouton **Écouter Charlie Parker** commence exactement à la frontière de l’extrait et
   conserve 250 ms après sa fin annotée pour ne pas couper la résonance.
   Le toggle **Transposer** aligne sa hauteur sur la transposition courante sans accélérer ni
-  ralentir l’audio. Après une réussite, la modale permet aussi d’écouter l’original dans son
-  ton d’origine sans fermer la modale.
+  ralentir l’audio. Après une réussite, la modale de ce mode permet aussi d’écouter l’original
+  dans son ton d’origine sans se fermer. Ce bouton n’apparaît pas dans le mode généré.
 - **Aléatoire — Markov Parker** : de 3 à 15 notes. Le curseur affiche une échelle simplifiée
   de 25 à 100 %, tout en conservant son échelle de lecture interne ; sa vitesse maximale
   atteint désormais 640 % sur cette échelle interne. Chaque note est tenue legato jusqu’à
@@ -77,7 +76,8 @@ Les hauteurs et positions proviennent du corpus de recherche public
 [WJazzD v1.2 (2016)](https://github.com/jazzomat/article_2016), fichier `score.zip`. Les
 phrases sont transposées uniformément dans les 12 classes chromatiques, sans modifier leurs
 intervalles et sans dépasser six demi-tons. Pour le triton, +6 et −6 se partagent le poids
-d’une seule transposition. La transposition appliquée est enregistrée dans les statistiques.
+d’une seule transposition. La tonalité originale (transposition 0) fait partie du même tirage
+équiprobable. La transposition appliquée est enregistrée dans les statistiques.
 
 Le clavier suit le registre réel de la phrase transposée. Il est composé de chunks indivisibles
 **do–mi** et **fa–si**, centrés autour de la phrase, avec un minimum de quatre chunks. Des

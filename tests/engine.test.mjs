@@ -82,7 +82,7 @@ test("la correction exige la hauteur MIDI exacte", () => {
   assert.equal(pitchClass(-1), 11);
 });
 
-test("les 12 transpositions chromatiques sont équiprobables sans doubler le triton", () => {
+test("les 12 transpositions, dont la tonalité originale, sont équiprobables", () => {
   const shifts = Array.from({ length: 12 }, (_, bucket) =>
     randomParkerTransposition(() => (bucket + 0.25) / 12),
   );
@@ -91,6 +91,8 @@ test("les 12 transpositions chromatiques sont équiprobables sans doubler le tri
     Array.from({ length: 12 }, (_, index) => index),
   );
   assert.ok(shifts.every((shift) => shift >= -6 && shift <= 6));
+  assert.ok(shifts.includes(0));
+  assert.equal(randomParkerTransposition(() => 0.01), 0);
 
   let draw = 0;
   const negativeTritone = randomParkerTransposition(() => [6.25 / 12, 0.25][draw++]);
@@ -221,6 +223,21 @@ test("un extrait Parker conserve une source précise", () => {
   assert.ok(Number.isFinite(result.meta.source.audioOffset));
   assert.ok(result.meta.source.onsetEnd > result.meta.source.onsetStart);
   assert.equal(result.notes.length, result.meta.source.noteCount);
+});
+
+test("seules les phrases réelles disposent d’un enregistrement original", () => {
+  const generated = makeSequence({
+    length: 8,
+    mode: "random",
+    random: seededRandom(8),
+  });
+  const real = makeSequence({
+    mode: "parker",
+    random: seededRandom(8),
+  });
+
+  assert.equal(generated.meta.source.audioFile, undefined);
+  assert.match(real.meta.source.audioFile, /^audio\/parker\/.+\.mp3$/);
 });
 
 test("les six enregistrements Parker sont présents sous leur nom stable", async () => {

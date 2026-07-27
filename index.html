@@ -9,9 +9,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta
       name="description"
-      content="Entraînement mobile à la dictée mélodique, avec correction immédiate et statistiques locales."
+      content="Dictée mélodique à partir de phrases réelles et générées sur le langage de Charlie Parker."
     />
-    <title>Dictée musicale</title>
+    <title>Sur les traces de Bird - Ear Training</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
@@ -20,8 +20,13 @@
   <body>
     <header class="site-header">
       <div>
-        <p class="eyebrow">Oreille relative</p>
-        <h1>Dictée musicale</h1>
+        <p class="eyebrow">Charlie Parker</p>
+        <h1>Sur les traces de Bird - Ear Training</h1>
+        <p class="site-subtitle">Dictée mélodique à partir des solos de Charlie Parker</p>
+        <p class="site-description">
+          Écoute une phrase réelle ou générée à partir de son langage mélodique, puis
+          retrouve-la intégralement au clavier.
+        </p>
       </div>
       <button class="ghost-button compact" id="install-button" hidden>Installer</button>
     </header>
@@ -42,7 +47,7 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow" id="exercise-kicker">Prêt</p>
-            <h2 id="exercise-title">Écoute, puis joue la suite</h2>
+            <h2 id="exercise-title">Écoute, puis retrouve la phrase</h2>
           </div>
           <div class="exercise-actions">
             <label class="game-length-setting" id="game-length-setting">
@@ -68,7 +73,7 @@
                 title="Transposer la hauteur sans modifier la durée"
               >
                 <input id="transpose-original" type="checkbox" />
-                <span>Transposer dans le ton actuel</span>
+                <span>Transposer</span>
               </label>
             </div>
             <button class="ghost-button compact" id="next-exercise" disabled>Suivant</button>
@@ -76,10 +81,8 @@
           </div>
         </div>
 
-        <ol class="sequence" id="sequence" aria-label="Progression dans la phrase"></ol>
-
         <div class="feedback" id="feedback" role="status" aria-live="polite">
-          Lance une phrase pour commencer.
+          Choisis un mode pour commencer.
         </div>
         <p class="source-line" id="source-line" hidden>
           <span id="source-details"></span>
@@ -154,8 +157,8 @@
       hidden
     >
       <div class="completion-card">
-        <p class="eyebrow">Séquence réussie</p>
-        <h2 id="completion-title">On continue ?</h2>
+        <p class="eyebrow">Phrase retrouvée</p>
+        <h2 id="completion-title">Bien joué !</h2>
         <div class="completion-actions">
           <button
             class="ghost-button completion-original"
@@ -176,7 +179,13 @@
         <span class="rotate-icon" aria-hidden="true">↻</span>
         <strong>Tourne l’appareil</strong>
         <p>Le mode jeu est prévu pour l’orientation paysage.</p>
-        <button class="ghost-button compact" id="exit-portrait-mode">Quitter</button>
+        <button
+          class="ghost-button compact close-button"
+          id="exit-portrait-mode"
+          aria-label="Quitter le plein écran"
+        >
+          ×
+        </button>
       </div>
     </div>
   </body>

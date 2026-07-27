@@ -10,6 +10,20 @@ const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
 
+test("l’identité et les indications correspondent à l’entraînement Bird", () => {
+  assert.match(index, /<title>Sur les traces de Bird - Ear Training<\/title>/);
+  assert.match(index, /<h1>Sur les traces de Bird - Ear Training<\/h1>/);
+  assert.match(index, /Dictée mélodique à partir des solos de Charlie Parker/);
+  assert.match(
+    index,
+    /Écoute une phrase réelle ou générée à partir de son langage mélodique,[\s\S]*?retrouve-la intégralement au clavier\./,
+  );
+  assert.match(index, /id="exercise-title">Écoute, puis retrouve la phrase<\/h2>/);
+  assert.match(index, /Phrase retrouvée[\s\S]*?id="completion-title">Bien joué !<\/h2>/);
+  assert.match(app, /Erreur — on réécoute depuis le début\./);
+  assert.match(app, /À toi — retrouve la note/);
+});
+
 test("l’accueil ne propose que les deux boutons de lancement", () => {
   const home = index.match(
     /<section class="panel settings-panel"[\s\S]*?<\/section>/,
@@ -73,7 +87,7 @@ test("seule la première touche est animée pendant la lecture", () => {
 
 test("la lecture audio commence bien par la première note", () => {
   const playback = app.match(
-    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction renderSequence/,
+    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
   assert.ok(playback);
   assert.equal(playback.match(/exercise\.notes\.forEach/g)?.length, 2);
@@ -91,7 +105,7 @@ test("les notes restent pleines presque jusqu’à leur fin annotée", () => {
 
 test("le mode aléatoire joue legato jusqu’à la note suivante", () => {
   const playback = app.match(
-    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction renderSequence/,
+    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
   assert.ok(playback);
   assert.match(
@@ -106,14 +120,10 @@ test("le mode aléatoire joue legato jusqu’à la note suivante", () => {
   assert.doesNotMatch(playback, /toneDuration = Math\.min/);
 });
 
-test("la première note doit être saisie avant d’apparaître dans la séquence", () => {
+test("la première note est indiquée sur le clavier mais doit être saisie", () => {
   assert.match(app, /currentIndex: 0/);
-  assert.match(app, /const isRecorded = index < exercise\.currentIndex/);
-  assert.match(
-    app,
-    /if \(isRecorded\) \{\s*slot\.className = index === 0 \? "reference" : "solved"/,
-  );
   assert.match(app, /markReferenceKey\(\)/);
+  assert.doesNotMatch(index, /id="sequence"/);
 });
 
 test("la PWA se lance en plein écran paysage", () => {
@@ -125,9 +135,11 @@ test("la PWA se lance en plein écran paysage", () => {
 test("le bouton de jeu demande le plein écran et verrouille le paysage", () => {
   assert.match(index, /id="fullscreen-button">Plein écran</);
   assert.match(index, /class="rotate-overlay"/);
+  assert.match(index, /id="exit-portrait-mode"[\s\S]*?aria-label="Quitter le plein écran"[\s\S]*?>\s*×\s*</);
   assert.match(app, /document\.documentElement\.requestFullscreen/);
   assert.match(app, /screen\.orientation\?\.lock\?\.\("landscape"\)/);
   assert.match(app, /document\.addEventListener\("fullscreenchange"/);
+  assert.match(app, /elements\.fullscreenButton\.textContent = active \? "×" : "Plein écran"/);
 });
 
 test("chaque bouton d’accueil ouvre son mode de jeu", () => {
@@ -152,9 +164,10 @@ test("le mode jeu donne toute la largeur disponible au piano dynamique", () => {
   assert.match(app, /midi = layout\.startMidi; midi <= layout\.endMidi/);
 });
 
-test("les notes validées sont des boutons audibles", () => {
-  assert.match(app, /button\.addEventListener\("click", \(\) => playRecordedNote\(midi\)\)/);
-  assert.match(app, /function playRecordedNote\(midi\) \{[\s\S]*?playTone\(midi/);
+test("les cases de notes et leur logique ont été entièrement retirées", () => {
+  assert.doesNotMatch(index, /id="sequence"/);
+  assert.doesNotMatch(app, /renderSequence|playRecordedNote|elements\.sequence/);
+  assert.doesNotMatch(styles, /\.sequence/);
 });
 
 test("Suivant est disponible en jeu et Note de départ a disparu", () => {
@@ -176,7 +189,7 @@ test("Réécouter devient Stop pendant la lecture et arrête toutes les sources"
 
 test("les chicks ne sont programmés que pour la lecture rythmée Parker", () => {
   const playback = app.match(
-    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction renderSequence/,
+    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
   assert.ok(playback);
   assert.match(
@@ -225,7 +238,7 @@ test("l’écoute Parker est visible et son toggle lui est directement rattaché
     app,
     /elements\.playOriginal\.textContent = playing \? "Stop" : "Écouter Charlie Parker"/,
   );
-  assert.match(index, /Transposer dans le ton actuel/);
+  assert.match(index, /<span>Transposer<\/span>/);
   assert.match(app, /elements\.originalControls\.hidden = !hasOriginal/);
   assert.match(
     styles,
@@ -235,11 +248,20 @@ test("l’écoute Parker est visible et son toggle lui est directement rattaché
   assert.match(app, /elements\.playOriginal\.addEventListener\("click", toggleOriginalPlayback\)/);
 });
 
+test("les liens de source restent dans la continuité du texte", () => {
+  assert.match(
+    index,
+    /<p class="source-line"[\s\S]*?<span id="source-details"><\/span>[\s\S]*?<a id="source-link"/,
+  );
+  assert.match(styles, /\.source-line \{\s*display: block;/);
+  assert.match(styles, /\.source-line a \{[\s\S]*?margin-left: 6px;[\s\S]*?white-space: nowrap;/);
+});
+
 test("une erreur efface la progression puis relance automatiquement depuis le début", () => {
   assert.match(app, /const WRONG_NOTE_REPLAY_DELAY_MS = 650/);
   assert.match(
     app,
-    /function resetExerciseProgress\(\) \{[\s\S]*?exercise\.currentIndex = 0;[\s\S]*?renderSequence\(\)/,
+    /function resetExerciseProgress\(\) \{[\s\S]*?exercise\.currentIndex = 0;[\s\S]*?exercise\.guessStartedAt = null;/,
   );
   assert.match(
     app,
@@ -294,12 +316,13 @@ test("la réussite ouvre une modale Recommencer ou Suivant", () => {
   assert.match(styles, /\.completion-modal:not\(\[hidden\]\) \{\s*display: grid;/);
 });
 
-test("la modale Parker écoute l’original sans se fermer ni transposer", () => {
+test("la modale n’offre l’original qu’en mode Phrases réelles", () => {
   assert.match(index, /id="completion-original"[\s\S]*?>\s*Écouter l’original\s*</);
   assert.match(
     app,
     /function showCompletionModal\(\) \{\s*elements\.completionOriginal\.hidden = !exercise\?\.source\?\.audioFile/,
   );
+  assert.match(app, /const hasOriginal = Boolean\(generated\.meta\.source\.audioFile\)/);
   const modalPlayback = app.match(
     /function toggleCompletionOriginal\(\) \{([\s\S]*?)\n\}/,
   )?.[1];
@@ -314,7 +337,7 @@ test("la modale Parker écoute l’original sans se fermer ni transposer", () =>
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v12/);
+  assert.match(serviceWorker, /dictee-musicale-v13/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",

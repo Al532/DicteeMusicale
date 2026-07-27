@@ -30,7 +30,6 @@ const elements = {
   startRandom: document.querySelector("#start-random"),
   nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
-  sequence: document.querySelector("#sequence"),
   feedback: document.querySelector("#feedback"),
   kicker: document.querySelector("#exercise-kicker"),
   piano: document.querySelector("#piano"),
@@ -390,7 +389,7 @@ function restoreExerciseInput(message = null) {
   elements.feedback.className = "feedback";
   elements.feedback.textContent =
     message ??
-    `À toi : joue la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
+    `À toi — retrouve la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
 }
 
 function loadOriginalAudio(path) {
@@ -514,7 +513,7 @@ function playSequence() {
   setPlaybackState(true);
   acceptingInput = false;
   elements.feedback.className = "feedback";
-  elements.feedback.textContent = "Écoute…";
+  elements.feedback.textContent = "Écoute bien…";
   let playbackDuration;
   if (exercise.timings) {
     exercise.speedPercent = parkerSpeedPercent;
@@ -558,39 +557,8 @@ function playSequence() {
     acceptingInput = exercise.currentIndex < exercise.notes.length;
     exercise.guessStartedAt = performance.now();
     elements.feedback.textContent =
-      `À toi : joue la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
+      `À toi — retrouve la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
   }, playbackDuration);
-}
-
-function renderSequence() {
-  elements.sequence.replaceChildren();
-  if (!exercise) return;
-
-  exercise.notes.forEach((midi, index) => {
-    const slot = document.createElement("li");
-    const button = document.createElement("button");
-    const isRecorded = index < exercise.currentIndex;
-    button.type = "button";
-    if (isRecorded) {
-      slot.className = index === 0 ? "reference" : "solved";
-      button.textContent = noteLabel(midi);
-    } else {
-      button.textContent = "•";
-      button.disabled = true;
-      if (index === exercise.currentIndex) slot.className = "current";
-    }
-    if (isRecorded) {
-      button.setAttribute("aria-label", `Écouter ${noteLabel(midi)}`);
-      button.addEventListener("click", () => playRecordedNote(midi));
-    }
-    slot.append(button);
-    elements.sequence.append(slot);
-  });
-}
-
-function playRecordedNote(midi) {
-  playTone(midi, 0, 0.48, true);
-  flashPlayedKey(midi, 0, 460);
 }
 
 function markReferenceKey() {
@@ -644,7 +612,6 @@ function startExercise() {
   elements.replay.disabled = false;
   elements.nextExercise.disabled = false;
   buildPiano(generated.keyboard);
-  renderSequence();
   markReferenceKey();
   playSequence();
 }
@@ -652,8 +619,10 @@ function startExercise() {
 function renderSource(source) {
   elements.sourceLine.hidden = false;
   const transposition =
-    Number.isFinite(source.transposition) && source.transposition !== 0
-      ? ` · transposition ${source.transposition > 0 ? "+" : ""}${source.transposition} demi-tons`
+    Number.isFinite(source.transposition)
+      ? source.transposition === 0
+        ? " · tonalité originale"
+        : ` · transposition ${source.transposition > 0 ? "+" : ""}${source.transposition} demi-tons`
       : "";
   const originalTempo = Number.isFinite(source.originalTempo)
     ? ` · tempo original ${Math.round(source.originalTempo)} BPM`
@@ -726,13 +695,12 @@ function resetExerciseProgress() {
   acceptingInput = false;
   exercise.currentIndex = 0;
   exercise.guessStartedAt = null;
-  renderSequence();
 }
 
 function restartAfterMistake() {
   resetExerciseProgress();
   elements.feedback.className = "feedback error";
-  elements.feedback.textContent = "Erreur — écoute, puis repars du début.";
+  elements.feedback.textContent = "Erreur — on réécoute depuis le début.";
   restartTimer = window.setTimeout(() => {
     restartTimer = null;
     playSequence();
@@ -788,7 +756,6 @@ function handlePianoInput(midi, key) {
   key.classList.add("correct-key");
   window.setTimeout(() => key.classList.remove("correct-key"), 280);
   exercise.currentIndex += 1;
-  renderSequence();
 
   if (exercise.currentIndex >= exercise.notes.length) {
     finishExercise();
@@ -993,7 +960,11 @@ function setUpInstallPrompt() {
 
 function updateGameModeButton() {
   const active = document.body.classList.contains("game-mode");
-  elements.fullscreenButton.textContent = active ? "Quitter" : "Plein écran";
+  elements.fullscreenButton.textContent = active ? "×" : "Plein écran";
+  elements.fullscreenButton.setAttribute(
+    "aria-label",
+    active ? "Quitter le plein écran" : "Passer en plein écran",
+  );
   elements.fullscreenButton.setAttribute("aria-pressed", String(active));
 }
 
