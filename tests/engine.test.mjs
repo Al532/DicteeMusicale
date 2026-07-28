@@ -21,6 +21,7 @@ import {
   makeSequence,
   normalizePerformerSelection,
   pitchClass,
+  playbackStartOnStrongBeat,
   randomDifferentJazzTransposition,
   randomJazzTransposition,
   summarizeRecords,
@@ -74,6 +75,34 @@ test("la basse est transposée et conduite dans la tessiture des samples", () =>
       ({ midi }) => midi >= BASS_MIN_MIDI && midi <= BASS_MAX_MIDI,
     ),
   );
+});
+
+test("la lecture part du dernier temps fort de la mesure", () => {
+  const fourFour = [
+    [0, 1],
+    [0.5, 2],
+    [1, 3],
+    [1.5, 4],
+    [2, 1],
+    [2.5, 2],
+    [3, 3],
+    [3.5, 4],
+  ];
+  assert.equal(playbackStartOnStrongBeat(fourFour, 0.8), 0);
+  assert.equal(playbackStartOnStrongBeat(fourFour, 1), 1);
+  assert.equal(playbackStartOnStrongBeat(fourFour, 1.4), 1);
+  assert.equal(playbackStartOnStrongBeat(fourFour, 2.8), 2);
+
+  const threeFour = [
+    [0, 1],
+    [0.5, 2],
+    [1, 3],
+    [1.5, 1],
+    [2, 2],
+    [2.5, 3],
+  ];
+  assert.equal(playbackStartOnStrongBeat(threeFour, 1.2), 0);
+  assert.equal(playbackStartOnStrongBeat([], 1.2), 1.2);
 });
 
 test("les 12 transpositions, dont la tonalité originale, sont équiprobables", () => {
@@ -326,13 +355,23 @@ test("les rythmes, transpositions, accords et chicks annotés sont conservés", 
   );
   assert.ok(results.some((result) => result.chicks.length > 0));
   assert.ok(results.every((result) => result.bassHits.length > 0));
+  assert.ok(results.some((result) => result.timings[0].offset > 0));
   assert.ok(
     results.some((result) => result.meta.source.transposition !== 0),
   );
   for (const result of results) {
     assert.ok(Math.abs(result.meta.source.transposition) <= 6);
     assert.equal(result.timings.length, result.notes.length);
-    assert.equal(result.timings[0].offset, 0);
+    assert.ok(result.timings[0].offset >= 0);
+    assert.equal(
+      result.timings[0].offset,
+      Number(
+        (
+          result.meta.source.phraseOnsetStart -
+          result.meta.source.onsetStart
+        ).toFixed(4),
+      ),
+    );
     assert.ok(result.timings.every((timing) => timing.duration > 0));
     assert.ok(
       result.timings.every(

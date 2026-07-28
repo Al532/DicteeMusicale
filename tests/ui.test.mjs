@@ -432,7 +432,7 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v19/);
+  assert.match(serviceWorker, /dictee-musicale-v20/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);

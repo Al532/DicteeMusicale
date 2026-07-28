@@ -55,6 +55,9 @@ utilisent leur basse explicite, la ligne suit la transposition de l’exercice e
 automatiquement une octave dans la tessiture MIDI 28–48. Les 21 samples chromatiques
 proviennent du projet SharpEleven.
 
+La lecture commence au dernier temps fort précédant la première note de la phrase
+(temps 1 ou 3 en 4/4), afin de conserver son placement rythmique dans la mesure.
+
 Six enregistrements déjà calibrés sont disponibles pour *Billie’s Bounce*,
 *Donna Lee*, *Ornithology*, *Scrapple from the Apple*, *Thriving on a Riff* et
 *Yardbird Suite*. Le bouton **Écouter l’original**, son option de transposition et le

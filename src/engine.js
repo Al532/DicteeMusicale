@@ -33,6 +33,42 @@ export function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
 }
 
+function beatCountForMeasure(beats, index) {
+  let firstBeatIndex = index;
+  while (firstBeatIndex > 0 && beats[firstBeatIndex][1] !== 1) {
+    firstBeatIndex -= 1;
+  }
+  let lastBeatIndex = firstBeatIndex;
+  while (
+    lastBeatIndex + 1 < beats.length &&
+    beats[lastBeatIndex + 1][1] !== 1
+  ) {
+    lastBeatIndex += 1;
+  }
+  let beatCount = 0;
+  for (
+    let beatIndex = firstBeatIndex;
+    beatIndex <= lastBeatIndex;
+    beatIndex += 1
+  ) {
+    beatCount = Math.max(beatCount, beats[beatIndex][1] ?? 0);
+  }
+  return beatCount;
+}
+
+export function playbackStartOnStrongBeat(beats, firstNoteOnset) {
+  let playbackStart = firstNoteOnset;
+  for (let index = 0; index < beats.length; index += 1) {
+    const [onset, beat] = beats[index];
+    if (onset > firstNoteOnset) break;
+    const isStrongBeat =
+      beat === 1 ||
+      (beat === 3 && beatCountForMeasure(beats, index) === 4);
+    if (isStrongBeat) playbackStart = onset;
+  }
+  return playbackStart;
+}
+
 export function bassPitchClassForChord(chord) {
   const symbol = String(chord ?? "").trim();
   if (!symbol || symbol === "NC") return null;
@@ -444,8 +480,12 @@ function jazzSequence(random, maxNotes = 15, selectedPerformers) {
   const transposition = randomJazzTransposition(random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
+  const playbackStart = playbackStartOnStrongBeat(
+    excerpt.solo.beats ?? [],
+    firstOnset,
+  );
   const timings = excerpt.events.map((event) => ({
-    offset: Number((event[1] - firstOnset).toFixed(4)),
+    offset: Number((event[1] - playbackStart).toFixed(4)),
     duration: event[2],
   }));
   const lastEvent = excerpt.events.at(-1);
@@ -453,17 +493,17 @@ function jazzSequence(random, maxNotes = 15, selectedPerformers) {
   const chicks = (excerpt.solo.beats ?? [])
     .filter(
       ([onset, beat]) =>
-        onset >= firstOnset &&
+        onset >= playbackStart &&
         onset < playbackEnd &&
         (beat === 2 || beat === 4),
     )
     .map(([onset, beat]) => ({
-      offset: Number((onset - firstOnset).toFixed(4)),
+      offset: Number((onset - playbackStart).toFixed(4)),
       beat,
     }));
   const bassHits = bassHitsForExcerpt(
     WJAZZD_CHORDS[excerpt.solo.id],
-    firstOnset,
+    playbackStart,
     playbackEnd,
     transposition,
   );
@@ -501,7 +541,8 @@ function jazzSequence(random, maxNotes = 15, selectedPerformers) {
         truncated: wasTruncated,
         barStart: firstBar,
         barEnd: lastBar,
-        onsetStart: excerpt.events[0][1],
+        onsetStart: playbackStart,
+        phraseOnsetStart: firstOnset,
         onsetEnd: excerpt.events.at(-1)[1] + excerpt.events.at(-1)[2],
         originalTempo: excerpt.solo.originalTempo,
         performers,
