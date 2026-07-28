@@ -277,6 +277,7 @@ export function phraseRatingKey(soloId, phraseNumber) {
 }
 
 function normalizedMinimumRating(minimumRating) {
+  if (minimumRating === "unrated") return "unrated";
   const rating = Math.round(Number(minimumRating) || 0);
   return rating === 2 || rating === 3 ? rating : 0;
 }
@@ -315,11 +316,12 @@ function eligiblePhraseEntries(
   phraseRatings = {},
   minimumRating = 0,
 ) {
-  const threshold = normalizedMinimumRating(minimumRating);
+  const filter = normalizedMinimumRating(minimumRating);
   const entries = [];
   for (const solo of solos) {
     for (const phrase of solo.phrases) {
-      if (threshold && phraseRating(phraseRatings, solo, phrase) < threshold) {
+      const rating = phraseRating(phraseRatings, solo, phrase);
+      if (filter === "unrated" ? rating > 0 : filter && rating < filter) {
         continue;
       }
       entries.push({ solo, phrase });
@@ -399,14 +401,14 @@ function buildJazzMarkovModel(phraseEntries) {
 }
 
 function getJazzMarkovModel(phraseRatings = {}, minimumRating = 0) {
-  const threshold = normalizedMinimumRating(minimumRating);
-  const key = threshold
-    ? `${threshold}:${Object.entries(phraseRatings ?? {})
+  const filter = normalizedMinimumRating(minimumRating);
+  const key = filter
+    ? `${filter}:${Object.entries(phraseRatings ?? {})
         .filter(([, stored]) => {
           const rating = Number(
             stored && typeof stored === "object" ? stored.rating : stored,
           );
-          return rating >= threshold;
+          return filter === "unrated" ? rating > 0 : rating >= filter;
         })
         .map(([phraseKey]) => phraseKey)
         .sort()
@@ -416,7 +418,7 @@ function getJazzMarkovModel(phraseRatings = {}, minimumRating = 0) {
   const phraseEntries = eligiblePhraseEntries(
     WJAZZD_SOLOS,
     phraseRatings,
-    threshold,
+    filter,
   );
   if (modelCache.size >= 4) {
     modelCache.delete(modelCache.keys().next().value);

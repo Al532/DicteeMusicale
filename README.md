@@ -40,8 +40,9 @@ lancer une phrase réelle ; elle ne limite pas le corpus des phrases générées
 Chaque phrase réelle peut être notée de 1 à 3 étoiles depuis l’écran de jeu ou la
 modale de réussite. Passer à la suivante avant toute réussite lui attribue au moins
 1 étoile ; utiliser **Transposer** lui attribue au moins 3 étoiles. Le filtre
-**Notation minimale** conserve toutes les phrases, uniquement les 2★ et 3★, ou
-uniquement les 3★. Il s’applique aussi aux phrases sources du modèle génératif.
+**Notation minimale** conserve toutes les phrases, seulement celles qui ne sont pas
+encore notées, uniquement les 2★ et 3★, ou uniquement les 3★. Il s’applique aussi
+aux phrases sources du modèle génératif.
 
 ## Modèle mélodique
 

@@ -48,9 +48,10 @@ test("l’accueil propose les deux modes et le filtre des musiciens", () => {
 test("le filtre d’étoiles est persistant et vaut aussi pour la génération", () => {
   assert.match(
     index,
-    /id="minimum-rating"[\s\S]*?value="0">Toutes les phrases[\s\S]*?value="2">2 étoiles ou plus[\s\S]*?value="3">3 étoiles uniquement/,
+    /id="minimum-rating"[\s\S]*?value="0">Toutes les phrases[\s\S]*?value="unrated">Phrases non notées[\s\S]*?value="2">2 étoiles ou plus[\s\S]*?value="3">3 étoiles uniquement/,
   );
   assert.match(app, /let minimumRating = 0/);
+  assert.match(app, /settings\.minimumRating === "unrated"/);
   assert.match(
     app,
     /makeSequence\(\{[\s\S]*?phraseRatings,[\s\S]*?minimumRating,/,
@@ -59,6 +60,10 @@ test("le filtre d’étoiles est persistant et vaut aussi pour la génération",
   assert.match(
     app,
     /elements\.minimumRating\.addEventListener\("change"[\s\S]*?syncMinimumRating/,
+  );
+  assert.match(
+    app,
+    /function syncMinimumRating\(value\) \{[\s\S]*?value === "unrated"/,
   );
 });
 
@@ -218,6 +223,11 @@ test("les phrases réelles se notent sur trois étoiles en jeu et dans la modale
     app,
     /function setPhraseRating\(rating, \{ automatic = false \} = \{\}\)/,
   );
+  assert.match(
+    app,
+    /function renderStarRating\(element, rating\) \{[\s\S]*?value <= rating[\s\S]*?aria-pressed/,
+  );
+  assert.match(app, /`Note actuelle : \$\{rating\} étoile/);
   assert.match(app, /writeJson\(RATINGS_KEY, phraseRatings\)/);
   assert.match(
     app,
@@ -489,7 +499,7 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v21/);
+  assert.match(serviceWorker, /dictee-musicale-v22/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);

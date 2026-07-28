@@ -267,6 +267,13 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
   assert.equal(filtered.performerCount, 2);
   assert.equal(filtered.phraseCount, 2);
 
+  const complete = jazzCorpusSummary();
+  const unrated = jazzCorpusSummary({
+    phraseRatings,
+    minimumRating: "unrated",
+  });
+  assert.equal(unrated.phraseCount, complete.phraseCount - 2);
+
   const real = makeSequence({
     mode: "jazz",
     selectedPerformers: ["Charlie Parker"],
@@ -276,6 +283,24 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
   });
   assert.equal(real.meta.source.phraseKey, parkerKey);
   assert.equal(real.meta.source.rating, 3);
+
+  const unratedReal = makeSequence({
+    mode: "jazz",
+    selectedPerformers: ["Charlie Parker"],
+    phraseRatings,
+    minimumRating: "unrated",
+    random: seededRandom(42),
+  });
+  assert.notEqual(unratedReal.meta.source.phraseKey, parkerKey);
+  assert.equal(unratedReal.meta.source.rating, 0);
+
+  const unratedGenerated = makeSequence({
+    mode: "random",
+    phraseRatings,
+    minimumRating: "unrated",
+    random: seededRandom(43),
+  });
+  assert.equal(unratedGenerated.meta.source.minimumRating, "unrated");
 
   assert.throws(
     () =>

@@ -183,9 +183,12 @@ function loadSettings() {
     25,
     100,
   );
-  minimumRating = [2, 3].includes(Number(settings.minimumRating))
-    ? Number(settings.minimumRating)
-    : 0;
+  minimumRating =
+    settings.minimumRating === "unrated"
+      ? "unrated"
+      : [2, 3].includes(Number(settings.minimumRating))
+        ? Number(settings.minimumRating)
+        : 0;
   const knownPerformers = new Set(
     WJAZZD_PERFORMERS.map(({ name }) => name),
   );
@@ -331,7 +334,12 @@ function syncGameSpeed(value) {
 }
 
 function syncMinimumRating(value) {
-  minimumRating = [2, 3].includes(Number(value)) ? Number(value) : 0;
+  minimumRating =
+    value === "unrated"
+      ? "unrated"
+      : [2, 3].includes(Number(value))
+        ? Number(value)
+        : 0;
   elements.minimumRating.value = String(minimumRating);
   saveSettings();
 }
@@ -786,14 +794,26 @@ function currentPhraseRating() {
   const phraseKey = exercise?.source?.phraseKey;
   if (!phraseKey) return 0;
   const stored = phraseRatings[phraseKey];
-  return (
-    Number(stored && typeof stored === "object" ? stored.rating : stored) || 0
+  const storedRating = Number(
+    stored && typeof stored === "object" ? stored.rating : stored,
   );
+  const sourceRating = Number(exercise.source.rating);
+  return Number.isFinite(storedRating)
+    ? storedRating
+    : Number.isFinite(sourceRating)
+      ? sourceRating
+      : 0;
 }
 
 function renderStarRating(element, rating) {
   const isRealPhrase = Boolean(exercise?.source?.phraseKey);
   element.hidden = !isRealPhrase;
+  element.setAttribute(
+    "aria-label",
+    rating
+      ? `Note actuelle : ${rating} étoile${rating > 1 ? "s" : ""}`
+      : "Phrase non notée",
+  );
   for (const button of element.querySelectorAll("[data-rating]")) {
     const value = Number(button.dataset.rating);
     button.classList.toggle("selected", value <= rating);
