@@ -45,7 +45,7 @@ test("l’accueil propose les deux modes et le filtre des musiciens", () => {
   assert.match(app, /function startMode\(mode\)/);
 });
 
-test("le filtre d’étoiles est persistant et vaut aussi pour la génération", () => {
+test("le filtre d’étoiles est réservé au mode dev et le public reste à 3 étoiles", () => {
   assert.match(
     index,
     /id="minimum-rating"[\s\S]*?value="0">Toutes les phrases[\s\S]*?value="unrated">Phrases non notées[\s\S]*?value="2">2 étoiles ou plus[\s\S]*?value="3">3 étoiles uniquement/,
@@ -54,7 +54,13 @@ test("le filtre d’étoiles est persistant et vaut aussi pour la génération",
   assert.match(app, /settings\.minimumRating === "unrated"/);
   assert.match(
     app,
-    /makeSequence\(\{[\s\S]*?phraseRatings,[\s\S]*?minimumRating,/,
+    /phraseRatings: protocol\.effectiveRatings,[\s\S]*?minimumRating: isRatingMode \? 0 : activeMinimumRating\(\)/,
+  );
+  assert.match(index, /data-developer-only hidden[\s\S]*?id="minimum-rating"/);
+  assert.match(index, /id="developer-mode" type="checkbox"/);
+  assert.match(
+    app,
+    /function activeMinimumRating\(\) \{\s*return developerMode \? minimumRating : 3;/,
   );
   assert.match(app, /elements\.startRandom\.disabled = false/);
   assert.match(
@@ -246,7 +252,10 @@ test("chaque bouton d’accueil ouvre son mode de jeu", () => {
 test("le mode jeu donne toute la largeur disponible au piano dynamique", () => {
   assert.match(styles, /\.game-mode main \{[\s\S]*?width: 100%;[\s\S]*?height: 100dvh;/);
   assert.match(styles, /\.game-mode \.piano \{[\s\S]*?width: 100%;[\s\S]*?min-width: 0;/);
-  assert.match(styles, /@media \(orientation: portrait\)[\s\S]*?\.game-mode \.rotate-overlay/);
+  assert.match(
+    styles,
+    /@media \(orientation: portrait\)[\s\S]*?\.game-mode:not\(\.rating-mode\) \.rotate-overlay/,
+  );
   assert.match(app, /function buildPiano\(layout\)/);
   assert.match(app, /--white-key-count/);
   assert.match(app, /midi = layout\.startMidi; midi <= layout\.endMidi/);
@@ -268,7 +277,7 @@ test("Suivant est disponible en jeu et Note de départ a disparu", () => {
   assert.doesNotMatch(app, /playReference|referenceNote/);
 });
 
-test("les phrases réelles se notent sur trois étoiles en jeu et dans la modale", () => {
+test("les phrases réelles se notent sur trois étoiles seulement en mode dev", () => {
   for (const id of ["exercise-rating", "completion-rating"]) {
     const rating = index.match(
       new RegExp(`id="${id}"[\\s\\S]*?<\\/div>`),
@@ -279,14 +288,18 @@ test("les phrases réelles se notent sur trois étoiles en jeu et dans la modale
   assert.match(app, /const RATINGS_KEY = "dictee-musicale\.ratings\.v1"/);
   assert.match(
     app,
-    /function setPhraseRating\(rating, \{ automatic = false \} = \{\}\)/,
+    /function setPhraseRating\([\s\S]*?\{ automatic = false,[\s\S]*?if \(!developerMode\) return false;/,
   );
   assert.match(
     app,
     /function renderStarRating\(element, rating\) \{[\s\S]*?value <= rating[\s\S]*?aria-pressed/,
   );
   assert.match(app, /`Note actuelle : \$\{rating\} étoile/);
-  assert.match(app, /writeJson\(RATINGS_KEY, phraseRatings\)/);
+  assert.match(app, /writeJson\(RATINGS_KEY, localPhraseRatings\)/);
+  assert.match(
+    app,
+    /element\.hidden =\s*!developerMode \|\| currentMode === "rating" \|\| !isRealPhrase/,
+  );
   assert.match(
     app,
     /function goToNextExercise\(\) \{[\s\S]*?!exercise\.solvedAtLeastOnce[\s\S]*?setPhraseRating\(1, \{ automatic: true \}\)/,
@@ -302,15 +315,42 @@ test("les phrases réelles se notent sur trois étoiles en jeu et dans la modale
   assert.match(styles, /\.star-rating button\.selected \{[\s\S]*?color: var\(--accent-strong\)/);
 });
 
-test("les notations sont exportables et incluses dans la sauvegarde", () => {
-  assert.match(index, /id="export-ratings">Notes ★<\/button>/);
+test("le protocole est exportable et inclus dans la sauvegarde", () => {
+  assert.match(index, /id="export-ratings"[\s\S]*?data-developer-only[\s\S]*?Protocole ★/);
   assert.match(app, /function exportRatings\(\)/);
-  assert.match(app, /dictee-musicale-notes-/);
+  assert.match(app, /dictee-musicale-protocole-/);
+  assert.match(app, /"protocole_version"[\s\S]*?"portee"[\s\S]*?"taille_echantillon"/);
   assert.match(
     app,
-    /schemaVersion: 2,[\s\S]*?records,[\s\S]*?ratings: phraseRatings/,
+    /schemaVersion: 3,[\s\S]*?records,[\s\S]*?ratings: phraseRatings,[\s\S]*?ratingScopes: fixedRatingScopes/,
   );
   assert.match(app, /elements\.exportRatings\.addEventListener\("click", exportRatings\)/);
+});
+
+test("le mode dev propose une notation rapide avec bilans réguliers", () => {
+  assert.match(
+    index,
+    /class="developer-tools[\s\S]*?id="start-rating"[\s\S]*?Notation rapide/,
+  );
+  assert.equal(index.match(/data-quick-rating="[123]"/g)?.length, 3);
+  assert.match(index, /id="rating-session-summary"/);
+  assert.match(index, /id="rating-coverage-summary"/);
+  assert.match(index, /id="undo-rating"/);
+  assert.match(app, /const RATING_REPORT_INTERVAL = 10|RATING_REPORT_INTERVAL,/);
+  assert.match(
+    app,
+    /pickRatingPhrase\(\{[\s\S]*?selectedPerformers: \[\.\.\.selectedPerformers\],[\s\S]*?sessionHistory: ratingSessionHistory/,
+  );
+  assert.match(
+    app,
+    /fullPhrase: isRatingMode,[\s\S]*?transpositionOverride: isRatingMode \? 0 : null/,
+  );
+  assert.match(
+    app,
+    /function setQuickRating\(event\)[\s\S]*?setPhraseRating\(rating, \{ origin: "protocol" \}\)[\s\S]*?startExercise\(\)/,
+  );
+  assert.match(styles, /\.rating-mode \.rating-workspace:not\(\[hidden\]\) \{\s*display: grid;/);
+  assert.match(styles, /\.rating-mode \.piano-shell[\s\S]*?display: none !important;/);
 });
 
 test("Réécouter devient Stop pendant la lecture et arrête toutes les sources", () => {
@@ -406,7 +446,7 @@ test("l’écoute originale est visible seulement quand un fichier est disponibl
     /elements\.playOriginal\.textContent = playing \? "Stop" : "Écouter l’original"/,
   );
   assert.match(index, /<span>Transposer<\/span>/);
-  assert.match(app, /elements\.originalControls\.hidden = !hasOriginal/);
+  assert.match(app, /elements\.originalControls\.hidden = isRatingMode \|\| !hasOriginal/);
   assert.match(
     styles,
     /\.game-mode \.original-controls:not\(\[hidden\]\) \{\s*display: grid;/,
@@ -557,7 +597,9 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v25/);
+  assert.match(serviceWorker, /dictee-musicale-v26/);
+  assert.match(serviceWorker, /\.\/src\/ratings\.js/);
+  assert.match(serviceWorker, /\.\/data\/default-ratings\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);

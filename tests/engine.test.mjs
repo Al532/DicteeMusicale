@@ -424,6 +424,31 @@ test("le mode réel reste limité à 5–15 notes", () => {
   assert.equal(fiveNotes.timings.length, fiveNotes.notes.length);
 });
 
+test("le protocole peut écouter une phrase précise en entier et dans le ton original", () => {
+  const solo = WJAZZD_SOLOS.find(
+    (candidate) =>
+      candidate.performer === "Paul Desmond" &&
+      candidate.phrases.some(([start, end]) => end - start + 1 > 15),
+  );
+  const phrase = solo.phrases.find(
+    ([start, end]) => end - start + 1 > 15,
+  );
+  const phraseKey = phraseRatingKey(solo.id, phrase[2]);
+  const result = makeSequence({
+    mode: "jazz",
+    selectedPerformers: [solo.performer],
+    targetPhraseKey: phraseKey,
+    fullPhrase: true,
+    transpositionOverride: 0,
+    random: seededRandom(91),
+  });
+
+  assert.equal(result.meta.source.phraseKey, phraseKey);
+  assert.equal(result.meta.source.transposition, 0);
+  assert.equal(result.notes.length, phrase[1] - phrase[0] + 1);
+  assert.equal(result.meta.source.truncated, false);
+});
+
 test("les rythmes, transpositions, accords et chicks annotés sont conservés", () => {
   const results = Array.from({ length: 48 }, (_, index) =>
     makeSequence({

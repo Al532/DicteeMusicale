@@ -236,6 +236,28 @@ main {
   margin-top: 16px;
 }
 
+.developer-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px dashed #5a5267;
+  border-radius: 16px;
+  background: rgba(36, 33, 46, 0.48);
+}
+
+.developer-tools strong {
+  font-size: 0.88rem;
+}
+
+.developer-tools p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .setting-select > span {
   margin: 0;
 }
@@ -407,6 +429,78 @@ button:disabled {
 
 .feedback.error {
   color: var(--danger);
+}
+
+.rating-workspace {
+  grid-template-columns: minmax(0, 2fr) minmax(210px, 1fr);
+  gap: clamp(12px, 2vw, 22px);
+  min-height: 0;
+}
+
+.quick-rating {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(8px, 1.4vw, 14px);
+}
+
+.quick-rating button {
+  display: grid;
+  min-height: clamp(84px, 18vh, 150px);
+  padding: 12px;
+  place-content: center;
+  gap: 5px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-raised);
+  cursor: pointer;
+}
+
+.quick-rating button:hover,
+.quick-rating button:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.quick-rating strong {
+  color: var(--accent-strong);
+  font-size: clamp(1.35rem, 4vw, 2.4rem);
+}
+
+.quick-rating span {
+  color: var(--muted);
+  font-size: clamp(0.7rem, 1.6vw, 0.85rem);
+}
+
+.rating-report {
+  display: flex;
+  min-width: 0;
+  padding: 14px;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(36, 33, 46, 0.68);
+}
+
+.rating-report .eyebrow {
+  margin-bottom: 6px;
+}
+
+.rating-report > strong {
+  font-size: clamp(0.82rem, 1.8vw, 1rem);
+}
+
+.rating-report > span {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: clamp(0.68rem, 1.5vw, 0.78rem);
+}
+
+.rating-report .text-button {
+  align-self: flex-start;
+  margin-top: 8px;
+  font-size: 0.72rem;
 }
 
 .source-line {
@@ -624,6 +718,35 @@ footer {
   font-size: 0.74rem;
 }
 
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.developer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #777080;
+  cursor: pointer;
+}
+
+.developer-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.developer-toggle span {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
 .text-button {
   padding: 8px 0;
   color: var(--muted);
@@ -682,6 +805,17 @@ footer {
   footer {
     gap: 16px;
     align-items: flex-start;
+  }
+
+  .developer-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .footer-actions {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 8px;
   }
 }
 
@@ -856,8 +990,46 @@ body.game-mode {
   min-height: 105px;
 }
 
+.rating-mode .exercise-panel {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.rating-mode .game-length-setting,
+.rating-mode .game-rating,
+.rating-mode .original-controls,
+.rating-mode .piano-shell {
+  display: none !important;
+}
+
+.rating-mode .rating-workspace:not([hidden]) {
+  display: grid;
+  grid-row: 3;
+}
+
+.rating-mode .source-line {
+  grid-row: 4;
+}
+
+.rating-mode #next-exercise {
+  min-width: 74px;
+}
+
 @media (orientation: portrait) {
-  .game-mode .rotate-overlay {
+  .rating-mode .rating-workspace:not([hidden]) {
+    grid-template-columns: 1fr;
+  }
+
+  .rating-mode .quick-rating {
+    grid-template-columns: 1fr;
+  }
+
+  .rating-mode .quick-rating button {
+    min-height: 72px;
+  }
+}
+
+@media (orientation: portrait) {
+  .game-mode:not(.rating-mode) .rotate-overlay {
     position: fixed;
     z-index: 100;
     inset: 0;

@@ -12,10 +12,23 @@ import {
   voiceBassHits,
 } from "./engine.js";
 import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
+import {
+  RATING_PROTOCOL_VERSION,
+  RATING_REPORT_INTERVAL,
+  mergePhraseRatings,
+  mergeRatingScopes,
+  pickRatingPhrase,
+  ratingProtocolSummary,
+} from "./ratings.js";
+import {
+  DEFAULT_PHRASE_RATINGS,
+  DEFAULT_RATING_SCOPES,
+} from "../data/default-ratings.js";
 
 const STORAGE_KEY = "dictee-musicale.records.v1";
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RATINGS_KEY = "dictee-musicale.ratings.v1";
+const RATING_SCOPES_KEY = "dictee-musicale.rating-scopes.v1";
 const RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE = 100;
 const LEGATO_RELEASE_SECONDS = 0.035;
 const WRONG_NOTE_REPLAY_DELAY_MS = 650;
@@ -26,6 +39,7 @@ const RANDOM_PLAYBACK_MAX_PERCENT = 640;
 const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
+const QUICK_RATING_ADVANCE_DELAY_MS = 180;
 const INPUT_BURST_QUIET_MS = 500;
 const MELODY_SAMPLE_INSTRUMENTS = {
   clarinet: {
@@ -58,6 +72,7 @@ const elements = {
   gameSpeedSetting: document.querySelector("#game-speed-setting"),
   startReal: document.querySelector("#start-real"),
   startRandom: document.querySelector("#start-random"),
+  startRating: document.querySelector("#start-rating"),
   musicianPicker: document.querySelector("#musician-picker"),
   musicianList: document.querySelector("#musician-list"),
   musicianSelectionCount: document.querySelector("#musician-selection-count"),
@@ -67,10 +82,19 @@ const elements = {
   clearPerformers: document.querySelector("#clear-performers"),
   melodySound: document.querySelector("#melody-sound"),
   minimumRating: document.querySelector("#minimum-rating"),
+  developerMode: document.querySelector("#developer-mode"),
+  developerOnly: document.querySelectorAll("[data-developer-only]"),
+  ratingHomeSummary: document.querySelector("#rating-home-summary"),
+  ratingWorkspace: document.querySelector("#rating-workspace"),
+  ratingSessionSummary: document.querySelector("#rating-session-summary"),
+  ratingCoverageSummary: document.querySelector("#rating-coverage-summary"),
+  undoRating: document.querySelector("#undo-rating"),
+  quickRatingButtons: document.querySelectorAll("[data-quick-rating]"),
   nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
   feedback: document.querySelector("#feedback"),
   kicker: document.querySelector("#exercise-kicker"),
+  exerciseTitle: document.querySelector("#exercise-title"),
   piano: document.querySelector("#piano"),
   exportCsv: document.querySelector("#export-csv"),
   exportRatings: document.querySelector("#export-ratings"),
@@ -109,14 +133,24 @@ let exercise = null;
 let acceptingInput = false;
 let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
-let phraseRatings = readJson(RATINGS_KEY, {});
+let localPhraseRatings = readJson(RATINGS_KEY, {});
 if (
-  !phraseRatings ||
-  typeof phraseRatings !== "object" ||
-  Array.isArray(phraseRatings)
+  !localPhraseRatings ||
+  typeof localPhraseRatings !== "object" ||
+  Array.isArray(localPhraseRatings)
 ) {
-  phraseRatings = {};
+  localPhraseRatings = {};
 }
+let phraseRatings = mergePhraseRatings(
+  DEFAULT_PHRASE_RATINGS,
+  localPhraseRatings,
+);
+let localRatingScopes = readJson(RATING_SCOPES_KEY, []);
+if (!Array.isArray(localRatingScopes)) localRatingScopes = [];
+let fixedRatingScopes = mergeRatingScopes(
+  DEFAULT_RATING_SCOPES,
+  localRatingScopes,
+);
 let currentMode = "jazz";
 let randomLength = 5;
 let realMaxNotes = 15;
@@ -124,7 +158,10 @@ let realSpeedPercent = 100;
 let randomPlaybackSpeedPercent = 88;
 let melodySound = "synthetic";
 let minimumRating = 0;
+let developerMode = false;
 let selectedPerformers = new Set(DEFAULT_PERFORMERS);
+let ratingSessionHistory = [];
+let ratingSessionBaselineScopes = new Set();
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
 const decodedAudioBuffers = new Map();
@@ -136,6 +173,7 @@ let playbackTimer = null;
 let restartTimer = null;
 let completionTimer = null;
 let gameModeStartTimer = null;
+let quickRatingAdvanceTimer = null;
 let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
@@ -179,6 +217,7 @@ function randomPlaybackToSliderPercent(value) {
 function loadSettings() {
   const settings = readJson(SETTINGS_KEY, {});
   currentMode = settings.mode === "random" ? "random" : "jazz";
+  developerMode = Boolean(settings.developerMode);
   randomLength = clamp(
     Math.round(settings.randomLength ?? settings.length ?? 5),
     3,
@@ -224,7 +263,9 @@ function loadSettings() {
   selectedPerformers = new Set(savedPerformers);
   elements.melodySound.value = melodySound;
   elements.minimumRating.value = String(minimumRating);
+  elements.developerMode.checked = developerMode;
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
+  renderDeveloperMode();
   updateModeSettings();
   renderPerformerOptions();
   updatePerformerSelectionState();
@@ -238,10 +279,55 @@ function saveSettings() {
     realSpeed: realSpeedPercent,
     melodySound,
     minimumRating,
+    developerMode,
     selectedPerformers: [...selectedPerformers],
     transposeOriginal: elements.transposeOriginal.checked,
-    mode: currentMode,
+    mode: currentMode === "rating" ? "jazz" : currentMode,
   });
+}
+
+function activeMinimumRating() {
+  return developerMode ? minimumRating : 3;
+}
+
+function currentRatingProtocol(selectedOnly = false) {
+  return ratingProtocolSummary({
+    phraseRatings,
+    fixedScopes: fixedRatingScopes,
+    selectedPerformers: selectedOnly ? [...selectedPerformers] : null,
+  });
+}
+
+function renderProtocolHomeSummary() {
+  const summary = currentRatingProtocol(true);
+  const scopeCount =
+    summary.tuneScopes.length + summary.performerScopes.length;
+  elements.ratingHomeSummary.textContent =
+    `${summary.explicit} notes directes · ` +
+    `${summary.covered} sur ${summary.total} phrases couvertes` +
+    (scopeCount
+      ? ` · ${scopeCount} décision${scopeCount > 1 ? "s" : ""} globale${scopeCount > 1 ? "s" : ""}`
+      : "");
+}
+
+function renderDeveloperMode() {
+  document.body.classList.toggle("developer-mode", developerMode);
+  for (const element of elements.developerOnly) {
+    element.hidden = !developerMode;
+  }
+  elements.developerMode.checked = developerMode;
+  renderProtocolHomeSummary();
+}
+
+async function setDeveloperMode(enabled) {
+  developerMode = Boolean(enabled);
+  if (!developerMode && currentMode === "rating") {
+    currentMode = "jazz";
+    await leaveGameMode();
+  }
+  renderDeveloperMode();
+  renderRatingControls();
+  saveSettings();
 }
 
 function updatePerformerSelectionState() {
@@ -256,7 +342,9 @@ function updatePerformerSelectionState() {
   const hasSelection = selectedPerformers.size > 0;
   elements.startReal.disabled = !hasSelection;
   elements.startRandom.disabled = false;
+  elements.startRating.disabled = !hasSelection;
   elements.selectionWarning.hidden = hasSelection;
+  renderProtocolHomeSummary();
 }
 
 function updatePerformerCheckboxes() {
@@ -311,7 +399,7 @@ function updateSettingLabels() {
 }
 
 function updateModeSettings() {
-  const isReal = currentMode === "jazz";
+  const isReal = currentMode !== "random";
   elements.gameSpeedSetting.hidden = false;
   elements.gameLengthLabel.textContent = isReal ? "Notes max" : "Notes";
   elements.gameLength.min = isReal ? "5" : "3";
@@ -335,7 +423,7 @@ function updateModeSettings() {
 
 function syncLength(value) {
   const numericValue = Number(value);
-  if (currentMode === "jazz") realMaxNotes = numericValue;
+  if (currentMode !== "random") realMaxNotes = numericValue;
   else randomLength = numericValue;
   elements.gameLength.value = value;
   updateSettingLabels();
@@ -357,7 +445,7 @@ function syncRandomSpeed(value) {
 }
 
 function syncGameSpeed(value) {
-  if (currentMode === "jazz") syncRealSpeed(value);
+  if (currentMode !== "random") syncRealSpeed(value);
   else syncRandomSpeed(value);
 }
 
@@ -381,10 +469,20 @@ function syncMelodySound(value) {
 }
 
 function startMode(mode) {
-  if (mode === "jazz" && !selectedPerformers.size) {
+  if ((mode === "jazz" || mode === "rating") && !selectedPerformers.size) {
     elements.selectionWarning.hidden = false;
     elements.musicianPicker.open = true;
     return;
+  }
+  if (mode === "rating" && !developerMode) return;
+  if (mode === "rating") {
+    ratingSessionHistory = [];
+    ratingSessionBaselineScopes = new Set(
+      currentRatingProtocol(true).scopes.map(
+        (scope) => `${scope.scope}:${scope.scopeId}`,
+      ),
+    );
+    renderRatingSession();
   }
   currentMode = mode;
   updateModeSettings();
@@ -733,6 +831,10 @@ function stopAllTones() {
     window.clearTimeout(restartTimer);
     restartTimer = null;
   }
+  if (quickRatingAdvanceTimer !== null) {
+    window.clearTimeout(quickRatingAdvanceTimer);
+    quickRatingAdvanceTimer = null;
+  }
   for (const source of activeAudioSources) {
     try {
       source.stop();
@@ -747,6 +849,14 @@ function stopAllTones() {
 
 function restoreExerciseInput(message = null) {
   if (!exercise) return;
+  if (currentMode === "rating") {
+    acceptingInput = false;
+    setQuickRatingEnabled(true);
+    elements.feedback.className = "feedback";
+    elements.feedback.textContent =
+      message ?? "Attribue 1, 2 ou 3 étoiles — touches 1, 2 ou 3.";
+    return;
+  }
   acceptingInput = exercise.currentIndex < exercise.notes.length;
   if (!acceptingInput) return;
   exercise.guessStartedAt = performance.now();
@@ -877,6 +987,7 @@ function playSequence({ guardInputBurst = false } = {}) {
   guardPlaybackFromInputBurst = guardInputBurst;
   setPlaybackState(true);
   elements.replay.disabled = false;
+  if (currentMode === "rating") setQuickRatingEnabled(false);
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "Écoute bien…";
@@ -927,6 +1038,10 @@ function playSequence({ guardInputBurst = false } = {}) {
   playbackTimer = window.setTimeout(() => {
     playbackTimer = null;
     setPlaybackState(false);
+    if (currentMode === "rating") {
+      restoreExerciseInput();
+      return;
+    }
     acceptingInput = exercise.currentIndex < exercise.notes.length;
     exercise.guessStartedAt = performance.now();
     elements.feedback.textContent =
@@ -941,6 +1056,48 @@ function markReferenceKey() {
   if (!exercise) return;
   const key = elements.piano.querySelector(`[data-midi="${exercise.notes[0]}"]`);
   key?.classList.add("reference-key");
+}
+
+function refreshRatingsFromLocal() {
+  phraseRatings = mergePhraseRatings(
+    DEFAULT_PHRASE_RATINGS,
+    localPhraseRatings,
+  );
+  fixedRatingScopes = mergeRatingScopes(
+    DEFAULT_RATING_SCOPES,
+    localRatingScopes,
+  );
+}
+
+function setQuickRatingEnabled(enabled) {
+  for (const button of elements.quickRatingButtons) {
+    button.disabled = !enabled;
+  }
+}
+
+function renderRatingSession() {
+  const sessionCount = ratingSessionHistory.length;
+  const distribution = { 1: 0, 2: 0, 3: 0 };
+  for (const item of ratingSessionHistory) distribution[item.rating] += 1;
+  const summary = currentRatingProtocol(true);
+  const newScopes = summary.scopes.filter(
+    (scope) =>
+      !ratingSessionBaselineScopes.has(`${scope.scope}:${scope.scopeId}`),
+  );
+
+  elements.ratingSessionSummary.textContent =
+    `${sessionCount} phrase${sessionCount > 1 ? "s" : ""} notée${sessionCount > 1 ? "s" : ""}` +
+    (sessionCount
+      ? ` · ${distribution[1]} / ${distribution[2]} / ${distribution[3]} en 1★ / 2★ / 3★`
+      : " dans cette session");
+  elements.ratingCoverageSummary.textContent =
+    `${summary.covered} sur ${summary.total} phrases couvertes` +
+    ` (${summary.total ? Math.round((summary.covered / summary.total) * 100) : 0} %)` +
+    (newScopes.length
+      ? ` · ${newScopes.length} nouvelle${newScopes.length > 1 ? "s" : ""} décision${newScopes.length > 1 ? "s" : ""} globale${newScopes.length > 1 ? "s" : ""}`
+      : "");
+  elements.undoRating.disabled = !sessionCount;
+  renderProtocolHomeSummary();
 }
 
 function currentPhraseRating() {
@@ -960,7 +1117,8 @@ function currentPhraseRating() {
 
 function renderStarRating(element, rating) {
   const isRealPhrase = Boolean(exercise?.source?.phraseKey);
-  element.hidden = !isRealPhrase;
+  element.hidden =
+    !developerMode || currentMode === "rating" || !isRealPhrase;
   element.setAttribute(
     "aria-label",
     rating
@@ -980,13 +1138,17 @@ function renderRatingControls() {
   renderStarRating(elements.completionRating, rating);
 }
 
-function setPhraseRating(rating, { automatic = false } = {}) {
+function setPhraseRating(
+  rating,
+  { automatic = false, origin = automatic ? "automatic" : "manual" } = {},
+) {
+  if (!developerMode) return false;
   const source = exercise?.source;
-  if (!source?.phraseKey) return;
+  if (!source?.phraseKey) return false;
   const safeRating = clamp(Math.round(Number(rating) || 0), 1, 3);
   const existingRating = currentPhraseRating();
-  if (automatic && existingRating >= safeRating) return;
-  phraseRatings[source.phraseKey] = {
+  if (automatic && existingRating >= safeRating) return false;
+  localPhraseRatings[source.phraseKey] = {
     rating: safeRating,
     updatedAt: new Date().toISOString(),
     soloId: source.soloId,
@@ -994,10 +1156,18 @@ function setPhraseRating(rating, { automatic = false } = {}) {
     title: source.title,
     phrase: source.phrase,
     sourceUrl: source.url,
+    origin,
   };
-  exercise.source = { ...source, rating: safeRating };
-  writeJson(RATINGS_KEY, phraseRatings);
+  refreshRatingsFromLocal();
+  exercise.source = {
+    ...source,
+    rating: safeRating,
+    ratingScope: "phrase",
+  };
+  writeJson(RATINGS_KEY, localPhraseRatings);
   renderRatingControls();
+  renderRatingSession();
+  return true;
 }
 
 function setRatingFromButton(event) {
@@ -1005,20 +1175,95 @@ function setRatingFromButton(event) {
   setPhraseRating(rating);
 }
 
+function setQuickRating(event) {
+  if (
+    currentMode !== "rating" ||
+    !developerMode ||
+    !exercise ||
+    isPlaying ||
+    isOriginalPlaying
+  ) {
+    return;
+  }
+  const rating = Number(event.currentTarget?.dataset.quickRating ?? event);
+  if (![1, 2, 3].includes(rating)) return;
+  const source = exercise.source;
+  const previousLocal = localPhraseRatings[source.phraseKey] ?? null;
+  stopAllTones();
+  if (!setPhraseRating(rating, { origin: "protocol" })) return;
+  ratingSessionHistory.push({
+    phraseKey: source.phraseKey,
+    performer: source.performer,
+    title: source.title,
+    phrase: source.phrase,
+    rating,
+    previousLocal,
+  });
+  setQuickRatingEnabled(false);
+  renderRatingSession();
+  elements.feedback.className = "feedback success";
+  elements.feedback.textContent =
+    ratingSessionHistory.length % RATING_REPORT_INTERVAL === 0
+      ? `Point d’étape : ${ratingSessionHistory.length} notes saisies.`
+      : `${rating} étoile${rating > 1 ? "s" : ""} enregistrée${rating > 1 ? "s" : ""}.`;
+  quickRatingAdvanceTimer = window.setTimeout(() => {
+    quickRatingAdvanceTimer = null;
+    startExercise();
+  }, QUICK_RATING_ADVANCE_DELAY_MS);
+}
+
+function undoLastRating() {
+  const last = ratingSessionHistory.pop();
+  if (!last) return;
+  stopAllTones();
+  if (last.previousLocal) {
+    localPhraseRatings[last.phraseKey] = last.previousLocal;
+  } else {
+    delete localPhraseRatings[last.phraseKey];
+  }
+  refreshRatingsFromLocal();
+  writeJson(RATINGS_KEY, localPhraseRatings);
+  renderRatingSession();
+  elements.feedback.className = "feedback";
+  elements.feedback.textContent = "Dernière note annulée.";
+  setQuickRatingEnabled(true);
+}
+
 async function startExercise() {
   hideCompletionModal();
   getAudioContext();
+  const isRatingMode = currentMode === "rating";
+  const protocol = currentRatingProtocol(false);
+  const targetPhraseKey = isRatingMode
+    ? pickRatingPhrase({
+        phraseRatings,
+        fixedScopes: fixedRatingScopes,
+        selectedPerformers: [...selectedPerformers],
+        sessionHistory: ratingSessionHistory,
+      })
+    : null;
+  if (isRatingMode && !targetPhraseKey) {
+    elements.feedback.className = "feedback success";
+    elements.feedback.textContent =
+      "Toutes les phrases sélectionnées sont couvertes par le protocole.";
+    renderRatingSession();
+    return;
+  }
   const enteringGameMode = !document.body.classList.contains("game-mode");
+  document.body.classList.toggle("rating-mode", isRatingMode);
   saveSettings();
   let generated;
   try {
     generated = makeSequence({
       length: randomLength,
       maxNotes: realMaxNotes,
-      mode: currentMode,
+      mode: isRatingMode ? "jazz" : currentMode,
       selectedPerformers: [...selectedPerformers],
-      phraseRatings,
-      minimumRating,
+      phraseRatings: protocol.effectiveRatings,
+      minimumRating: isRatingMode ? 0 : activeMinimumRating(),
+      targetPhraseKey,
+      fullPhrase: isRatingMode,
+      transpositionOverride: isRatingMode ? 0 : null,
     });
   } catch (error) {
     const message =
@@ -1076,13 +1321,19 @@ async function startExercise() {
   };
 
   elements.kicker.textContent = generated.meta.label;
+  elements.exerciseTitle.textContent = isRatingMode
+    ? "Écoute, puis note la phrase"
+    : "Écoute, puis retrouve la phrase";
   renderSource(generated.meta.source);
   const hasOriginal = Boolean(generated.meta.source.audioFile);
-  elements.originalControls.hidden = !hasOriginal;
+  elements.originalControls.hidden = isRatingMode || !hasOriginal;
   elements.playOriginal.disabled = !hasOriginal;
   elements.transposeOriginal.disabled = !hasOriginal;
   elements.replay.disabled = enteringGameMode;
   elements.nextExercise.disabled = false;
+  elements.nextExercise.textContent = isRatingMode ? "Passer" : "Suivant";
+  elements.ratingWorkspace.hidden = !isRatingMode;
+  setQuickRatingEnabled(false);
   renderRatingControls();
   buildPiano(generated.keyboard);
   markReferenceKey();
@@ -1097,6 +1348,7 @@ async function startExercise() {
   } else {
     playSequence();
   }
+  if (isRatingMode) renderRatingSession();
 }
 
 function renderSource(source) {
@@ -1338,7 +1590,12 @@ function finishExercise() {
 }
 
 function goToNextExercise() {
-  if (exercise && !exercise.solvedAtLeastOnce) {
+  if (
+    developerMode &&
+    currentMode !== "rating" &&
+    exercise &&
+    !exercise.solvedAtLeastOnce
+  ) {
     setPhraseRating(1, { automatic: true });
   }
   startExercise();
@@ -1378,10 +1635,11 @@ function download(filename, content, type) {
 function exportJson() {
   const payload = {
     app: "Dictée musicale",
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: new Date().toISOString(),
     records,
     ratings: phraseRatings,
+    ratingScopes: fixedRatingScopes,
   };
   download(
     `dictee-musicale-${new Date().toISOString().slice(0, 10)}.json`,
@@ -1462,11 +1720,17 @@ function exportCsv() {
 function exportRatings() {
   const rows = [
     [
-      "phrase_id",
+      "protocole_version",
+      "portee",
+      "identifiant",
       "etoiles",
       "musicien",
       "morceau",
       "phrase",
+      "origine",
+      "taille_echantillon",
+      "accord",
+      "couverture",
       "source_url",
       "mise_a_jour",
     ],
@@ -1477,17 +1741,40 @@ function exportRatings() {
     const rating = Number(entry.rating);
     if (rating < 1 || rating > 3) continue;
     rows.push([
+      RATING_PROTOCOL_VERSION,
+      "phrase",
       phraseKey,
       rating,
       entry.performer,
       entry.title,
       entry.phrase,
+      entry.origin ?? "manual",
+      1,
+      1,
+      1,
       entry.sourceUrl,
       entry.updatedAt,
     ]);
   }
+  for (const scope of currentRatingProtocol(false).scopes) {
+    rows.push([
+      RATING_PROTOCOL_VERSION,
+      scope.scope,
+      scope.scopeId,
+      scope.rating,
+      scope.performer,
+      scope.title,
+      null,
+      scope.origin,
+      scope.sampleSize,
+      Number.isFinite(scope.agreement) ? scope.agreement.toFixed(4) : null,
+      Number.isFinite(scope.coverage) ? scope.coverage.toFixed(4) : null,
+      null,
+      scope.updatedAt,
+    ]);
+  }
   download(
-    `dictee-musicale-notes-${new Date().toISOString().slice(0, 10)}.csv`,
+    `dictee-musicale-protocole-${new Date().toISOString().slice(0, 10)}.csv`,
     `\ufeff${rows.map((row) => row.map(csvCell).join(";")).join("\n")}`,
     "text/csv;charset=utf-8",
   );
@@ -1499,7 +1786,7 @@ async function importJson(event) {
   try {
     const payload = JSON.parse(await file.text());
     if (
-      ![1, 2].includes(payload.schemaVersion) ||
+      ![1, 2, 3].includes(payload.schemaVersion) ||
       !Array.isArray(payload.records)
     ) {
       throw new Error("Format non reconnu");
@@ -1528,16 +1815,27 @@ async function importJson(event) {
         ) {
           continue;
         }
-        phraseRatings[phraseKey] = { ...entry, rating };
+        localPhraseRatings[phraseKey] = { ...entry, rating };
         importedRatings += 1;
       }
-      writeJson(RATINGS_KEY, phraseRatings);
+      writeJson(RATINGS_KEY, localPhraseRatings);
     }
+    let importedScopes = 0;
+    if (Array.isArray(payload.ratingScopes)) {
+      localRatingScopes = mergeRatingScopes(
+        localRatingScopes,
+        payload.ratingScopes,
+      );
+      importedScopes = payload.ratingScopes.length;
+      writeJson(RATING_SCOPES_KEY, localRatingScopes);
+    }
+    refreshRatingsFromLocal();
     renderStats();
+    renderProtocolHomeSummary();
     elements.feedback.className = "feedback success";
     elements.feedback.textContent =
       `${incoming.length} exercice(s) et ` +
-      `${importedRatings} notation(s) restauré(s).`;
+      `${importedRatings} notation(s), ${importedScopes} portée(s) restaurée(s).`;
   } catch {
     elements.feedback.className = "feedback error";
     elements.feedback.textContent = "Impossible de restaurer ce fichier.";
@@ -1590,7 +1888,8 @@ function activateGameLayout() {
 }
 
 function deactivateGameLayout() {
-  document.body.classList.remove("game-mode");
+  document.body.classList.remove("game-mode", "rating-mode");
+  elements.ratingWorkspace.hidden = true;
   updateGameModeButton();
 }
 
@@ -1609,10 +1908,12 @@ async function enterGameMode() {
     // Le mode de jeu CSS reste utilisable si le navigateur refuse le plein écran natif.
   }
 
-  try {
-    await screen.orientation?.lock?.("landscape");
-  } catch {
-    // iOS et certains navigateurs imposent une rotation manuelle.
+  if (currentMode !== "rating") {
+    try {
+      await screen.orientation?.lock?.("landscape");
+    } catch {
+      // iOS et certains navigateurs imposent une rotation manuelle.
+    }
   }
 }
 
@@ -1672,6 +1973,10 @@ elements.melodySound.addEventListener("change", () =>
 );
 elements.startReal.addEventListener("click", () => startMode("jazz"));
 elements.startRandom.addEventListener("click", () => startMode("random"));
+elements.startRating.addEventListener("click", () => startMode("rating"));
+elements.developerMode.addEventListener("change", () =>
+  setDeveloperMode(elements.developerMode.checked),
+);
 elements.selectDefaultPerformers.addEventListener("click", () =>
   setPerformerSelection(DEFAULT_PERFORMERS),
 );
@@ -1693,6 +1998,7 @@ elements.completionExit.addEventListener("click", leaveGameMode);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.exportRatings.addEventListener("click", exportRatings);
+elements.undoRating.addEventListener("click", undoLastRating);
 elements.importJson.addEventListener("change", importJson);
 elements.resetStats.addEventListener("click", resetStats);
 elements.fullscreenButton.addEventListener("click", toggleGameMode);
@@ -1700,6 +2006,21 @@ elements.exitPortraitMode.addEventListener("click", leaveGameMode);
 for (const button of document.querySelectorAll(".star-rating [data-rating]")) {
   button.addEventListener("click", setRatingFromButton);
 }
+for (const button of elements.quickRatingButtons) {
+  button.addEventListener("click", setQuickRating);
+}
+document.addEventListener("keydown", (event) => {
+  if (currentMode !== "rating" || !document.body.classList.contains("game-mode")) {
+    return;
+  }
+  if (["1", "2", "3"].includes(event.key)) {
+    event.preventDefault();
+    setQuickRating(Number(event.key));
+  } else if (event.code === "Space") {
+    event.preventDefault();
+    togglePlayback();
+  }
+});
 
 loadSettings();
 renderStats();

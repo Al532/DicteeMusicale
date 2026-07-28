@@ -69,7 +69,7 @@
               <option value="piano">Piano</option>
             </select>
           </label>
-          <label class="setting-select">
+          <label class="setting-select developer-only" data-developer-only hidden>
             <span>Notation minimale</span>
             <select id="minimum-rating">
               <option value="0">Toutes les phrases</option>
@@ -78,6 +78,15 @@
               <option value="3">3 étoiles uniquement</option>
             </select>
           </label>
+        </div>
+        <div class="developer-tools developer-only" data-developer-only hidden>
+          <div>
+            <strong>Protocole de notation</strong>
+            <p id="rating-home-summary">Calcul de la couverture…</p>
+          </div>
+          <button class="primary-button" id="start-rating" type="button">
+            Notation rapide
+          </button>
         </div>
         <p class="selection-warning" id="selection-warning" hidden>
           Sélectionne au moins un musicien pour les phrases réelles.
@@ -135,6 +144,30 @@
         <div class="feedback" id="feedback" role="status" aria-live="polite">
           Choisis un mode pour commencer.
         </div>
+        <div class="rating-workspace" id="rating-workspace" hidden>
+          <div class="quick-rating" aria-label="Noter rapidement cette phrase">
+            <button type="button" data-quick-rating="1">
+              <strong>1 ★</strong>
+              <span>À écarter</span>
+            </button>
+            <button type="button" data-quick-rating="2">
+              <strong>2 ★</strong>
+              <span>À garder</span>
+            </button>
+            <button type="button" data-quick-rating="3">
+              <strong>3 ★</strong>
+              <span>À proposer</span>
+            </button>
+          </div>
+          <div class="rating-report">
+            <p class="eyebrow">Point d’étape</p>
+            <strong id="rating-session-summary">0 phrase notée dans cette session</strong>
+            <span id="rating-coverage-summary"></span>
+            <button class="text-button" id="undo-rating" type="button" disabled>
+              Annuler la dernière note
+            </button>
+          </div>
+        </div>
         <p class="source-line" id="source-line" hidden>
           <span id="source-details"></span>
           <a id="source-link" href="#" target="_blank" rel="noreferrer">Source</a>
@@ -156,7 +189,14 @@
           </div>
           <div class="stats-actions">
             <button class="ghost-button compact" id="export-csv">CSV</button>
-            <button class="ghost-button compact" id="export-ratings">Notes ★</button>
+            <button
+              class="ghost-button compact developer-only"
+              id="export-ratings"
+              data-developer-only
+              hidden
+            >
+              Protocole ★
+            </button>
             <button class="ghost-button compact" id="export-json">Sauvegarder</button>
             <label class="ghost-button compact file-label">
               Restaurer
@@ -197,7 +237,13 @@
 
     <footer>
       <span>Conçu pour une pratique courte et régulière.</span>
-      <button class="text-button" id="reset-stats">Effacer les statistiques</button>
+      <div class="footer-actions">
+        <label class="developer-toggle">
+          <input id="developer-mode" type="checkbox" />
+          <span>Mode dev</span>
+        </label>
+        <button class="text-button" id="reset-stats">Effacer les statistiques</button>
+      </div>
     </footer>
 
     <div

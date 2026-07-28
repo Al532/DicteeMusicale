@@ -283,11 +283,15 @@ function normalizedMinimumRating(minimumRating) {
 }
 
 function phraseRating(phraseRatings, solo, phrase) {
-  const stored = phraseRatings?.[phraseRatingKey(solo.id, phrase[2])];
+  const stored = phraseRatingRecord(phraseRatings, solo, phrase);
   const rating = Number(
     stored && typeof stored === "object" ? stored.rating : stored,
   );
   return Number.isFinite(rating) ? rating : 0;
+}
+
+function phraseRatingRecord(phraseRatings, solo, phrase) {
+  return phraseRatings?.[phraseRatingKey(solo.id, phrase[2])];
 }
 
 export function normalizePerformerSelection(
@@ -522,6 +526,9 @@ function jazzSequence(
   selectedPerformers,
   phraseRatings,
   minimumRating,
+  targetPhraseKey = null,
+  fullPhrase = false,
+  transpositionOverride = null,
 ) {
   const { performers, solos } = selectedSolos(selectedPerformers);
   const candidates = [];
@@ -530,6 +537,12 @@ function jazzSequence(
     phraseRatings,
     minimumRating,
   )) {
+    if (
+      targetPhraseKey &&
+      phraseRatingKey(solo.id, phrase[2]) !== targetPhraseKey
+    ) {
+      continue;
+    }
     const [start, end] = phrase;
     const events = solo.events.slice(start, end + 1);
     const notes = events.map(([midi]) => midi);
@@ -541,10 +554,9 @@ function jazzSequence(
   }
 
   const selected = randomChoice(candidates, random);
-  const safeMaxNotes = Math.max(
-    5,
-    Math.min(15, Math.round(Number(maxNotes) || 15)),
-  );
+  const safeMaxNotes = fullPhrase
+    ? selected.notes.length
+    : Math.max(5, Math.min(15, Math.round(Number(maxNotes) || 15)));
   const events = selected.events.slice(0, safeMaxNotes);
   const excerpt = {
     ...selected,
@@ -552,7 +564,9 @@ function jazzSequence(
     notes: events.map(([midi]) => midi),
   };
   const wasTruncated = excerpt.events.length < selected.events.length;
-  const transposition = randomJazzTransposition(random);
+  const transposition = Number.isFinite(transpositionOverride)
+    ? Number(transpositionOverride)
+    : randomJazzTransposition(random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
   const playbackStart = playbackStartOnStrongBeat(
@@ -615,6 +629,9 @@ function jazzSequence(
         phrase: excerpt.phrase[2],
         phraseKey: phraseRatingKey(excerpt.solo.id, excerpt.phrase[2]),
         rating: phraseRating(phraseRatings, excerpt.solo, excerpt.phrase),
+        ratingScope:
+          phraseRatingRecord(phraseRatings, excerpt.solo, excerpt.phrase)
+            ?.scope ?? null,
         noteCount: transposedNotes.length,
         fullPhraseNoteCount: selected.notes.length,
         maxNotes: safeMaxNotes,
@@ -639,6 +656,9 @@ export function makeSequence({
   selectedPerformers = DEFAULT_PERFORMERS,
   phraseRatings = {},
   minimumRating = 0,
+  targetPhraseKey = null,
+  fullPhrase = false,
+  transpositionOverride = null,
   random = Math.random,
 } = {}) {
   const safeLength = Math.max(3, Math.min(15, Math.round(length)));
@@ -650,6 +670,9 @@ export function makeSequence({
           selectedPerformers,
           phraseRatings,
           minimumRating,
+          targetPhraseKey,
+          fullPhrase,
+          transpositionOverride,
         )
       : randomSequence(
           safeLength,

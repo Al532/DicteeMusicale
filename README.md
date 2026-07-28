@@ -8,14 +8,15 @@ au clavier.
 
 - 456 solos, 78 musiciens, 11 082 phrases annotées et 200 809 notes ;
 - filtre persistant des musiciens pour les phrases réelles ;
-- notation locale à trois étoiles et filtre 2★/3★ dans les deux modes ;
+- en usage normal, sélection limitée aux phrases évaluées 3★ ;
+- protocole développeur de notation rapide et de couverture du corpus ;
 - séquences de 3 à 15 notes en mode généré ;
 - extraits de 5 à 15 notes en mode réel ;
 - transposition uniforme dans les 12 tons ;
 - rythmes, silences et articulations issus des transcriptions ;
 - son de mélodie synthétique, de clarinette ou de piano, au choix ;
 - fondamentales de basse synchronisées aux changements d’accord des phrases réelles ;
-- statistiques et notations locales exportables en JSON ou CSV ;
+- statistiques et protocole de notation exportables en JSON ou CSV ;
 - fonctionnement hors connexion après une première visite.
 
 ## Utilisation
@@ -38,12 +39,20 @@ Cannonball Adderley, Dexter Gordon et Stan Getz.
 La sélection est conservée sur l’appareil. Au moins un musicien doit être coché pour
 lancer une phrase réelle ; elle ne limite pas le corpus des phrases générées.
 
-Chaque phrase réelle peut être notée de 1 à 3 étoiles depuis l’écran de jeu ou la
-modale de réussite. Passer à la suivante avant toute réussite lui attribue au moins
-1 étoile ; utiliser **Transposer** lui attribue au moins 3 étoiles. Le filtre
-**Notation minimale** conserve toutes les phrases, seulement celles qui ne sont pas
-encore notées, uniquement les 2★ et 3★, ou uniquement les 3★. Il s’applique aussi
-aux phrases sources du modèle génératif.
+En usage normal, les deux modes utilisent uniquement les phrases couvertes par une
+note de 3★. La notation, son filtre et son export sont masqués.
+
+La case discrète **Mode dev**, en bas de la page, réactive les étoiles et ouvre
+**Notation rapide**. Ce mode alterne équitablement les musiciens sélectionnés,
+écoute les phrases entières dans leur tonalité originale et enchaîne après la saisie
+de 1, 2 ou 3★. Un point d’étape permanent indique la couverture ; un rappel plus
+visible apparaît toutes les dix notes.
+
+Le protocole peut étendre une tendance à tout un morceau après au moins huit notes,
+35 % de couverture et 75 % d’accord, sans forte dispersion entre 1★ et 3★. Une
+extension à tout un musicien exige au moins quarante notes réparties sur quatre
+morceaux, 15 % de couverture et la même cohérence. Une note de phrase explicite
+reste toujours prioritaire sur ces décisions globales.
 
 ## Modèle mélodique
 
@@ -89,8 +98,9 @@ charleston marque les temps 2 et 4 lorsqu’ils existent dans l’annotation.
 
 Une ligne par note est disponible dans l’export CSV : cible, intervalle mélodique,
 nombre d’essais, réussite au premier coup, temps de réponse et nombre de réécoutes.
-Un second CSV exporte les étoiles par phrase. La sauvegarde JSON inclut les exercices
-et les notations et peut être restaurée sur un autre appareil. Les données ne quittent
+En mode dev, un second CSV exporte le protocole : notes explicites, décisions globales,
+taille d’échantillon, accord et couverture. La sauvegarde JSON inclut les exercices et
+les notations et peut être restaurée sur un autre appareil. Les données ne quittent
 jamais le navigateur.
 
 ## Développement
@@ -106,6 +116,12 @@ Pour reconstruire les données après téléchargement de `wjazzd.db` :
 
 ```bash
 python scripts/generate_wjazzd_data.py /chemin/vers/wjazzd.db data/wjazzd-solos.js
+```
+
+Pour intégrer en dur le dernier export du protocole :
+
+```bash
+npm run ratings:generate -- /chemin/vers/dictee-musicale-protocole-AAAA-MM-JJ.csv data/default-ratings.js
 ```
 
 Le script `scripts/calibrate_parker_audio.py` reste disponible pour recalibrer les six
