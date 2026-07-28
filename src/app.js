@@ -9,6 +9,7 @@ import {
   makeSequence,
   pitchClass,
   summarizeRecords,
+  voiceBassHits,
 } from "./engine.js";
 import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
 
@@ -25,6 +26,9 @@ const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
 const INPUT_BURST_QUIET_MS = 500;
+const BASS_GAIN = 0.3;
+const BASS_ATTACK_SECONDS = 0.005;
+const BASS_RELEASE_SECONDS = 0.075;
 
 const elements = {
   gameLength: document.querySelector("#game-length"),
@@ -90,6 +94,8 @@ let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
 const decodedAudioBuffers = new Map();
+const bassSampleBuffers = new Map();
+const bassSampleLoads = new Map();
 let playbackTimer = null;
 let restartTimer = null;
 let completionTimer = null;
@@ -441,13 +447,75 @@ function playChick(startAt) {
   filter.type = "highpass";
   filter.frequency.value = 5200;
   filter.Q.value = 0.7;
-  gain.gain.setValueAtTime(0.032, start);
+  gain.gain.setValueAtTime(0.055, start);
   gain.gain.exponentialRampToValueAtTime(0.0001, stop);
   source.connect(filter).connect(gain).connect(context.destination);
   activeAudioSources.add(source);
   source.addEventListener("ended", () => activeAudioSources.delete(source));
   source.start(start);
   source.stop(stop);
+}
+
+function loadBassSample(midi) {
+  if (bassSampleBuffers.has(midi)) {
+    return Promise.resolve(bassSampleBuffers.get(midi));
+  }
+  if (!bassSampleLoads.has(midi)) {
+    const path = `audio/bass/${midi}.mp3`;
+    const loading = fetch(new URL(path, document.baseURI))
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Sample de basse indisponible (${response.status})`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((bytes) => getAudioContext().decodeAudioData(bytes))
+      .then((buffer) => {
+        bassSampleBuffers.set(midi, buffer);
+        bassSampleLoads.delete(midi);
+        return buffer;
+      })
+      .catch((error) => {
+        bassSampleLoads.delete(midi);
+        throw error;
+      });
+    bassSampleLoads.set(midi, loading);
+  }
+  return bassSampleLoads.get(midi);
+}
+
+async function preloadBassSamples(hits) {
+  const midiNotes = [...new Set(hits.map(({ midi }) => midi))];
+  await Promise.all(midiNotes.map(loadBassSample));
+}
+
+function playBass(midi, startAt, duration) {
+  const buffer = bassSampleBuffers.get(midi);
+  if (!buffer) return;
+  const context = getAudioContext();
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+  const start = context.currentTime + startAt;
+  const safeDuration = Math.max(0.04, Math.min(duration, buffer.duration));
+  const stop = start + safeDuration;
+  const release = Math.max(
+    start + BASS_ATTACK_SECONDS,
+    stop - Math.min(BASS_RELEASE_SECONDS, safeDuration * 0.3),
+  );
+
+  source.buffer = buffer;
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(
+    BASS_GAIN,
+    start + BASS_ATTACK_SECONDS,
+  );
+  gain.gain.setValueAtTime(BASS_GAIN, release);
+  gain.gain.exponentialRampToValueAtTime(0.0001, stop);
+  source.connect(gain).connect(context.destination);
+  activeAudioSources.add(source);
+  source.addEventListener("ended", () => activeAudioSources.delete(source));
+  source.start(start);
+  source.stop(stop + 0.02);
 }
 
 function setPlaybackState(playing) {
@@ -642,6 +710,13 @@ function playSequence({ guardInputBurst = false } = {}) {
     for (const chick of exercise.chicks ?? []) {
       playChick(chick.offset * timeScale);
     }
+    for (const bassHit of exercise.bassHits ?? []) {
+      playBass(
+        bassHit.midi,
+        bassHit.offset * timeScale,
+        bassHit.duration * timeScale,
+      );
+    }
     const lastTiming = exercise.timings.at(-1);
     playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
   } else {
@@ -694,6 +769,11 @@ async function startExercise() {
     mode: currentMode,
     selectedPerformers: [...selectedPerformers],
   });
+  try {
+    await preloadBassSamples(generated.bassHits ?? []);
+  } catch {
+    // La dictée reste jouable si un sample de basse est momentanément indisponible.
+  }
   exercise = {
     id: crypto.randomUUID(),
     startedAt: new Date().toISOString(),
@@ -717,6 +797,7 @@ async function startExercise() {
     }),
     timings: generated.timings ?? null,
     chicks: generated.chicks ?? null,
+    bassHits: generated.bassHits ?? null,
     keyboard: generated.keyboard,
     currentIndex: 0,
     attempts: [],
@@ -816,7 +897,7 @@ function restartSameExercise() {
   playSequence();
 }
 
-function transposeSameExercise() {
+async function transposeSameExercise() {
   if (!exercise) return;
   hideCompletionModal();
   stopAllTones();
@@ -828,6 +909,7 @@ function transposeSameExercise() {
   const transposition = exercise.transpositionCycle.shift();
   exercise.transposition = transposition;
   exercise.notes = exercise.originalNotes.map((midi) => midi + transposition);
+  exercise.bassHits = voiceBassHits(exercise.bassHits ?? [], transposition);
   exercise.source = { ...exercise.source, transposition };
   exercise.keyboard = keyboardLayoutForNotes(exercise.notes);
   prepareRepeatedExercise();
@@ -835,6 +917,11 @@ function transposeSameExercise() {
   renderSource(exercise.source);
   buildPiano(exercise.keyboard);
   markReferenceKey();
+  try {
+    await preloadBassSamples(exercise.bassHits);
+  } catch {
+    // La mélodie reste prioritaire si le chargement d’une basse échoue.
+  }
   playSequence();
 }
 

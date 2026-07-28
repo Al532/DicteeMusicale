@@ -221,7 +221,25 @@ test("les chicks ne sont programmés que pour la lecture rythmée réelle", () =
     /if \(exercise\.timings\) \{[\s\S]*?for \(const chick of exercise\.chicks \?\? \[\]\) \{[\s\S]*?playChick\(chick\.offset \* timeScale\)/,
   );
   assert.match(app, /filter\.type = "highpass"/);
-  assert.match(app, /gain\.gain\.setValueAtTime\(0\.032, start\)/);
+  assert.match(app, /gain\.gain\.setValueAtTime\(0\.055, start\)/);
+});
+
+test("une fondamentale samplée accompagne chaque accord des phrases réelles", () => {
+  const playback = app.match(
+    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
+  )?.[1];
+  assert.ok(playback);
+  assert.match(
+    playback,
+    /for \(const bassHit of exercise\.bassHits \?\? \[\]\) \{[\s\S]*?playBass\([\s\S]*?bassHit\.midi,[\s\S]*?bassHit\.offset \* timeScale,[\s\S]*?bassHit\.duration \* timeScale/,
+  );
+  assert.match(app, /const BASS_GAIN = 0\.3/);
+  assert.match(app, /const path = `audio\/bass\/\$\{midi\}\.mp3`/);
+  assert.match(app, /await preloadBassSamples\(generated\.bassHits \?\? \[\]\)/);
+  assert.match(
+    app,
+    /exercise\.bassHits = voiceBassHits\(exercise\.bassHits \?\? \[\], transposition\)/,
+  );
 });
 
 test("le lecteur original commence à la frontière et conserve une courte fin", () => {
@@ -414,8 +432,9 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v18/);
+  assert.match(serviceWorker, /dictee-musicale-v19/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
+  assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [
     "billies-bounce",
@@ -426,5 +445,8 @@ test("les enregistrements et le pitch-shifter sont disponibles hors connexion", 
     "yardbird-suite",
   ]) {
     assert.match(serviceWorker, new RegExp(`\\./audio/parker/${name}\\.mp3`));
+  }
+  for (let midi = 28; midi <= 48; midi += 1) {
+    assert.match(serviceWorker, new RegExp(`\\./audio/bass/${midi}\\.mp3`));
   }
 });

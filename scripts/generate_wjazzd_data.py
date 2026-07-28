@@ -66,10 +66,11 @@ AUDIO_REFERENCES = {
 }
 
 
-def build_corpus(database: Path) -> tuple[list[dict], list[dict]]:
+def build_corpus(database: Path) -> tuple[list[dict], list[dict], dict[str, list]]:
     connection = sqlite3.connect(database)
     connection.row_factory = sqlite3.Row
     solos = []
+    chords_by_solo = {}
 
     solo_rows = connection.execute(
         """
@@ -98,7 +99,7 @@ def build_corpus(database: Path) -> tuple[list[dict], list[dict]]:
         ).fetchall()
         beats = connection.execute(
             """
-            SELECT ROUND(onset, 4) AS onset, beat
+            SELECT ROUND(onset, 4) AS onset, beat, chord
             FROM beats
             WHERE melid = ?
             ORDER BY onset, beatid
@@ -138,6 +139,11 @@ def build_corpus(database: Path) -> tuple[list[dict], list[dict]]:
                 for row in phrases
             ],
         }
+        chords_by_solo[solo["id"]] = [
+            [row["onset"], row["chord"].strip()]
+            for row in beats
+            if row["chord"] and row["chord"].strip()
+        ]
         if audio:
             solo.update(
                 audioFile=audio["file"],
@@ -155,7 +161,7 @@ def build_corpus(database: Path) -> tuple[list[dict], list[dict]]:
         )
     ]
     connection.close()
-    return solos, performers
+    return solos, performers, chords_by_solo
 
 
 def main() -> None:
@@ -163,13 +169,19 @@ def main() -> None:
         raise SystemExit("Expected input database and output JavaScript path.")
     database = Path(sys.argv[1])
     output = Path(sys.argv[2])
-    solos, performers = build_corpus(database)
+    solos, performers, chords_by_solo = build_corpus(database)
+    chords_output = output.with_name("wjazzd-chords.js")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         "// Generated from the public WJazzD v2.1 research corpus. See README.md.\n"
         f"export const WJAZZD_SOLOS = {json.dumps(solos, ensure_ascii=False, separators=(',', ':'))};\n"
         f"export const WJAZZD_PERFORMERS = {json.dumps(performers, ensure_ascii=False, separators=(',', ':'))};\n"
         f"export const DEFAULT_PERFORMERS = {json.dumps(DEFAULT_PERFORMERS, ensure_ascii=False, separators=(',', ':'))};\n",
+        encoding="utf-8",
+    )
+    chords_output.write_text(
+        "// Generated from the public WJazzD v2.1 research corpus. See README.md.\n"
+        f"export const WJAZZD_CHORDS = {json.dumps(chords_by_solo, ensure_ascii=False, separators=(',', ':'))};\n",
         encoding="utf-8",
     )
 

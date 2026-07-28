@@ -3,6 +3,7 @@ import {
   WJAZZD_PERFORMERS,
   WJAZZD_SOLOS,
 } from "../data/wjazzd-solos.js";
+import { WJAZZD_CHORDS } from "../data/wjazzd-chords.js";
 
 export { DEFAULT_PERFORMERS, WJAZZD_PERFORMERS };
 
@@ -23,11 +24,92 @@ export const NOTE_NAMES = [
 
 const MIN_MIDI = 48;
 const MAX_MIDI = 71;
+export const BASS_MIN_MIDI = 28;
+export const BASS_MAX_MIDI = 48;
 export const JAZZ_MARKOV_MAX_ORDER = 8;
 export const JAZZ_MARKOV_MIN_CONTEXT_COUNT = 2;
 
 export function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
+}
+
+export function bassPitchClassForChord(chord) {
+  const symbol = String(chord ?? "").trim();
+  if (!symbol || symbol === "NC") return null;
+  const bassSymbol = symbol.split("/").at(-1);
+  const match = bassSymbol.match(/^([A-G])([b#]?)/);
+  if (!match) return null;
+  const naturalPitchClasses = {
+    C: 0,
+    D: 2,
+    E: 4,
+    F: 5,
+    G: 7,
+    A: 9,
+    B: 11,
+  };
+  const accidental = match[2] === "b" ? -1 : match[2] === "#" ? 1 : 0;
+  return pitchClass(naturalPitchClasses[match[1]] + accidental);
+}
+
+function nearestBassMidi(rootPitchClass, transposition, previousMidi) {
+  const transposedPitchClass = pitchClass(rootPitchClass + transposition);
+  const candidates = [];
+  for (let midi = BASS_MIN_MIDI; midi <= BASS_MAX_MIDI; midi += 1) {
+    if (pitchClass(midi) === transposedPitchClass) candidates.push(midi);
+  }
+  return candidates.reduce((best, candidate) => {
+    const candidateDistance = Math.abs(candidate - previousMidi);
+    const bestDistance = Math.abs(best - previousMidi);
+    return candidateDistance < bestDistance ||
+      (candidateDistance === bestDistance && candidate < best)
+      ? candidate
+      : best;
+  });
+}
+
+export function voiceBassHits(hits, transposition = 0) {
+  let previousMidi = 36;
+  return hits.map((hit) => {
+    const midi = nearestBassMidi(
+      hit.rootPitchClass,
+      transposition,
+      previousMidi,
+    );
+    previousMidi = midi;
+    return { ...hit, midi };
+  });
+}
+
+function bassHitsForExcerpt(chords, firstOnset, playbackEnd, transposition) {
+  const timeline = [];
+  let activeChord = null;
+  for (const [onset, chord] of chords ?? []) {
+    if (onset <= firstOnset) {
+      activeChord = chord;
+      continue;
+    }
+    if (onset >= playbackEnd) break;
+    timeline.push({ onset, chord });
+  }
+  if (activeChord !== null) {
+    timeline.unshift({ onset: firstOnset, chord: activeChord });
+  }
+
+  const hits = timeline.flatMap((entry, index) => {
+    const rootPitchClass = bassPitchClassForChord(entry.chord);
+    if (rootPitchClass === null) return [];
+    const nextOnset = timeline[index + 1]?.onset ?? playbackEnd;
+    const duration = nextOnset - entry.onset;
+    if (duration <= 0) return [];
+    return [{
+      offset: Number((entry.onset - firstOnset).toFixed(4)),
+      duration: Number(duration.toFixed(4)),
+      chord: entry.chord,
+      rootPitchClass,
+    }];
+  });
+  return voiceBassHits(hits, transposition);
 }
 
 export function isCorrectMidi(targetMidi, guessMidi) {
@@ -379,6 +461,12 @@ function jazzSequence(random, maxNotes = 15, selectedPerformers) {
       offset: Number((onset - firstOnset).toFixed(4)),
       beat,
     }));
+  const bassHits = bassHitsForExcerpt(
+    WJAZZD_CHORDS[excerpt.solo.id],
+    firstOnset,
+    playbackEnd,
+    transposition,
+  );
   const firstBar = excerpt.events[0][3];
   const lastBar = lastEvent[3];
   const barLabel =
@@ -391,6 +479,7 @@ function jazzSequence(random, maxNotes = 15, selectedPerformers) {
     notes: transposedNotes,
     timings,
     chicks,
+    bassHits,
     meta: {
       label: `${excerpt.solo.performer} — ${excerpt.solo.title}`,
       originalTempo: excerpt.solo.originalTempo,

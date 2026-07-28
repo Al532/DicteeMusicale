@@ -11,6 +11,7 @@ solistes sélectionnés, puis demande de la retrouver intégralement au clavier.
 - extraits de 5 à 15 notes en mode réel ;
 - transposition uniforme dans les 12 tons ;
 - rythmes, silences et articulations issus des transcriptions ;
+- fondamentales de basse synchronisées aux changements d’accord des phrases réelles ;
 - statistiques locales exportables en JSON ou CSV ;
 - fonctionnement hors connexion après une première visite.
 
@@ -45,9 +46,14 @@ et prolonger des licks présents dans les solos sources.
 
 ## Phrases réelles et enregistrements
 
-Les hauteurs, positions, durées, mesures, temps et limites `PHRASE` proviennent de la
-WJazzD v2.1 (base v2.2). Chaque exercice indique le musicien, le morceau, la phrase,
-les mesures et renvoie vers la fiche officielle.
+Les hauteurs, positions, durées, mesures, temps, accords et limites `PHRASE` proviennent
+de la WJazzD v2.1 (base v2.2). Chaque exercice indique le musicien, le morceau, la
+phrase, les mesures et renvoie vers la fiche officielle.
+
+En mode réel, une fondamentale de basse marque chaque accord annoté. Les renversements
+utilisent leur basse explicite, la ligne suit la transposition de l’exercice et choisit
+automatiquement une octave dans la tessiture MIDI 28–48. Les 21 samples chromatiques
+proviennent du projet SharpEleven.
 
 Six enregistrements déjà calibrés sont disponibles pour *Billie’s Bounce*,
 *Donna Lee*, *Ornithology*, *Scrapple from the Apple*, *Thriving on a Riff* et
@@ -56,7 +62,7 @@ lien vers l’enregistrement sont entièrement masqués pour les autres solos.
 
 Le clavier suit le registre réel de la phrase transposée. Il est composé de zones
 indivisibles **do–mi** et **fa–si**, avec un minimum de quatre zones. Un chick de
-charleston discret marque les temps 2 et 4 lorsqu’ils existent dans l’annotation.
+charleston marque les temps 2 et 4 lorsqu’ils existent dans l’annotation.
 
 ## Statistiques
 

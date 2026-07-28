@@ -6,10 +6,14 @@ import {
   WJAZZD_PERFORMERS,
   WJAZZD_SOLOS,
 } from "../data/wjazzd-solos.js";
+import { WJAZZD_CHORDS } from "../data/wjazzd-chords.js";
 
 import {
+  BASS_MAX_MIDI,
+  BASS_MIN_MIDI,
   JAZZ_MARKOV_MAX_ORDER,
   JAZZ_MARKOV_MIN_CONTEXT_COUNT,
+  bassPitchClassForChord,
   isCorrectMidi,
   jazzCorpusSummary,
   keyboardLayoutForNotes,
@@ -20,6 +24,7 @@ import {
   randomDifferentJazzTransposition,
   randomJazzTransposition,
   summarizeRecords,
+  voiceBassHits,
 } from "../src/engine.js";
 
 function seededRandom(seed = 1) {
@@ -39,6 +44,36 @@ test("la correction exige la hauteur MIDI exacte", () => {
   assert.equal(isCorrectMidi(60, 72), false);
   assert.equal(isCorrectMidi(60, 61), false);
   assert.equal(pitchClass(-1), 11);
+});
+
+test("les fondamentales et renversements WJazzD sont interprétés", () => {
+  assert.equal(bassPitchClassForChord("Fj7"), 5);
+  assert.equal(bassPitchClassForChord("Eb-7"), 3);
+  assert.equal(bassPitchClassForChord("F#7"), 6);
+  assert.equal(bassPitchClassForChord("C-/Bb"), 10);
+  assert.equal(bassPitchClassForChord("D7/F#"), 6);
+  assert.equal(bassPitchClassForChord("NC"), null);
+  assert.equal(bassPitchClassForChord(""), null);
+});
+
+test("la basse est transposée et conduite dans la tessiture des samples", () => {
+  const hits = voiceBassHits(
+    [
+      { offset: 0, duration: 1, rootPitchClass: 0, chord: "Cj7" },
+      { offset: 1, duration: 1, rootPitchClass: 5, chord: "F7" },
+      { offset: 2, duration: 1, rootPitchClass: 11, chord: "B7" },
+    ],
+    2,
+  );
+  assert.deepEqual(
+    hits.map(({ midi }) => pitchClass(midi)),
+    [2, 7, 1],
+  );
+  assert.ok(
+    hits.every(
+      ({ midi }) => midi >= BASS_MIN_MIDI && midi <= BASS_MAX_MIDI,
+    ),
+  );
 });
 
 test("les 12 transpositions, dont la tonalité originale, sont équiprobables", () => {
@@ -281,7 +316,7 @@ test("le mode réel reste limité à 5–15 notes", () => {
   assert.equal(fiveNotes.timings.length, fiveNotes.notes.length);
 });
 
-test("les rythmes, transpositions et chicks annotés sont conservés", () => {
+test("les rythmes, transpositions, accords et chicks annotés sont conservés", () => {
   const results = Array.from({ length: 48 }, (_, index) =>
     makeSequence({
       mode: "jazz",
@@ -290,6 +325,7 @@ test("les rythmes, transpositions et chicks annotés sont conservés", () => {
     }),
   );
   assert.ok(results.some((result) => result.chicks.length > 0));
+  assert.ok(results.every((result) => result.bassHits.length > 0));
   assert.ok(
     results.some((result) => result.meta.source.transposition !== 0),
   );
@@ -314,7 +350,45 @@ test("les rythmes, transpositions et chicks annotés sont conservés", () => {
         ({ offset }) => offset >= 0 && offset < playbackEnd,
       ),
     );
+    assert.ok(
+      result.bassHits.every(
+        ({ offset, duration, midi, rootPitchClass, chord }) =>
+          offset >= 0 &&
+          offset < playbackEnd &&
+          duration > 0 &&
+          midi >= BASS_MIN_MIDI &&
+          midi <= BASS_MAX_MIDI &&
+          pitchClass(midi) ===
+            pitchClass(rootPitchClass + result.meta.source.transposition) &&
+          typeof chord === "string",
+      ),
+    );
   }
+});
+
+test("les 456 solos contiennent leur grille harmonique WJazzD", () => {
+  assert.equal(WJAZZD_SOLOS.length, 456);
+  assert.ok(WJAZZD_SOLOS.every((solo) => WJAZZD_CHORDS[solo.id].length > 0));
+  assert.ok(
+    Object.values(WJAZZD_CHORDS).reduce(
+      (sum, chords) => sum + chords.length,
+      0,
+    ) > 30_000,
+  );
+});
+
+test("les 21 samples chromatiques de basse sont présents", async () => {
+  const sizes = await Promise.all(
+    Array.from({ length: 21 }, (_, index) => index + BASS_MIN_MIDI).map(
+      async (midi) => {
+        const file = await stat(
+          new URL(`../audio/bass/${midi}.mp3`, import.meta.url),
+        );
+        return file.size;
+      },
+    ),
+  );
+  assert.ok(sizes.every((size) => size > 20_000));
 });
 
 test("la longueur générée est bornée", () => {
