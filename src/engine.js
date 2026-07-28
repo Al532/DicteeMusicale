@@ -272,6 +272,23 @@ const KNOWN_PERFORMERS = new Set(
 );
 const modelCache = new Map();
 
+export function phraseRatingKey(soloId, phraseNumber) {
+  return `${soloId}:${phraseNumber}`;
+}
+
+function normalizedMinimumRating(minimumRating) {
+  const rating = Math.round(Number(minimumRating) || 0);
+  return rating === 2 || rating === 3 ? rating : 0;
+}
+
+function phraseRating(phraseRatings, solo, phrase) {
+  const stored = phraseRatings?.[phraseRatingKey(solo.id, phrase[2])];
+  const rating = Number(
+    stored && typeof stored === "object" ? stored.rating : stored,
+  );
+  return Number.isFinite(rating) ? rating : 0;
+}
+
 export function normalizePerformerSelection(
   selectedPerformers = DEFAULT_PERFORMERS,
 ) {
@@ -293,20 +310,37 @@ function selectedSolos(selectedPerformers) {
   };
 }
 
-function buildJazzIntervalSequences(solos) {
-  const sequences = [];
+function eligiblePhraseEntries(
+  solos,
+  phraseRatings = {},
+  minimumRating = 0,
+) {
+  const threshold = normalizedMinimumRating(minimumRating);
+  const entries = [];
   for (const solo of solos) {
-    for (const [start, end] of solo.phrases) {
-      const intervals = [];
-      for (let index = start + 1; index <= end; index += 1) {
-        const previous = solo.events[index - 1]?.[0];
-        const current = solo.events[index]?.[0];
-        if (Number.isFinite(previous) && Number.isFinite(current)) {
-          intervals.push(current - previous);
-        }
+    for (const phrase of solo.phrases) {
+      if (threshold && phraseRating(phraseRatings, solo, phrase) < threshold) {
+        continue;
       }
-      if (intervals.length) sequences.push(intervals);
+      entries.push({ solo, phrase });
     }
+  }
+  return entries;
+}
+
+function buildJazzIntervalSequences(phraseEntries) {
+  const sequences = [];
+  for (const { solo, phrase } of phraseEntries) {
+    const [start, end] = phrase;
+    const intervals = [];
+    for (let index = start + 1; index <= end; index += 1) {
+      const previous = solo.events[index - 1]?.[0];
+      const current = solo.events[index]?.[0];
+      if (Number.isFinite(previous) && Number.isFinite(current)) {
+        intervals.push(current - previous);
+      }
+    }
+    if (intervals.length) sequences.push(intervals);
   }
   return sequences;
 }
@@ -315,8 +349,14 @@ function addCount(map, key) {
   map.set(key, (map.get(key) ?? 0) + 1);
 }
 
-function buildJazzMarkovModel(performers, solos) {
-  const intervalSequences = buildJazzIntervalSequences(solos);
+function buildJazzMarkovModel(phraseEntries) {
+  const intervalSequences = buildJazzIntervalSequences(phraseEntries);
+  const performers = [
+    ...new Set(phraseEntries.map(({ solo }) => solo.performer)),
+  ];
+  const solos = [...new Map(
+    phraseEntries.map(({ solo }) => [solo.id, solo]),
+  ).values()];
   const transitions = Array.from(
     { length: JAZZ_MARKOV_MAX_ORDER + 1 },
     () => new Map(),
@@ -349,6 +389,7 @@ function buildJazzMarkovModel(performers, solos) {
   return {
     performers,
     solos,
+    phraseEntries,
     intervalSequences,
     intervalCounts: Object.freeze(intervalCounts),
     intervalSampleSize,
@@ -357,26 +398,46 @@ function buildJazzMarkovModel(performers, solos) {
   };
 }
 
-function getJazzMarkovModel(selectedPerformers) {
-  const { performers, solos } = selectedSolos(selectedPerformers);
-  const key = performers.join("\u0000");
-  if (!modelCache.has(key)) {
-    if (modelCache.size >= 4) {
-      modelCache.delete(modelCache.keys().next().value);
-    }
-    modelCache.set(key, buildJazzMarkovModel(performers, solos));
+function getJazzMarkovModel(phraseRatings = {}, minimumRating = 0) {
+  const threshold = normalizedMinimumRating(minimumRating);
+  const key = threshold
+    ? `${threshold}:${Object.entries(phraseRatings ?? {})
+        .filter(([, stored]) => {
+          const rating = Number(
+            stored && typeof stored === "object" ? stored.rating : stored,
+          );
+          return rating >= threshold;
+        })
+        .map(([phraseKey]) => phraseKey)
+        .sort()
+        .join("\u0000")}`
+    : "all";
+  if (modelCache.has(key)) return modelCache.get(key);
+  const phraseEntries = eligiblePhraseEntries(
+    WJAZZD_SOLOS,
+    phraseRatings,
+    threshold,
+  );
+  if (modelCache.size >= 4) {
+    modelCache.delete(modelCache.keys().next().value);
   }
-  return modelCache.get(key);
+  const model = buildJazzMarkovModel(phraseEntries);
+  if (!model.intervalSampleSize) {
+    throw new Error("Aucune phrase ne correspond au filtre d’étoiles.");
+  }
+  modelCache.set(key, model);
+  return model;
 }
 
-export function jazzCorpusSummary(
-  selectedPerformers = DEFAULT_PERFORMERS,
-) {
-  const model = getJazzMarkovModel(selectedPerformers);
+export function jazzCorpusSummary({
+  phraseRatings = {},
+  minimumRating = 0,
+} = {}) {
+  const model = getJazzMarkovModel(phraseRatings, minimumRating);
   return {
     performerCount: model.performers.length,
     soloCount: model.solos.length,
-    phraseCount: model.intervalSequences.length,
+    phraseCount: model.phraseEntries.length,
     intervalSampleSize: model.intervalSampleSize,
     intervalCounts: model.intervalCounts,
   };
@@ -413,8 +474,8 @@ function nextMarkovInterval(history, previousMidi, random, model) {
   throw new Error("Aucune transition compatible avec le registre.");
 }
 
-function randomSequence(length, random, selectedPerformers) {
-  const model = getJazzMarkovModel(selectedPerformers);
+function randomSequence(length, random, phraseRatings, minimumRating) {
+  const model = getJazzMarkovModel(phraseRatings, minimumRating);
   const notes = [randomInt(53, 65, random)];
   const intervals = [];
   const ordersUsed = [];
@@ -446,23 +507,35 @@ function randomSequence(length, random, selectedPerformers) {
         maxOrder: JAZZ_MARKOV_MAX_ORDER,
         intervalSampleSize: model.intervalSampleSize,
         performers: model.performers,
+        minimumRating: normalizedMinimumRating(minimumRating),
         ordersUsed,
       },
     },
   };
 }
 
-function jazzSequence(random, maxNotes = 15, selectedPerformers) {
+function jazzSequence(
+  random,
+  maxNotes = 15,
+  selectedPerformers,
+  phraseRatings,
+  minimumRating,
+) {
   const { performers, solos } = selectedSolos(selectedPerformers);
   const candidates = [];
-  for (const solo of solos) {
-    for (const phrase of solo.phrases) {
-      const [start, end] = phrase;
-      const events = solo.events.slice(start, end + 1);
-      const notes = events.map(([midi]) => midi);
-      if (notes.length < 2) continue;
-      candidates.push({ solo, phrase, events, notes });
-    }
+  for (const { solo, phrase } of eligiblePhraseEntries(
+    solos,
+    phraseRatings,
+    minimumRating,
+  )) {
+    const [start, end] = phrase;
+    const events = solo.events.slice(start, end + 1);
+    const notes = events.map(([midi]) => midi);
+    if (notes.length < 2) continue;
+    candidates.push({ solo, phrase, events, notes });
+  }
+  if (!candidates.length) {
+    throw new Error("Aucune phrase ne correspond aux filtres choisis.");
   }
 
   const selected = randomChoice(candidates, random);
@@ -534,7 +607,12 @@ function jazzSequence(random, maxNotes = 15, selectedPerformers) {
         audioFile: excerpt.solo.audioFile,
         audioSourceUrl: excerpt.solo.audioSourceUrl,
         audioOffset: excerpt.solo.audioOffset,
+        soloId: excerpt.solo.id,
+        performer: excerpt.solo.performer,
+        title: excerpt.solo.title,
         phrase: excerpt.phrase[2],
+        phraseKey: phraseRatingKey(excerpt.solo.id, excerpt.phrase[2]),
+        rating: phraseRating(phraseRatings, excerpt.solo, excerpt.phrase),
         noteCount: transposedNotes.length,
         fullPhraseNoteCount: selected.notes.length,
         maxNotes: safeMaxNotes,
@@ -557,13 +635,26 @@ export function makeSequence({
   maxNotes = 15,
   mode = "random",
   selectedPerformers = DEFAULT_PERFORMERS,
+  phraseRatings = {},
+  minimumRating = 0,
   random = Math.random,
 } = {}) {
   const safeLength = Math.max(3, Math.min(15, Math.round(length)));
   const sequence =
     mode === "parker" || mode === "jazz"
-      ? jazzSequence(random, maxNotes, selectedPerformers)
-      : randomSequence(safeLength, random, selectedPerformers);
+      ? jazzSequence(
+          random,
+          maxNotes,
+          selectedPerformers,
+          phraseRatings,
+          minimumRating,
+        )
+      : randomSequence(
+          safeLength,
+          random,
+          phraseRatings,
+          minimumRating,
+        );
   return {
     ...sequence,
     keyboard: keyboardLayoutForNotes(sequence.notes),

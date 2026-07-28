@@ -38,7 +38,7 @@
         </div>
         <details class="musician-picker" id="musician-picker">
           <summary>
-            <span>Musiciens inclus</span>
+            <span>Musiciens (phrases réelles)</span>
             <strong id="musician-selection-count"></strong>
           </summary>
           <div class="musician-picker-content">
@@ -60,8 +60,16 @@
             ></div>
           </div>
         </details>
+        <label class="rating-filter">
+          <span>Notation minimale</span>
+          <select id="minimum-rating">
+            <option value="0">Toutes les phrases</option>
+            <option value="2">2 étoiles ou plus</option>
+            <option value="3">3 étoiles uniquement</option>
+          </select>
+        </label>
         <p class="selection-warning" id="selection-warning" hidden>
-          Sélectionne au moins un musicien.
+          Sélectionne au moins un musicien pour les phrases réelles.
         </p>
       </section>
 
@@ -81,6 +89,16 @@
               <input id="game-speed" type="range" min="25" max="100" step="5" value="100" />
             </label>
             <button class="ghost-button compact" id="replay" disabled>Réécouter</button>
+            <div
+              class="star-rating game-rating"
+              id="exercise-rating"
+              aria-label="Noter cette phrase"
+              hidden
+            >
+              <button type="button" data-rating="1" aria-label="Noter 1 étoile">★</button>
+              <button type="button" data-rating="2" aria-label="Noter 2 étoiles">★</button>
+              <button type="button" data-rating="3" aria-label="Noter 3 étoiles">★</button>
+            </div>
             <div class="original-controls" id="original-controls" hidden>
               <button
                 class="compact original-listen-button"
@@ -127,6 +145,7 @@
           </div>
           <div class="stats-actions">
             <button class="ghost-button compact" id="export-csv">CSV</button>
+            <button class="ghost-button compact" id="export-ratings">Notes ★</button>
             <button class="ghost-button compact" id="export-json">Sauvegarder</button>
             <label class="ghost-button compact file-label">
               Restaurer
@@ -181,6 +200,16 @@
       <div class="completion-card">
         <p class="eyebrow">Phrase retrouvée</p>
         <h2 id="completion-title">Bien joué !</h2>
+        <div
+          class="star-rating modal-rating"
+          id="completion-rating"
+          aria-label="Noter cette phrase"
+          hidden
+        >
+          <button type="button" data-rating="1" aria-label="Noter 1 étoile">★</button>
+          <button type="button" data-rating="2" aria-label="Noter 2 étoiles">★</button>
+          <button type="button" data-rating="3" aria-label="Noter 3 étoiles">★</button>
+        </div>
         <div class="completion-actions">
           <button
             class="ghost-button completion-original"

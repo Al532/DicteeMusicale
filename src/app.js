@@ -15,6 +15,7 @@ import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
 
 const STORAGE_KEY = "dictee-musicale.records.v1";
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
+const RATINGS_KEY = "dictee-musicale.ratings.v1";
 const RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE = 100;
 const LEGATO_RELEASE_SECONDS = 0.035;
 const WRONG_NOTE_REPLAY_DELAY_MS = 650;
@@ -46,12 +47,14 @@ const elements = {
   selectDefaultPerformers: document.querySelector("#select-default-performers"),
   selectAllPerformers: document.querySelector("#select-all-performers"),
   clearPerformers: document.querySelector("#clear-performers"),
+  minimumRating: document.querySelector("#minimum-rating"),
   nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
   feedback: document.querySelector("#feedback"),
   kicker: document.querySelector("#exercise-kicker"),
   piano: document.querySelector("#piano"),
   exportCsv: document.querySelector("#export-csv"),
+  exportRatings: document.querySelector("#export-ratings"),
   exportJson: document.querySelector("#export-json"),
   importJson: document.querySelector("#import-json"),
   resetStats: document.querySelector("#reset-stats"),
@@ -65,7 +68,9 @@ const elements = {
   originalControls: document.querySelector("#original-controls"),
   playOriginal: document.querySelector("#play-original"),
   transposeOriginal: document.querySelector("#transpose-original"),
+  exerciseRating: document.querySelector("#exercise-rating"),
   completionModal: document.querySelector("#completion-modal"),
+  completionRating: document.querySelector("#completion-rating"),
   completionOriginal: document.querySelector("#completion-original"),
   restartExercise: document.querySelector("#restart-exercise"),
   transposeExercise: document.querySelector("#transpose-exercise"),
@@ -85,11 +90,20 @@ let exercise = null;
 let acceptingInput = false;
 let deferredInstallPrompt = null;
 let records = readJson(STORAGE_KEY, []);
+let phraseRatings = readJson(RATINGS_KEY, {});
+if (
+  !phraseRatings ||
+  typeof phraseRatings !== "object" ||
+  Array.isArray(phraseRatings)
+) {
+  phraseRatings = {};
+}
 let currentMode = "jazz";
 let randomLength = 5;
 let realMaxNotes = 15;
 let realSpeedPercent = 100;
 let randomPlaybackSpeedPercent = 88;
+let minimumRating = 0;
 let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
@@ -169,6 +183,9 @@ function loadSettings() {
     25,
     100,
   );
+  minimumRating = [2, 3].includes(Number(settings.minimumRating))
+    ? Number(settings.minimumRating)
+    : 0;
   const knownPerformers = new Set(
     WJAZZD_PERFORMERS.map(({ name }) => name),
   );
@@ -176,6 +193,7 @@ function loadSettings() {
     ? settings.selectedPerformers.filter((name) => knownPerformers.has(name))
     : DEFAULT_PERFORMERS;
   selectedPerformers = new Set(savedPerformers);
+  elements.minimumRating.value = String(minimumRating);
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
   updateModeSettings();
   renderPerformerOptions();
@@ -188,6 +206,7 @@ function saveSettings() {
     realMaxNotes,
     randomPlaybackPercent: randomPlaybackSpeedPercent,
     realSpeed: realSpeedPercent,
+    minimumRating,
     selectedPerformers: [...selectedPerformers],
     transposeOriginal: elements.transposeOriginal.checked,
     mode: currentMode,
@@ -205,7 +224,7 @@ function updatePerformerSelectionState() {
     ` · ${selectedSoloCount} solos`;
   const hasSelection = selectedPerformers.size > 0;
   elements.startReal.disabled = !hasSelection;
-  elements.startRandom.disabled = !hasSelection;
+  elements.startRandom.disabled = false;
   elements.selectionWarning.hidden = hasSelection;
 }
 
@@ -311,8 +330,14 @@ function syncGameSpeed(value) {
   else syncRandomSpeed(value);
 }
 
+function syncMinimumRating(value) {
+  minimumRating = [2, 3].includes(Number(value)) ? Number(value) : 0;
+  elements.minimumRating.value = String(minimumRating);
+  saveSettings();
+}
+
 function startMode(mode) {
-  if (!selectedPerformers.size) {
+  if (mode === "jazz" && !selectedPerformers.size) {
     elements.selectionWarning.hidden = false;
     elements.musicianPicker.open = true;
     return;
@@ -757,18 +782,84 @@ function markReferenceKey() {
   key?.classList.add("reference-key");
 }
 
+function currentPhraseRating() {
+  const phraseKey = exercise?.source?.phraseKey;
+  if (!phraseKey) return 0;
+  const stored = phraseRatings[phraseKey];
+  return (
+    Number(stored && typeof stored === "object" ? stored.rating : stored) || 0
+  );
+}
+
+function renderStarRating(element, rating) {
+  const isRealPhrase = Boolean(exercise?.source?.phraseKey);
+  element.hidden = !isRealPhrase;
+  for (const button of element.querySelectorAll("[data-rating]")) {
+    const value = Number(button.dataset.rating);
+    button.classList.toggle("selected", value <= rating);
+    button.setAttribute("aria-pressed", String(value === rating));
+  }
+}
+
+function renderRatingControls() {
+  const rating = currentPhraseRating();
+  renderStarRating(elements.exerciseRating, rating);
+  renderStarRating(elements.completionRating, rating);
+}
+
+function setPhraseRating(rating, { automatic = false } = {}) {
+  const source = exercise?.source;
+  if (!source?.phraseKey) return;
+  const safeRating = clamp(Math.round(Number(rating) || 0), 1, 3);
+  const existingRating = currentPhraseRating();
+  if (automatic && existingRating >= safeRating) return;
+  phraseRatings[source.phraseKey] = {
+    rating: safeRating,
+    updatedAt: new Date().toISOString(),
+    soloId: source.soloId,
+    performer: source.performer,
+    title: source.title,
+    phrase: source.phrase,
+    sourceUrl: source.url,
+  };
+  exercise.source = { ...source, rating: safeRating };
+  writeJson(RATINGS_KEY, phraseRatings);
+  renderRatingControls();
+}
+
+function setRatingFromButton(event) {
+  const rating = Number(event.currentTarget.dataset.rating);
+  setPhraseRating(rating);
+}
+
 async function startExercise() {
   hideCompletionModal();
   getAudioContext();
   const enteringGameMode = !document.body.classList.contains("game-mode");
-  if (enteringGameMode) await enterGameMode();
   saveSettings();
-  const generated = makeSequence({
-    length: randomLength,
-    maxNotes: realMaxNotes,
-    mode: currentMode,
-    selectedPerformers: [...selectedPerformers],
-  });
+  let generated;
+  try {
+    generated = makeSequence({
+      length: randomLength,
+      maxNotes: realMaxNotes,
+      mode: currentMode,
+      selectedPerformers: [...selectedPerformers],
+      phraseRatings,
+      minimumRating,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Aucune phrase disponible.";
+    elements.selectionWarning.textContent = message;
+    elements.selectionWarning.hidden = false;
+    elements.feedback.className = "feedback error";
+    elements.feedback.textContent = message;
+    return;
+  }
+  elements.selectionWarning.textContent =
+    "Sélectionne au moins un musicien pour les phrases réelles.";
+  elements.selectionWarning.hidden = true;
+  if (enteringGameMode) await enterGameMode();
   try {
     await preloadBassSamples(generated.bassHits ?? []);
   } catch {
@@ -803,6 +894,7 @@ async function startExercise() {
     attempts: [],
     replayCount: 0,
     guessStartedAt: null,
+    solvedAtLeastOnce: false,
   };
 
   elements.kicker.textContent = generated.meta.label;
@@ -813,6 +905,7 @@ async function startExercise() {
   elements.transposeOriginal.disabled = !hasOriginal;
   elements.replay.disabled = enteringGameMode;
   elements.nextExercise.disabled = false;
+  renderRatingControls();
   buildPiano(generated.keyboard);
   markReferenceKey();
   if (enteringGameMode) {
@@ -869,6 +962,7 @@ function hideCompletionModal() {
 
 function showCompletionModal() {
   elements.completionOriginal.hidden = !exercise?.source?.audioFile;
+  renderRatingControls();
   elements.completionModal.hidden = false;
   window.requestAnimationFrame(() => elements.completionNext.focus());
 }
@@ -901,6 +995,7 @@ async function transposeSameExercise() {
   if (!exercise) return;
   hideCompletionModal();
   stopAllTones();
+  setPhraseRating(3, { automatic: true });
   if (!exercise.transpositionCycle.length) {
     exercise.transpositionCycle = makeJazzTranspositionCycle({
       avoidFirstTransposition: exercise.transposition,
@@ -1033,6 +1128,7 @@ function handlePianoInput(midi, key) {
 function finishExercise() {
   acceptingInput = false;
   exercise.completedAt = new Date().toISOString();
+  exercise.solvedAtLeastOnce = true;
   records.push({
     id: exercise.id,
     startedAt: exercise.startedAt,
@@ -1056,6 +1152,13 @@ function finishExercise() {
     ? "Phrase terminée — sans erreur !"
     : "Phrase terminée. Les erreurs ont été enregistrées.";
   scheduleCompletionModal();
+}
+
+function goToNextExercise() {
+  if (exercise && !exercise.solvedAtLeastOnce) {
+    setPhraseRating(1, { automatic: true });
+  }
+  startExercise();
 }
 
 function renderStats() {
@@ -1092,9 +1195,10 @@ function download(filename, content, type) {
 function exportJson() {
   const payload = {
     app: "Dictée musicale",
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     records,
+    ratings: phraseRatings,
   };
   download(
     `dictee-musicale-${new Date().toISOString().slice(0, 10)}.json`,
@@ -1172,21 +1276,85 @@ function exportCsv() {
   );
 }
 
+function exportRatings() {
+  const rows = [
+    [
+      "phrase_id",
+      "etoiles",
+      "musicien",
+      "morceau",
+      "phrase",
+      "source_url",
+      "mise_a_jour",
+    ],
+  ];
+  for (const [phraseKey, stored] of Object.entries(phraseRatings).sort()) {
+    const entry =
+      stored && typeof stored === "object" ? stored : { rating: stored };
+    const rating = Number(entry.rating);
+    if (rating < 1 || rating > 3) continue;
+    rows.push([
+      phraseKey,
+      rating,
+      entry.performer,
+      entry.title,
+      entry.phrase,
+      entry.sourceUrl,
+      entry.updatedAt,
+    ]);
+  }
+  download(
+    `dictee-musicale-notes-${new Date().toISOString().slice(0, 10)}.csv`,
+    `\ufeff${rows.map((row) => row.map(csvCell).join(";")).join("\n")}`,
+    "text/csv;charset=utf-8",
+  );
+}
+
 async function importJson(event) {
   const [file] = event.target.files;
   if (!file) return;
   try {
     const payload = JSON.parse(await file.text());
-    if (payload.schemaVersion !== 1 || !Array.isArray(payload.records)) {
+    if (
+      ![1, 2].includes(payload.schemaVersion) ||
+      !Array.isArray(payload.records)
+    ) {
       throw new Error("Format non reconnu");
     }
     const existingIds = new Set(records.map((record) => record.id));
     const incoming = payload.records.filter((record) => record.id && !existingIds.has(record.id));
     records = [...records, ...incoming];
     writeJson(STORAGE_KEY, records);
+    let importedRatings = 0;
+    if (
+      payload.ratings &&
+      typeof payload.ratings === "object" &&
+      !Array.isArray(payload.ratings)
+    ) {
+      for (const [phraseKey, stored] of Object.entries(payload.ratings)) {
+        const entry =
+          stored && typeof stored === "object" ? stored : { rating: stored };
+        const rating = Number(entry.rating);
+        if (!phraseKey.includes(":") || rating < 1 || rating > 3) continue;
+        const existing = phraseRatings[phraseKey];
+        const existingDate =
+          existing && typeof existing === "object" ? existing.updatedAt : "";
+        if (
+          existing &&
+          String(existingDate ?? "") > String(entry.updatedAt ?? "")
+        ) {
+          continue;
+        }
+        phraseRatings[phraseKey] = { ...entry, rating };
+        importedRatings += 1;
+      }
+      writeJson(RATINGS_KEY, phraseRatings);
+    }
     renderStats();
     elements.feedback.className = "feedback success";
-    elements.feedback.textContent = `${incoming.length} phrase(s) restaurée(s).`;
+    elements.feedback.textContent =
+      `${incoming.length} exercice(s) et ` +
+      `${importedRatings} notation(s) restauré(s).`;
   } catch {
     elements.feedback.className = "feedback error";
     elements.feedback.textContent = "Impossible de restaurer ce fichier.";
@@ -1313,6 +1481,9 @@ elements.gameLength.addEventListener("input", () =>
   syncLength(elements.gameLength.value),
 );
 elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSpeed.value));
+elements.minimumRating.addEventListener("change", () =>
+  syncMinimumRating(elements.minimumRating.value),
+);
 elements.startReal.addEventListener("click", () => startMode("jazz"));
 elements.startRandom.addEventListener("click", () => startMode("random"));
 elements.selectDefaultPerformers.addEventListener("click", () =>
@@ -1324,21 +1495,25 @@ elements.selectAllPerformers.addEventListener("click", () =>
 elements.clearPerformers.addEventListener("click", () =>
   setPerformerSelection([]),
 );
-elements.nextExercise.addEventListener("click", startExercise);
+elements.nextExercise.addEventListener("click", goToNextExercise);
 elements.replay.addEventListener("click", togglePlayback);
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
 elements.transposeOriginal.addEventListener("change", saveSettings);
 elements.completionOriginal.addEventListener("click", toggleCompletionOriginal);
 elements.restartExercise.addEventListener("click", restartSameExercise);
 elements.transposeExercise.addEventListener("click", transposeSameExercise);
-elements.completionNext.addEventListener("click", startExercise);
+elements.completionNext.addEventListener("click", goToNextExercise);
 elements.completionExit.addEventListener("click", leaveGameMode);
 elements.exportJson.addEventListener("click", exportJson);
 elements.exportCsv.addEventListener("click", exportCsv);
+elements.exportRatings.addEventListener("click", exportRatings);
 elements.importJson.addEventListener("change", importJson);
 elements.resetStats.addEventListener("click", resetStats);
 elements.fullscreenButton.addEventListener("click", toggleGameMode);
 elements.exitPortraitMode.addEventListener("click", leaveGameMode);
+for (const button of document.querySelectorAll(".star-rating [data-rating]")) {
+  button.addEventListener("click", setRatingFromButton);
+}
 
 loadSettings();
 renderStats();

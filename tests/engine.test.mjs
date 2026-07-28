@@ -20,6 +20,7 @@ import {
   makeJazzTranspositionCycle,
   makeSequence,
   normalizePerformerSelection,
+  phraseRatingKey,
   pitchClass,
   playbackStartOnStrongBeat,
   randomDifferentJazzTransposition,
@@ -218,29 +219,74 @@ test("le corpus navigateur contient toute la WJazzD et ses 78 musiciens", () => 
   );
 });
 
-test("le modèle Markov est reconstruit selon les musiciens sélectionnés", () => {
-  const parker = jazzCorpusSummary(["Charlie Parker"]);
-  const coltrane = jazzCorpusSummary(["John Coltrane"]);
-  assert.equal(parker.performerCount, 1);
-  assert.equal(parker.soloCount, 17);
-  assert.equal(coltrane.performerCount, 1);
-  assert.equal(coltrane.soloCount, 20);
-  assert.notEqual(parker.intervalSampleSize, coltrane.intervalSampleSize);
-
+test("le modèle Markov utilise tout le corpus malgré la sélection des musiciens", () => {
+  const corpus = jazzCorpusSummary();
+  assert.equal(corpus.performerCount, 78);
+  assert.equal(corpus.soloCount, 456);
+  assert.equal(corpus.phraseCount, 11_082);
   const generated = makeSequence({
     length: 10,
     mode: "random",
     selectedPerformers: ["Charlie Parker"],
     random: seededRandom(501),
   });
-  assert.deepEqual(generated.meta.source.performers, ["Charlie Parker"]);
+  assert.equal(generated.meta.source.performers.length, 78);
   assert.equal(
     generated.meta.source.intervalSampleSize,
-    parker.intervalSampleSize,
+    corpus.intervalSampleSize,
   );
   for (const interval of intervalsOf(generated.notes)) {
-    assert.ok(parker.intervalCounts[interval] > 0);
+    assert.ok(corpus.intervalCounts[interval] > 0);
   }
+});
+
+test("le filtre d’étoiles restreint les phrases réelles et le corpus génératif", () => {
+  const parker = WJAZZD_SOLOS.find(
+    (solo) =>
+      solo.performer === "Charlie Parker" &&
+      solo.phrases.some(([start, end]) => end > start),
+  );
+  const coltrane = WJAZZD_SOLOS.find(
+    (solo) =>
+      solo.performer === "John Coltrane" &&
+      solo.phrases.some(([start, end]) => end > start),
+  );
+  const parkerPhrase = parker.phrases.find(([start, end]) => end > start);
+  const coltranePhrase = coltrane.phrases.find(([start, end]) => end > start);
+  const parkerKey = phraseRatingKey(parker.id, parkerPhrase[2]);
+  const coltraneKey = phraseRatingKey(coltrane.id, coltranePhrase[2]);
+  const phraseRatings = {
+    [parkerKey]: { rating: 3 },
+    [coltraneKey]: { rating: 2 },
+  };
+
+  const filtered = jazzCorpusSummary({
+    phraseRatings,
+    minimumRating: 2,
+  });
+  assert.equal(filtered.performerCount, 2);
+  assert.equal(filtered.phraseCount, 2);
+
+  const real = makeSequence({
+    mode: "jazz",
+    selectedPerformers: ["Charlie Parker"],
+    phraseRatings,
+    minimumRating: 3,
+    random: seededRandom(42),
+  });
+  assert.equal(real.meta.source.phraseKey, parkerKey);
+  assert.equal(real.meta.source.rating, 3);
+
+  assert.throws(
+    () =>
+      makeSequence({
+        mode: "jazz",
+        selectedPerformers: ["John Coltrane"],
+        phraseRatings,
+        minimumRating: 3,
+      }),
+    /Aucune phrase/,
+  );
 });
 
 test("le Markov conserve un ordre variable borné à huit", () => {
@@ -292,15 +338,23 @@ test("les phrases réelles respectent strictement la sélection", () => {
   }
 });
 
-test("les sélections vides sont refusées", () => {
+test("la sélection vide est refusée seulement pour les phrases réelles", () => {
   assert.throws(
     () =>
       makeSequence({
-        mode: "random",
+        mode: "jazz",
         selectedPerformers: [],
         random: seededRandom(),
       }),
     /Sélectionne au moins un musicien/,
+  );
+  assert.equal(
+    makeSequence({
+      mode: "random",
+      selectedPerformers: [],
+      random: seededRandom(),
+    }).meta.source.performers.length,
+    78,
   );
 });
 

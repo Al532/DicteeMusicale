@@ -45,6 +45,23 @@ test("l’accueil propose les deux modes et le filtre des musiciens", () => {
   assert.match(app, /function startMode\(mode\)/);
 });
 
+test("le filtre d’étoiles est persistant et vaut aussi pour la génération", () => {
+  assert.match(
+    index,
+    /id="minimum-rating"[\s\S]*?value="0">Toutes les phrases[\s\S]*?value="2">2 étoiles ou plus[\s\S]*?value="3">3 étoiles uniquement/,
+  );
+  assert.match(app, /let minimumRating = 0/);
+  assert.match(
+    app,
+    /makeSequence\(\{[\s\S]*?phraseRatings,[\s\S]*?minimumRating,/,
+  );
+  assert.match(app, /elements\.startRandom\.disabled = false/);
+  assert.match(
+    app,
+    /elements\.minimumRating\.addEventListener\("change"[\s\S]*?syncMinimumRating/,
+  );
+});
+
 test("la vitesse des phrases réelles va de 25 à 100 % et vaut 100 % par défaut", () => {
   assert.match(app, /let realSpeedPercent = 100/);
   assert.match(app, /exercise\.speedPercent = realSpeedPercent/);
@@ -153,7 +170,7 @@ test("le bouton de jeu demande le plein écran et verrouille le paysage", () => 
 test("chaque bouton d’accueil ouvre son mode de jeu", () => {
   assert.match(
     app,
-    /async function startExercise\(\) \{[\s\S]*?await enterGameMode\(\);[\s\S]*?makeSequence/,
+    /async function startExercise\(\) \{[\s\S]*?makeSequence\([\s\S]*?await enterGameMode\(\)/,
   );
   assert.match(app, /elements\.startReal\.addEventListener\("click", \(\) => startMode\("jazz"\)\)/);
   assert.match(app, /elements\.startRandom\.addEventListener\("click", \(\) => startMode\("random"\)\)/);
@@ -184,8 +201,48 @@ test("Suivant est disponible en jeu et Note de départ a disparu", () => {
     /class="ghost-button compact" id="next-exercise" disabled>Suivant</,
   );
   assert.doesNotMatch(index, /id="reference-note"/);
-  assert.match(app, /elements\.nextExercise\.addEventListener\("click", startExercise\)/);
+  assert.match(app, /elements\.nextExercise\.addEventListener\("click", goToNextExercise\)/);
   assert.doesNotMatch(app, /playReference|referenceNote/);
+});
+
+test("les phrases réelles se notent sur trois étoiles en jeu et dans la modale", () => {
+  for (const id of ["exercise-rating", "completion-rating"]) {
+    const rating = index.match(
+      new RegExp(`id="${id}"[\\s\\S]*?<\\/div>`),
+    )?.[0];
+    assert.ok(rating);
+    assert.equal(rating.match(/data-rating="[123]"/g)?.length, 3);
+  }
+  assert.match(app, /const RATINGS_KEY = "dictee-musicale\.ratings\.v1"/);
+  assert.match(
+    app,
+    /function setPhraseRating\(rating, \{ automatic = false \} = \{\}\)/,
+  );
+  assert.match(app, /writeJson\(RATINGS_KEY, phraseRatings\)/);
+  assert.match(
+    app,
+    /function goToNextExercise\(\) \{[\s\S]*?!exercise\.solvedAtLeastOnce[\s\S]*?setPhraseRating\(1, \{ automatic: true \}\)/,
+  );
+  assert.match(
+    app,
+    /async function transposeSameExercise\(\) \{[\s\S]*?setPhraseRating\(3, \{ automatic: true \}\)/,
+  );
+  assert.match(
+    app,
+    /function finishExercise\(\) \{[\s\S]*?exercise\.solvedAtLeastOnce = true/,
+  );
+  assert.match(styles, /\.star-rating button\.selected \{[\s\S]*?color: var\(--accent-strong\)/);
+});
+
+test("les notations sont exportables et incluses dans la sauvegarde", () => {
+  assert.match(index, /id="export-ratings">Notes ★<\/button>/);
+  assert.match(app, /function exportRatings\(\)/);
+  assert.match(app, /dictee-musicale-notes-/);
+  assert.match(
+    app,
+    /schemaVersion: 2,[\s\S]*?records,[\s\S]*?ratings: phraseRatings/,
+  );
+  assert.match(app, /elements\.exportRatings\.addEventListener\("click", exportRatings\)/);
 });
 
 test("Réécouter devient Stop pendant la lecture et arrête toutes les sources", () => {
@@ -366,7 +423,7 @@ test("la réussite ouvre une modale avec les quatre suites possibles", () => {
     app,
     /function transposeSameExercise\(\) \{[\s\S]*?makeJazzTranspositionCycle\([\s\S]*?exercise\.transpositionCycle\.shift\(\)[\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
   );
-  assert.match(app, /elements\.completionNext\.addEventListener\("click", startExercise\)/);
+  assert.match(app, /elements\.completionNext\.addEventListener\("click", goToNextExercise\)/);
   assert.match(
     app,
     /elements\.transposeExercise\.addEventListener\("click", transposeSameExercise\)/,
@@ -432,7 +489,7 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v20/);
+  assert.match(serviceWorker, /dictee-musicale-v21/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
