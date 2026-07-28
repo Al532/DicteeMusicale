@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
@@ -123,6 +123,26 @@ test("la lecture audio commence bien par la première note", () => {
   assert.equal(playback.match(/exercise\.notes\.forEach/g)?.length, 2);
   assert.equal(playback.match(/playTone\(midi,/g)?.length, 2);
   assert.doesNotMatch(playback, /exercise\.notes\.slice\(1\)/);
+});
+
+test("la mélodie et le clavier utilisent les samples de clarinette", () => {
+  assert.match(app, /const MELODY_SAMPLE_MIN_MIDI = 50/);
+  assert.match(app, /const MELODY_SAMPLE_MAX_MIDI = 92/);
+  assert.match(app, /const path = `audio\/clarinet\/\$\{sampleMidi\}\.mp3`/);
+  assert.match(
+    app,
+    /const playbackRate = 2 \*\* \(\(midi - sampleMidi\) \/ 12\)/,
+  );
+  assert.match(app, /source\.buffer = buffer/);
+  assert.match(app, /source\.start\(start, sampleOffset\)/);
+  assert.match(
+    app,
+    /await preloadMelodySamples\(keyboardMidiNotes\(generated\.keyboard\)\)/,
+  );
+  assert.match(
+    app,
+    /await preloadMelodySamples\(keyboardMidiNotes\(exercise\.keyboard\)\)/,
+  );
 });
 
 test("les notes restent pleines presque jusqu’à leur fin annotée", () => {
@@ -498,8 +518,8 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
   );
 });
 
-test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v22/);
+test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
+  assert.match(serviceWorker, /dictee-musicale-v23/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
@@ -516,4 +536,16 @@ test("les enregistrements et le pitch-shifter sont disponibles hors connexion", 
   for (let midi = 28; midi <= 48; midi += 1) {
     assert.match(serviceWorker, new RegExp(`\\./audio/bass/${midi}\\.mp3`));
   }
+  assert.match(
+    serviceWorker,
+    /Array\.from\([\s\S]*?\{ length: 43 \}[\s\S]*?audio\/clarinet\/\$\{index \+ 50\}\.mp3/,
+  );
+  await Promise.all(
+    Array.from({ length: 43 }, (_, index) => index + 50).map(async (midi) => {
+      const file = await stat(
+        new URL(`../audio/clarinet/${midi}.mp3`, import.meta.url),
+      );
+      assert.ok(file.size > 0);
+    }),
+  );
 });

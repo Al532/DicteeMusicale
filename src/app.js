@@ -27,6 +27,13 @@ const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
 const INPUT_BURST_QUIET_MS = 500;
+const MELODY_SAMPLE_MIN_MIDI = 50;
+const MELODY_SAMPLE_MAX_MIDI = 92;
+const MELODY_SAMPLE_HEAD_SECONDS = 0.025;
+const MELODY_GAIN = 0.8;
+const MELODY_EMPHASIS_GAIN = 0.96;
+const MELODY_ATTACK_SECONDS = 0.006;
+const MELODY_RELEASE_SECONDS = 0.035;
 const BASS_GAIN = 0.3;
 const BASS_ATTACK_SECONDS = 0.005;
 const BASS_RELEASE_SECONDS = 0.075;
@@ -108,6 +115,8 @@ let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
 const activeAudioSources = new Set();
 const decodedAudioBuffers = new Map();
+const melodySampleBuffers = new Map();
+const melodySampleLoads = new Map();
 const bassSampleBuffers = new Map();
 const bassSampleLoads = new Map();
 let playbackTimer = null;
@@ -417,7 +426,66 @@ function getAudioContext() {
   return audioContext;
 }
 
-function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
+function melodySampleMidi(midi) {
+  let closest = MELODY_SAMPLE_MIN_MIDI;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (
+    let candidate = MELODY_SAMPLE_MIN_MIDI;
+    candidate <= MELODY_SAMPLE_MAX_MIDI;
+    candidate += 1
+  ) {
+    if (pitchClass(candidate) !== pitchClass(midi)) continue;
+    const distance = Math.abs(candidate - midi);
+    if (distance < closestDistance) {
+      closest = candidate;
+      closestDistance = distance;
+    }
+  }
+  return closest;
+}
+
+function loadMelodySample(midi) {
+  const sampleMidi = melodySampleMidi(midi);
+  if (melodySampleBuffers.has(sampleMidi)) {
+    return Promise.resolve(melodySampleBuffers.get(sampleMidi));
+  }
+  if (!melodySampleLoads.has(sampleMidi)) {
+    const path = `audio/clarinet/${sampleMidi}.mp3`;
+    const loading = fetch(new URL(path, document.baseURI))
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Sample de clarinette indisponible (${response.status})`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((bytes) => getAudioContext().decodeAudioData(bytes))
+      .then((buffer) => {
+        melodySampleBuffers.set(sampleMidi, buffer);
+        melodySampleLoads.delete(sampleMidi);
+        return buffer;
+      })
+      .catch((error) => {
+        melodySampleLoads.delete(sampleMidi);
+        throw error;
+      });
+    melodySampleLoads.set(sampleMidi, loading);
+  }
+  return melodySampleLoads.get(sampleMidi);
+}
+
+async function preloadMelodySamples(notes) {
+  const midiNotes = [...new Set(notes.map(melodySampleMidi))];
+  await Promise.all(midiNotes.map(loadMelodySample));
+}
+
+function keyboardMidiNotes(keyboard) {
+  return Array.from(
+    { length: keyboard.endMidi - keyboard.startMidi + 1 },
+    (_, index) => keyboard.startMidi + index,
+  );
+}
+
+function playFallbackTone(midi, startAt, duration, emphasis) {
   const context = getAudioContext();
   const oscillator = context.createOscillator();
   const overtone = context.createOscillator();
@@ -458,6 +526,49 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
   overtone.start(start);
   oscillator.stop(stop + 0.02);
   overtone.stop(stop + 0.02);
+}
+
+function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
+  const sampleMidi = melodySampleMidi(midi);
+  const buffer = melodySampleBuffers.get(sampleMidi);
+  if (!buffer) {
+    playFallbackTone(midi, startAt, duration, emphasis);
+    return;
+  }
+
+  const context = getAudioContext();
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+  const playbackRate = 2 ** ((midi - sampleMidi) / 12);
+  const start = context.currentTime + startAt;
+  const sampleOffset = Math.min(
+    MELODY_SAMPLE_HEAD_SECONDS,
+    Math.max(0, buffer.duration - 0.001),
+  );
+  const availableDuration = (buffer.duration - sampleOffset) / playbackRate;
+  const safeDuration = Math.max(
+    0.012,
+    Math.min(duration, availableDuration),
+  );
+  const stop = start + safeDuration;
+  const attack = Math.min(MELODY_ATTACK_SECONDS, safeDuration * 0.25);
+  const release = Math.max(
+    start + attack + 0.001,
+    stop - Math.min(MELODY_RELEASE_SECONDS, safeDuration * 0.2),
+  );
+  const volume = emphasis ? MELODY_EMPHASIS_GAIN : MELODY_GAIN;
+
+  source.buffer = buffer;
+  source.playbackRate.setValueAtTime(playbackRate, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + attack);
+  gain.gain.setValueAtTime(volume, release);
+  gain.gain.exponentialRampToValueAtTime(0.0001, stop);
+  source.connect(gain).connect(context.destination);
+  activeAudioSources.add(source);
+  source.addEventListener("ended", () => activeAudioSources.delete(source));
+  source.start(start, sampleOffset);
+  source.stop(stop + 0.02);
 }
 
 function playChick(startAt) {
@@ -881,6 +992,11 @@ async function startExercise() {
   elements.selectionWarning.hidden = true;
   if (enteringGameMode) await enterGameMode();
   try {
+    await preloadMelodySamples(keyboardMidiNotes(generated.keyboard));
+  } catch {
+    // Un oscillateur de secours garde la dictée jouable en cas d’échec réseau.
+  }
+  try {
     await preloadBassSamples(generated.bassHits ?? []);
   } catch {
     // La dictée reste jouable si un sample de basse est momentanément indisponible.
@@ -1032,6 +1148,11 @@ async function transposeSameExercise() {
   renderSource(exercise.source);
   buildPiano(exercise.keyboard);
   markReferenceKey();
+  try {
+    await preloadMelodySamples(keyboardMidiNotes(exercise.keyboard));
+  } catch {
+    // Un oscillateur de secours garde la dictée jouable en cas d’échec réseau.
+  }
   try {
     await preloadBassSamples(exercise.bassHits);
   } catch {
