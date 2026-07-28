@@ -357,6 +357,15 @@ test("le mode dev propose une notation rapide avec bilans réguliers", () => {
     app,
     /function setQuickRating\(event\)[\s\S]*?setPhraseRating\(rating, \{ origin: "protocol" \}\)[\s\S]*?startExercise\(\)/,
   );
+  assert.match(
+    app,
+    /function playSequence\([\s\S]*?if \(currentMode === "rating"\) setQuickRatingEnabled\(true\)/,
+  );
+  const quickRatingHandler = app.match(
+    /function setQuickRating\(event\) \{[\s\S]*?(?=\nfunction undoLastRating)/,
+  );
+  assert.ok(quickRatingHandler);
+  assert.doesNotMatch(quickRatingHandler[0], /isPlaying|isOriginalPlaying/);
   assert.match(styles, /\.rating-mode \.rating-workspace:not\(\[hidden\]\) \{\s*display: grid;/);
   assert.match(styles, /\.rating-mode \.piano-shell[\s\S]*?display: none !important;/);
 });
@@ -605,11 +614,11 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v27/);
-  assert.match(index, /href="\.\/styles\.css\?v=27"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=27"/);
-  assert.match(serviceWorker, /"\.\/styles\.css\?v=27"/);
-  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=27"/);
+  assert.match(serviceWorker, /dictee-musicale-v28/);
+  assert.match(index, /href="\.\/styles\.css\?v=28"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=28"/);
+  assert.match(serviceWorker, /"\.\/styles\.css\?v=28"/);
+  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=28"/);
   assert.match(
     serviceWorker,
     /mustRevalidate[\s\S]*?\["document", "script", "style"\][\s\S]*?cache: "no-store"/,

@@ -987,7 +987,7 @@ function playSequence({ guardInputBurst = false } = {}) {
   guardPlaybackFromInputBurst = guardInputBurst;
   setPlaybackState(true);
   elements.replay.disabled = false;
-  if (currentMode === "rating") setQuickRatingEnabled(false);
+  if (currentMode === "rating") setQuickRatingEnabled(true);
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "Écoute bien…";
@@ -1179,9 +1179,7 @@ function setQuickRating(event) {
   if (
     currentMode !== "rating" ||
     !developerMode ||
-    !exercise ||
-    isPlaying ||
-    isOriginalPlaying
+    !exercise
   ) {
     return;
   }
