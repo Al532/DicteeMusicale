@@ -1,4 +1,4 @@
-const CACHE_NAME = "dictee-musicale-v26";
+const CACHE_NAME = "dictee-musicale-v27";
 const CLARINET_SAMPLES = Array.from(
   { length: 43 },
   (_, index) => `./audio/clarinet/${index + 50}.mp3`,
@@ -10,8 +10,8 @@ const PIANO_SAMPLES = Array.from(
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./src/app.js",
+  "./styles.css?v=27",
+  "./src/app.js?v=27",
   "./src/audio.js",
   "./src/engine.js",
   "./src/ratings.js",
@@ -69,8 +69,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const mustRevalidate = ["document", "script", "style"].includes(
+    event.request.destination,
+  );
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, mustRevalidate ? { cache: "no-store" } : undefined)
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));

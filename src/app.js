@@ -1853,7 +1853,7 @@ function resetStats() {
 
 function registerOfflineSupport() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js");
+    navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
   }
 }
 

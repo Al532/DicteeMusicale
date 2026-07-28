@@ -60,6 +60,14 @@ test("le filtre d’étoiles est réservé au mode dev et le public reste à 3 �
   assert.match(index, /id="developer-mode" type="checkbox"/);
   assert.match(
     app,
+    /developerMode = Boolean\(settings\.developerMode\)/,
+  );
+  assert.match(
+    app,
+    /function saveSettings\(\)[\s\S]*?developerMode,/,
+  );
+  assert.match(
+    app,
     /function activeMinimumRating\(\) \{\s*return developerMode \? minimumRating : 3;/,
   );
   assert.match(app, /elements\.startRandom\.disabled = false/);
@@ -597,7 +605,19 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v26/);
+  assert.match(serviceWorker, /dictee-musicale-v27/);
+  assert.match(index, /href="\.\/styles\.css\?v=27"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=27"/);
+  assert.match(serviceWorker, /"\.\/styles\.css\?v=27"/);
+  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=27"/);
+  assert.match(
+    serviceWorker,
+    /mustRevalidate[\s\S]*?\["document", "script", "style"\][\s\S]*?cache: "no-store"/,
+  );
+  assert.match(
+    app,
+    /navigator\.serviceWorker\.register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/,
+  );
   assert.match(serviceWorker, /\.\/src\/ratings\.js/);
   assert.match(serviceWorker, /\.\/data\/default-ratings\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
