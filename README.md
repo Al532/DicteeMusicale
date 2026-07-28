@@ -13,7 +13,7 @@ au clavier.
 - extraits de 5 à 15 notes en mode réel ;
 - transposition uniforme dans les 12 tons ;
 - rythmes, silences et articulations issus des transcriptions ;
-- mélodie jouée avec 43 échantillons chromatiques de clarinette ;
+- son de mélodie synthétique, de clarinette ou de piano, au choix ;
 - fondamentales de basse synchronisées aux changements d’accord des phrases réelles ;
 - statistiques et notations locales exportables en JSON ou CSV ;
 - fonctionnement hors connexion après une première visite.
@@ -66,10 +66,12 @@ utilisent leur basse explicite, la ligne suit la transposition de l’exercice e
 automatiquement une octave dans la tessiture MIDI 28–48. Les 21 samples chromatiques
 proviennent du projet SharpEleven.
 
-La mélodie et le clavier utilisent les 43 samples chromatiques de clarinette MIDI 50–92
-du projet [PPTrainingWeb2](https://github.com/Al532/PPTrainingWeb2). Pour une hauteur
-exceptionnelle hors de cette tessiture, l’échantillon de même classe de hauteur le plus
-proche est corrigé d’une ou plusieurs octaves.
+Le son de la mélodie et du clavier est sélectionnable et mémorisé sur l’appareil.
+Le son synthétique est choisi par défaut. La clarinette (43 samples, MIDI 50–92)
+et le piano (61 samples, MIDI 36–96) proviennent du projet
+[PPTrainingWeb2](https://github.com/Al532/PPTrainingWeb2). Pour une hauteur
+exceptionnelle hors de la tessiture d’un instrument, l’échantillon de même classe de
+hauteur le plus proche est corrigé d’une ou plusieurs octaves.
 
 La lecture commence au dernier temps fort précédant la première note de la phrase
 (temps 1 ou 3 en 4/4), afin de conserver son placement rythmique dans la mesure.

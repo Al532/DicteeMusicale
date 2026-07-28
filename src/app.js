@@ -27,9 +27,20 @@ const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
 const INPUT_BURST_QUIET_MS = 500;
-const MELODY_SAMPLE_MIN_MIDI = 50;
-const MELODY_SAMPLE_MAX_MIDI = 92;
-const MELODY_SAMPLE_HEAD_SECONDS = 0.025;
+const MELODY_SAMPLE_INSTRUMENTS = {
+  clarinet: {
+    label: "clarinette",
+    minMidi: 50,
+    maxMidi: 92,
+    headSeconds: 0.025,
+  },
+  piano: {
+    label: "piano",
+    minMidi: 36,
+    maxMidi: 96,
+    headSeconds: 0,
+  },
+};
 const MELODY_GAIN = 0.8;
 const MELODY_EMPHASIS_GAIN = 0.96;
 const MELODY_ATTACK_SECONDS = 0.006;
@@ -194,7 +205,10 @@ function loadSettings() {
     25,
     100,
   );
-  melodySound = settings.melodySound === "clarinet" ? "clarinet" : "synthetic";
+  melodySound =
+    Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, settings.melodySound)
+      ? settings.melodySound
+      : "synthetic";
   minimumRating =
     settings.minimumRating === "unrated"
       ? "unrated"
@@ -359,7 +373,9 @@ function syncMinimumRating(value) {
 }
 
 function syncMelodySound(value) {
-  melodySound = value === "clarinet" ? "clarinet" : "synthetic";
+  melodySound = Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, value)
+    ? value
+    : "synthetic";
   elements.melodySound.value = melodySound;
   saveSettings();
 }
@@ -437,12 +453,13 @@ function getAudioContext() {
   return audioContext;
 }
 
-function melodySampleMidi(midi) {
-  let closest = MELODY_SAMPLE_MIN_MIDI;
+function melodySampleMidi(midi, sound = melodySound) {
+  const instrument = MELODY_SAMPLE_INSTRUMENTS[sound];
+  let closest = instrument.minMidi;
   let closestDistance = Number.POSITIVE_INFINITY;
   for (
-    let candidate = MELODY_SAMPLE_MIN_MIDI;
-    candidate <= MELODY_SAMPLE_MAX_MIDI;
+    let candidate = instrument.minMidi;
+    candidate <= instrument.maxMidi;
     candidate += 1
   ) {
     if (pitchClass(candidate) !== pitchClass(midi)) continue;
@@ -455,39 +472,46 @@ function melodySampleMidi(midi) {
   return closest;
 }
 
-function loadMelodySample(midi) {
-  const sampleMidi = melodySampleMidi(midi);
-  if (melodySampleBuffers.has(sampleMidi)) {
-    return Promise.resolve(melodySampleBuffers.get(sampleMidi));
+function loadMelodySample(midi, sound = melodySound) {
+  const instrument = MELODY_SAMPLE_INSTRUMENTS[sound];
+  const sampleMidi = melodySampleMidi(midi, sound);
+  const sampleKey = `${sound}:${sampleMidi}`;
+  if (melodySampleBuffers.has(sampleKey)) {
+    return Promise.resolve(melodySampleBuffers.get(sampleKey));
   }
-  if (!melodySampleLoads.has(sampleMidi)) {
-    const path = `audio/clarinet/${sampleMidi}.mp3`;
+  if (!melodySampleLoads.has(sampleKey)) {
+    const path = `audio/${sound}/${sampleMidi}.mp3`;
     const loading = fetch(new URL(path, document.baseURI))
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`Sample de clarinette indisponible (${response.status})`);
+          throw new Error(
+            `Sample de ${instrument.label} indisponible (${response.status})`,
+          );
         }
         return response.arrayBuffer();
       })
       .then((bytes) => getAudioContext().decodeAudioData(bytes))
       .then((buffer) => {
-        melodySampleBuffers.set(sampleMidi, buffer);
-        melodySampleLoads.delete(sampleMidi);
+        melodySampleBuffers.set(sampleKey, buffer);
+        melodySampleLoads.delete(sampleKey);
         return buffer;
       })
       .catch((error) => {
-        melodySampleLoads.delete(sampleMidi);
+        melodySampleLoads.delete(sampleKey);
         throw error;
       });
-    melodySampleLoads.set(sampleMidi, loading);
+    melodySampleLoads.set(sampleKey, loading);
   }
-  return melodySampleLoads.get(sampleMidi);
+  return melodySampleLoads.get(sampleKey);
 }
 
 async function preloadMelodySamples(notes) {
-  if (melodySound !== "clarinet") return;
-  const midiNotes = [...new Set(notes.map(melodySampleMidi))];
-  await Promise.all(midiNotes.map(loadMelodySample));
+  const sound = melodySound;
+  if (!Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, sound)) return;
+  const midiNotes = [
+    ...new Set(notes.map((midi) => melodySampleMidi(midi, sound))),
+  ];
+  await Promise.all(midiNotes.map((midi) => loadMelodySample(midi, sound)));
 }
 
 function keyboardMidiNotes(keyboard) {
@@ -545,8 +569,10 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
     playSyntheticTone(midi, startAt, duration, emphasis);
     return;
   }
-  const sampleMidi = melodySampleMidi(midi);
-  const buffer = melodySampleBuffers.get(sampleMidi);
+  const sound = melodySound;
+  const instrument = MELODY_SAMPLE_INSTRUMENTS[sound];
+  const sampleMidi = melodySampleMidi(midi, sound);
+  const buffer = melodySampleBuffers.get(`${sound}:${sampleMidi}`);
   if (!buffer) {
     playSyntheticTone(midi, startAt, duration, emphasis);
     return;
@@ -558,7 +584,7 @@ function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
   const playbackRate = 2 ** ((midi - sampleMidi) / 12);
   const start = context.currentTime + startAt;
   const sampleOffset = Math.min(
-    MELODY_SAMPLE_HEAD_SECONDS,
+    instrument.headSeconds,
     Math.max(0, buffer.duration - 0.001),
   );
   const availableDuration = (buffer.duration - sampleOffset) / playbackRate;

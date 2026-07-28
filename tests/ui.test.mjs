@@ -125,15 +125,15 @@ test("la lecture audio commence bien par la première note", () => {
   assert.doesNotMatch(playback, /exercise\.notes\.slice\(1\)/);
 });
 
-test("le son synthétique est proposé par défaut avec la clarinette en option", () => {
+test("le son synthétique est proposé par défaut avec les instruments en option", () => {
   assert.match(
     index,
-    /id="melody-sound"[\s\S]*?value="synthetic">Synthétique[\s\S]*?value="clarinet">Clarinette/,
+    /id="melody-sound"[\s\S]*?value="synthetic">Synthétique[\s\S]*?value="clarinet">Clarinette[\s\S]*?value="piano">Piano/,
   );
   assert.match(app, /let melodySound = "synthetic"/);
   assert.match(
     app,
-    /settings\.melodySound === "clarinet" \? "clarinet" : "synthetic"/,
+    /Object\.hasOwn\(MELODY_SAMPLE_INSTRUMENTS, settings\.melodySound\)[\s\S]*?: "synthetic"/,
   );
   assert.match(app, /melodySound,/);
   assert.match(
@@ -147,9 +147,11 @@ test("le son synthétique est proposé par défaut avec la clarinette en option"
 });
 
 test("la clarinette utilise ses samples pour la mélodie et le clavier", () => {
-  assert.match(app, /const MELODY_SAMPLE_MIN_MIDI = 50/);
-  assert.match(app, /const MELODY_SAMPLE_MAX_MIDI = 92/);
-  assert.match(app, /const path = `audio\/clarinet\/\$\{sampleMidi\}\.mp3`/);
+  assert.match(
+    app,
+    /clarinet: \{[\s\S]*?minMidi: 50,[\s\S]*?maxMidi: 92,[\s\S]*?headSeconds: 0\.025/,
+  );
+  assert.match(app, /const path = `audio\/\$\{sound\}\/\$\{sampleMidi\}\.mp3`/);
   assert.match(
     app,
     /const playbackRate = 2 \*\* \(\(midi - sampleMidi\) \/ 12\)/,
@@ -166,7 +168,18 @@ test("la clarinette utilise ses samples pour la mélodie et le clavier", () => {
   );
   assert.match(
     app,
-    /async function preloadMelodySamples\(notes\) \{[\s\S]*?melodySound !== "clarinet"[\s\S]*?return/,
+    /async function preloadMelodySamples\(notes\) \{[\s\S]*?!Object\.hasOwn\(MELODY_SAMPLE_INSTRUMENTS, sound\)[\s\S]*?return/,
+  );
+});
+
+test("le piano utilise 61 samples chromatiques sans tronquer leur attaque", () => {
+  assert.match(
+    app,
+    /piano: \{[\s\S]*?minMidi: 36,[\s\S]*?maxMidi: 96,[\s\S]*?headSeconds: 0/,
+  );
+  assert.match(
+    serviceWorker,
+    /Array\.from\([\s\S]*?\{ length: 61 \}[\s\S]*?audio\/piano\/\$\{index \+ 36\}\.mp3/,
   );
 });
 
@@ -544,7 +557,7 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v24/);
+  assert.match(serviceWorker, /dictee-musicale-v25/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
@@ -569,6 +582,14 @@ test("les enregistrements et le pitch-shifter sont disponibles hors connexion", 
     Array.from({ length: 43 }, (_, index) => index + 50).map(async (midi) => {
       const file = await stat(
         new URL(`../audio/clarinet/${midi}.mp3`, import.meta.url),
+      );
+      assert.ok(file.size > 0);
+    }),
+  );
+  await Promise.all(
+    Array.from({ length: 61 }, (_, index) => index + 36).map(async (midi) => {
+      const file = await stat(
+        new URL(`../audio/piano/${midi}.mp3`, import.meta.url),
       );
       assert.ok(file.size > 0);
     }),

@@ -1,7 +1,11 @@
-const CACHE_NAME = "dictee-musicale-v24";
+const CACHE_NAME = "dictee-musicale-v25";
 const CLARINET_SAMPLES = Array.from(
   { length: 43 },
   (_, index) => `./audio/clarinet/${index + 50}.mp3`,
+);
+const PIANO_SAMPLES = Array.from(
+  { length: 61 },
+  (_, index) => `./audio/piano/${index + 36}.mp3`,
 );
 const APP_SHELL = [
   "./",
@@ -19,6 +23,7 @@ const APP_SHELL = [
   "./audio/parker/thriving-on-a-riff.mp3",
   "./audio/parker/yardbird-suite.mp3",
   ...CLARINET_SAMPLES,
+  ...PIANO_SAMPLES,
   "./audio/bass/28.mp3",
   "./audio/bass/29.mp3",
   "./audio/bass/30.mp3",
