@@ -229,18 +229,19 @@ main {
   font-size: 0.68rem;
 }
 
-.rating-filter {
+.settings-selects {
   display: grid;
-  grid-template-columns: minmax(0, 240px);
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 240px));
+  gap: 14px;
   margin-top: 16px;
 }
 
-.rating-filter > span {
+.setting-select > span {
   margin: 0;
 }
 
-.rating-filter select {
+.setting-select select {
+  margin-top: 6px;
   color: var(--text);
   border: 1px solid var(--line);
   background: var(--panel-raised);
@@ -634,6 +635,10 @@ footer {
 }
 
 @media (max-width: 680px) {
+  .settings-selects {
+    grid-template-columns: 1fr;
+  }
+
   .site-header {
     padding-top: calc(18px + env(safe-area-inset-top));
     padding-bottom: 14px;

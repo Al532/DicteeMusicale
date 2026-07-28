@@ -60,15 +60,24 @@
             ></div>
           </div>
         </details>
-        <label class="rating-filter">
-          <span>Notation minimale</span>
-          <select id="minimum-rating">
-            <option value="0">Toutes les phrases</option>
-            <option value="unrated">Phrases non notées</option>
-            <option value="2">2 étoiles ou plus</option>
-            <option value="3">3 étoiles uniquement</option>
-          </select>
-        </label>
+        <div class="settings-selects">
+          <label class="setting-select">
+            <span>Son de la mélodie</span>
+            <select id="melody-sound">
+              <option value="synthetic">Synthétique</option>
+              <option value="clarinet">Clarinette</option>
+            </select>
+          </label>
+          <label class="setting-select">
+            <span>Notation minimale</span>
+            <select id="minimum-rating">
+              <option value="0">Toutes les phrases</option>
+              <option value="unrated">Phrases non notées</option>
+              <option value="2">2 étoiles ou plus</option>
+              <option value="3">3 étoiles uniquement</option>
+            </select>
+          </label>
+        </div>
         <p class="selection-warning" id="selection-warning" hidden>
           Sélectionne au moins un musicien pour les phrases réelles.
         </p>

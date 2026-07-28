@@ -54,6 +54,7 @@ const elements = {
   selectDefaultPerformers: document.querySelector("#select-default-performers"),
   selectAllPerformers: document.querySelector("#select-all-performers"),
   clearPerformers: document.querySelector("#clear-performers"),
+  melodySound: document.querySelector("#melody-sound"),
   minimumRating: document.querySelector("#minimum-rating"),
   nextExercise: document.querySelector("#next-exercise"),
   replay: document.querySelector("#replay"),
@@ -110,6 +111,7 @@ let randomLength = 5;
 let realMaxNotes = 15;
 let realSpeedPercent = 100;
 let randomPlaybackSpeedPercent = 88;
+let melodySound = "synthetic";
 let minimumRating = 0;
 let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
@@ -192,6 +194,7 @@ function loadSettings() {
     25,
     100,
   );
+  melodySound = settings.melodySound === "clarinet" ? "clarinet" : "synthetic";
   minimumRating =
     settings.minimumRating === "unrated"
       ? "unrated"
@@ -205,6 +208,7 @@ function loadSettings() {
     ? settings.selectedPerformers.filter((name) => knownPerformers.has(name))
     : DEFAULT_PERFORMERS;
   selectedPerformers = new Set(savedPerformers);
+  elements.melodySound.value = melodySound;
   elements.minimumRating.value = String(minimumRating);
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
   updateModeSettings();
@@ -218,6 +222,7 @@ function saveSettings() {
     realMaxNotes,
     randomPlaybackPercent: randomPlaybackSpeedPercent,
     realSpeed: realSpeedPercent,
+    melodySound,
     minimumRating,
     selectedPerformers: [...selectedPerformers],
     transposeOriginal: elements.transposeOriginal.checked,
@@ -353,6 +358,12 @@ function syncMinimumRating(value) {
   saveSettings();
 }
 
+function syncMelodySound(value) {
+  melodySound = value === "clarinet" ? "clarinet" : "synthetic";
+  elements.melodySound.value = melodySound;
+  saveSettings();
+}
+
 function startMode(mode) {
   if (mode === "jazz" && !selectedPerformers.size) {
     elements.selectionWarning.hidden = false;
@@ -474,6 +485,7 @@ function loadMelodySample(midi) {
 }
 
 async function preloadMelodySamples(notes) {
+  if (melodySound !== "clarinet") return;
   const midiNotes = [...new Set(notes.map(melodySampleMidi))];
   await Promise.all(midiNotes.map(loadMelodySample));
 }
@@ -485,7 +497,7 @@ function keyboardMidiNotes(keyboard) {
   );
 }
 
-function playFallbackTone(midi, startAt, duration, emphasis) {
+function playSyntheticTone(midi, startAt, duration, emphasis) {
   const context = getAudioContext();
   const oscillator = context.createOscillator();
   const overtone = context.createOscillator();
@@ -529,10 +541,14 @@ function playFallbackTone(midi, startAt, duration, emphasis) {
 }
 
 function playTone(midi, startAt = 0, duration = 0.48, emphasis = false) {
+  if (melodySound === "synthetic") {
+    playSyntheticTone(midi, startAt, duration, emphasis);
+    return;
+  }
   const sampleMidi = melodySampleMidi(midi);
   const buffer = melodySampleBuffers.get(sampleMidi);
   if (!buffer) {
-    playFallbackTone(midi, startAt, duration, emphasis);
+    playSyntheticTone(midi, startAt, duration, emphasis);
     return;
   }
 
@@ -1624,6 +1640,9 @@ elements.gameLength.addEventListener("input", () =>
 elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSpeed.value));
 elements.minimumRating.addEventListener("change", () =>
   syncMinimumRating(elements.minimumRating.value),
+);
+elements.melodySound.addEventListener("change", () =>
+  syncMelodySound(elements.melodySound.value),
 );
 elements.startReal.addEventListener("click", () => startMode("jazz"));
 elements.startRandom.addEventListener("click", () => startMode("random"));

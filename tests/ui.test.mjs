@@ -125,7 +125,28 @@ test("la lecture audio commence bien par la première note", () => {
   assert.doesNotMatch(playback, /exercise\.notes\.slice\(1\)/);
 });
 
-test("la mélodie et le clavier utilisent les samples de clarinette", () => {
+test("le son synthétique est proposé par défaut avec la clarinette en option", () => {
+  assert.match(
+    index,
+    /id="melody-sound"[\s\S]*?value="synthetic">Synthétique[\s\S]*?value="clarinet">Clarinette/,
+  );
+  assert.match(app, /let melodySound = "synthetic"/);
+  assert.match(
+    app,
+    /settings\.melodySound === "clarinet" \? "clarinet" : "synthetic"/,
+  );
+  assert.match(app, /melodySound,/);
+  assert.match(
+    app,
+    /elements\.melodySound\.addEventListener\("change"[\s\S]*?syncMelodySound/,
+  );
+  assert.match(
+    app,
+    /function playTone\([\s\S]*?melodySound === "synthetic"[\s\S]*?playSyntheticTone/,
+  );
+});
+
+test("la clarinette utilise ses samples pour la mélodie et le clavier", () => {
   assert.match(app, /const MELODY_SAMPLE_MIN_MIDI = 50/);
   assert.match(app, /const MELODY_SAMPLE_MAX_MIDI = 92/);
   assert.match(app, /const path = `audio\/clarinet\/\$\{sampleMidi\}\.mp3`/);
@@ -142,6 +163,10 @@ test("la mélodie et le clavier utilisent les samples de clarinette", () => {
   assert.match(
     app,
     /await preloadMelodySamples\(keyboardMidiNotes\(exercise\.keyboard\)\)/,
+  );
+  assert.match(
+    app,
+    /async function preloadMelodySamples\(notes\) \{[\s\S]*?melodySound !== "clarinet"[\s\S]*?return/,
   );
 });
 
@@ -519,7 +544,7 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v23/);
+  assert.match(serviceWorker, /dictee-musicale-v24/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
