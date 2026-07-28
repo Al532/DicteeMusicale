@@ -37,7 +37,7 @@ lancer un exercice.
 ## Modèle mélodique
 
 Le modèle de Markov est reconstruit et mis en cache pour chaque sélection de musiciens.
-Il utilise jusqu’aux six intervalles précédents lorsque le contexte a été observé au
+Il utilise jusqu’aux huit intervalles précédents lorsque le contexte a été observé au
 moins deux fois, puis se replie progressivement vers les ordres inférieurs.
 
 Les fragments existants ne sont pas exclus : le générateur peut volontairement retrouver

@@ -179,7 +179,7 @@ test("le modèle Markov est reconstruit selon les musiciens sélectionnés", () 
   }
 });
 
-test("le Markov conserve un ordre variable borné à six", () => {
+test("le Markov conserve un ordre variable borné à huit", () => {
   const results = Array.from({ length: 80 }, (_, index) =>
     makeSequence({
       length: 10,
@@ -201,6 +201,7 @@ test("le Markov conserve un ordre variable borné à six", () => {
     }
   }
   assert.equal(highestOrder, JAZZ_MARKOV_MAX_ORDER);
+  assert.equal(JAZZ_MARKOV_MAX_ORDER, 8);
   assert.equal(JAZZ_MARKOV_MIN_CONTEXT_COUNT, 2);
 });
 

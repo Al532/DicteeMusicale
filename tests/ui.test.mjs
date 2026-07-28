@@ -95,7 +95,7 @@ test("seule la première touche est animée pendant la lecture", () => {
 
 test("la lecture audio commence bien par la première note", () => {
   const playback = app.match(
-    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
+    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
   assert.ok(playback);
   assert.equal(playback.match(/exercise\.notes\.forEach/g)?.length, 2);
@@ -113,7 +113,7 @@ test("les notes restent pleines presque jusqu’à leur fin annotée", () => {
 
 test("le mode aléatoire joue legato jusqu’à la note suivante", () => {
   const playback = app.match(
-    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
+    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
   assert.ok(playback);
   assert.match(
@@ -195,9 +195,25 @@ test("Réécouter devient Stop pendant la lecture et arrête toutes les sources"
   assert.match(app, /elements\.replay\.addEventListener\("click", togglePlayback\)/);
 });
 
+test("la première note interrompt la lecture sauf si elle prolonge une rafale erronée", () => {
+  assert.match(app, /const INPUT_BURST_QUIET_MS = 500/);
+  assert.match(
+    app,
+    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{[\s\S]*?guardPlaybackFromInputBurst = guardInputBurst;/,
+  );
+  assert.match(
+    app,
+    /function restartAfterMistake\(\) \{[\s\S]*?playSequence\(\{ guardInputBurst: true \}\)/,
+  );
+  assert.match(
+    app,
+    /function handlePianoInput\(midi, key\) \{[\s\S]*?if \(guardPlaybackFromInputBurst\) \{[\s\S]*?quietBeforeInput < INPUT_BURST_QUIET_MS[\s\S]*?return;[\s\S]*?guardPlaybackFromInputBurst = false;[\s\S]*?if \(isPlaying \|\| isOriginalPlaying\) \{[\s\S]*?stopAllTones\(\);[\s\S]*?restoreExerciseInput\("Lecture interrompue\. À toi\."\);[\s\S]*?const target = exercise\.notes\[exercise\.currentIndex\]/,
+  );
+});
+
 test("les chicks ne sont programmés que pour la lecture rythmée réelle", () => {
   const playback = app.match(
-    /function playSequence\(\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
+    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
   )?.[1];
   assert.ok(playback);
   assert.match(
@@ -277,7 +293,7 @@ test("une erreur efface la progression puis relance automatiquement depuis le d�
   );
   assert.match(
     app,
-    /function restartAfterMistake\(\) \{[\s\S]*?resetExerciseProgress\(\);[\s\S]*?window\.setTimeout\([\s\S]*?playSequence\(\);[\s\S]*?WRONG_NOTE_REPLAY_DELAY_MS/,
+    /function restartAfterMistake\(\) \{[\s\S]*?resetExerciseProgress\(\);[\s\S]*?window\.setTimeout\([\s\S]*?playSequence\(\{ guardInputBurst: true \}\);[\s\S]*?WRONG_NOTE_REPLAY_DELAY_MS/,
   );
 });
 
@@ -398,7 +414,7 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", () => {
-  assert.match(serviceWorker, /dictee-musicale-v17/);
+  assert.match(serviceWorker, /dictee-musicale-v18/);
   assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
   assert.match(serviceWorker, /\.\/src\/audio\.js/);
   for (const name of [

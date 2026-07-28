@@ -23,7 +23,7 @@ export const NOTE_NAMES = [
 
 const MIN_MIDI = 48;
 const MAX_MIDI = 71;
-export const JAZZ_MARKOV_MAX_ORDER = 6;
+export const JAZZ_MARKOV_MAX_ORDER = 8;
 export const JAZZ_MARKOV_MIN_CONTEXT_COUNT = 2;
 
 export function pitchClass(midi) {

@@ -24,6 +24,7 @@ const RANDOM_PLAYBACK_MAX_PERCENT = 640;
 const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
+const INPUT_BURST_QUIET_MS = 500;
 
 const elements = {
   gameLength: document.querySelector("#game-length"),
@@ -97,6 +98,8 @@ let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
 let originalPlaybackToken = 0;
+let guardPlaybackFromInputBurst = false;
+let lastPianoInputAt = Number.NEGATIVE_INFINITY;
 
 function readJson(key, fallback) {
   try {
@@ -463,6 +466,7 @@ function setOriginalPlaybackState(playing) {
 
 function stopAllTones() {
   originalPlaybackToken += 1;
+  guardPlaybackFromInputBurst = false;
   if (gameModeStartTimer !== null) {
     window.clearTimeout(gameModeStartTimer);
     gameModeStartTimer = null;
@@ -613,9 +617,10 @@ function flashPlayedKey(midi, delayMs, durationMs) {
   window.setTimeout(() => key.classList.remove("active"), delayMs + durationMs);
 }
 
-function playSequence() {
+function playSequence({ guardInputBurst = false } = {}) {
   if (!exercise) return;
   stopAllTones();
+  guardPlaybackFromInputBurst = guardInputBurst;
   setPlaybackState(true);
   elements.replay.disabled = false;
   acceptingInput = false;
@@ -862,11 +867,23 @@ function restartAfterMistake() {
   elements.feedback.textContent = "Erreur — on réécoute depuis le début.";
   restartTimer = window.setTimeout(() => {
     restartTimer = null;
-    playSequence();
+    playSequence({ guardInputBurst: true });
   }, WRONG_NOTE_REPLAY_DELAY_MS);
 }
 
 function handlePianoInput(midi, key) {
+  const inputAt = performance.now();
+  const quietBeforeInput = inputAt - lastPianoInputAt;
+  lastPianoInputAt = inputAt;
+  if (guardPlaybackFromInputBurst) {
+    if (quietBeforeInput < INPUT_BURST_QUIET_MS) return;
+    guardPlaybackFromInputBurst = false;
+  }
+  if (isPlaying || isOriginalPlaying) {
+    stopAllTones();
+    restoreExerciseInput("Lecture interrompue. À toi.");
+  }
+
   playTone(midi, 0, 0.36);
   key.classList.add("active");
   window.setTimeout(() => key.classList.remove("active"), 160);
