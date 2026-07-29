@@ -764,26 +764,64 @@ output {
   text-align: left;
 }
 
-.completed-phrases div {
-  padding: 10px 12px;
+.completed-phrase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  min-height: 48px;
+  padding: 5px 6px 5px 12px;
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-raised);
 }
 
-.completed-phrases strong,
-.completed-phrases span {
-  display: block;
+.completed-phrase-copy {
+  min-width: 0;
 }
 
-.completed-phrases strong {
+.completed-phrase strong,
+.completed-phrase span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.completed-phrase strong {
   font-size: 0.82rem;
 }
 
-.completed-phrases span {
+.completed-phrase span {
   margin-top: 2px;
   color: var(--muted);
   font-size: 0.7rem;
+}
+
+.completed-phrase-favorite {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  color: var(--muted);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.completed-phrase-favorite:hover {
+  color: var(--text);
+  background: rgba(244, 241, 231, 0.05);
+}
+
+.completed-phrase-favorite.active,
+.completed-phrase-favorite[aria-pressed="true"] {
+  color: var(--accent);
+  background: rgba(216, 229, 109, 0.08);
 }
 
 .completion-card > .text-button {
@@ -1516,8 +1554,9 @@ body.game-mode {
     align-self: center;
   }
 
-  #challenge-complete-modal .completed-phrases div {
-    padding: 8px 11px;
+  #challenge-complete-modal .completed-phrase {
+    min-height: 44px;
+    padding-block: 3px;
   }
 
   #challenge-complete-modal #finish-new-challenge {

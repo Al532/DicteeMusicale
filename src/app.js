@@ -661,30 +661,43 @@ function isFavorite(phraseKey) {
   return Boolean(phraseKey && favoritePhraseKeys.includes(phraseKey));
 }
 
-function renderFavoriteButton() {
-  const phraseKey = exercise?.source?.phraseKey;
+function renderFavoriteControl(button, phraseKey, subject = "") {
   const favorite = isFavorite(phraseKey);
-  elements.favoriteToggle.hidden = !phraseKey || currentMode === "rating";
-  elements.favoriteToggle.classList.toggle("active", favorite);
-  elements.favoriteToggle.textContent = favorite ? "♥" : "♡";
-  elements.favoriteToggle.setAttribute("aria-pressed", String(favorite));
-  elements.favoriteToggle.setAttribute(
+  const subjectLabel = subject ? ` ${subject}` : "";
+  button.classList.toggle("active", favorite);
+  button.textContent = favorite ? "♥" : "♡";
+  button.setAttribute("aria-pressed", String(favorite));
+  button.setAttribute(
     "aria-label",
-    favorite ? "Retirer des favoris" : "Ajouter aux favoris",
+    favorite
+      ? `Retirer${subjectLabel} des favoris`
+      : `Ajouter${subjectLabel} aux favoris`,
   );
 }
 
-function toggleCurrentFavorite() {
-  const phraseKey = exercise?.source?.phraseKey;
-  if (!phraseKey) return;
+function toggleFavoritePhrase(phraseKey) {
+  if (!phraseKey) return false;
   if (isFavorite(phraseKey)) {
     favoritePhraseKeys = favoritePhraseKeys.filter(
       (favoriteKey) => favoriteKey !== phraseKey,
     );
   } else {
-    favoritePhraseKeys = [...favoritePhraseKeys, phraseKey];
+    favoritePhraseKeys = [...new Set([...favoritePhraseKeys, phraseKey])];
   }
   writeJson(FAVORITES_KEY, favoritePhraseKeys);
+  return isFavorite(phraseKey);
+}
+
+function renderFavoriteButton() {
+  const phraseKey = exercise?.source?.phraseKey;
+  elements.favoriteToggle.hidden = !phraseKey || currentMode === "rating";
+  renderFavoriteControl(elements.favoriteToggle, phraseKey);
+}
+
+function toggleCurrentFavorite() {
+  const phraseKey = exercise?.source?.phraseKey;
+  if (!phraseKey) return;
+  toggleFavoritePhrase(phraseKey);
   renderFavoriteButton();
 }
 
@@ -2154,12 +2167,27 @@ function handlePianoInput(midi, key) {
 function renderCompletedChallenge(phrases) {
   const fragment = document.createDocumentFragment();
   for (const phrase of phrases) {
-    const row = document.createElement("div");
+    const row = document.createElement("article");
+    row.className = "completed-phrase";
+    const copy = document.createElement("div");
+    copy.className = "completed-phrase-copy";
     const performer = document.createElement("strong");
     performer.textContent = phrase.performer;
     const title = document.createElement("span");
     title.textContent = phrase.title;
-    row.append(performer, title);
+    copy.append(performer, title);
+
+    const favorite = document.createElement("button");
+    favorite.type = "button";
+    favorite.className = "completed-phrase-favorite";
+    const subject = `${phrase.performer}, ${phrase.title}`;
+    renderFavoriteControl(favorite, phrase.phraseKey, subject);
+    favorite.addEventListener("click", () => {
+      toggleFavoritePhrase(phrase.phraseKey);
+      renderFavoriteControl(favorite, phrase.phraseKey, subject);
+    });
+
+    row.append(copy, favorite);
     fragment.append(row);
   }
   elements.completedPhrases.replaceChildren(fragment);

@@ -140,6 +140,23 @@ test("les favoris sont accessibles pendant le jeu et dans une liste libre", () =
   assert.match(app, /function transposeFreePhrase\(\)/);
 });
 
+test("chaque phrase peut être ajoutée aux favoris depuis le bilan final", () => {
+  assert.match(index, /id="challenge-complete-modal"/);
+  assert.match(index, /id="completed-phrases"/);
+  assert.match(
+    app,
+    /function renderCompletedChallenge\(phrases\)[\s\S]*?className = "completed-phrase-favorite"[\s\S]*?toggleFavoritePhrase\(phrase\.phraseKey\)[\s\S]*?renderFavoriteControl\(favorite, phrase\.phraseKey, subject\)/,
+  );
+  assert.match(
+    styles,
+    /\.completed-phrase \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 36px/,
+  );
+  assert.match(
+    styles,
+    /\.completed-phrase-favorite\[aria-pressed="true"\] \{[\s\S]*?color: var\(--accent\)/,
+  );
+});
+
 test("le mode normal n’affiche que le musicien et le morceau", () => {
   assert.match(index, /id="source-summary" hidden/);
   assert.match(
@@ -239,11 +256,11 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "landscape");
   assert.equal(manifest.name, "Jazz Solo Challenge");
-  assert.match(serviceWorker, /dictee-musicale-v34/);
-  assert.match(index, /href="\.\/styles\.css\?v=34"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=34"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=34/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=34/);
+  assert.match(serviceWorker, /dictee-musicale-v35/);
+  assert.match(index, /href="\.\/styles\.css\?v=35"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=35"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=35/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=35/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.doesNotMatch(serviceWorker, /CLARINET_SAMPLES|PIANO_SAMPLES/);
   assert.match(
