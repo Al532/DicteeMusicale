@@ -163,6 +163,25 @@ test("le piano occupe l’espace de jeu et le portrait demande une rotation", ()
   assert.match(app, /--white-key-count/);
 });
 
+test("les écrans de mort subite et de réussite s’adaptent au paysage", () => {
+  assert.match(
+    styles,
+    /@media \(orientation: landscape\) and \(max-height: 600px\)[\s\S]*?\.modal-layer \{[\s\S]*?safe-area-inset-right[\s\S]*?overflow-y: auto/,
+  );
+  assert.match(
+    styles,
+    /#sudden-death-modal \.sudden-death-card \{[\s\S]*?grid-template-columns:[\s\S]*?grid-template-areas:[\s\S]*?"symbol action"/,
+  );
+  assert.match(
+    styles,
+    /#challenge-complete-modal \.completion-card \{[\s\S]*?grid-template-columns:[\s\S]*?grid-template-areas:[\s\S]*?"home action"/,
+  );
+  assert.match(
+    styles,
+    /#sudden-death-modal \.modal-card,[\s\S]*?#challenge-complete-modal \.modal-card \{[\s\S]*?max-height: calc\(100dvh - 20px\);[\s\S]*?overflow-y: auto/,
+  );
+});
+
 test("la lecture et le clavier conservent les instruments samplés", () => {
   assert.match(
     index,
@@ -183,11 +202,11 @@ test("la lecture et le clavier conservent les instruments samplés", () => {
 test("la PWA embarque le nouveau moteur de session hors connexion", async () => {
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "landscape");
-  assert.match(serviceWorker, /dictee-musicale-v32/);
-  assert.match(index, /href="\.\/styles\.css\?v=32"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=32"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=32/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=32/);
+  assert.match(serviceWorker, /dictee-musicale-v33/);
+  assert.match(index, /href="\.\/styles\.css\?v=33"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=33"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=33/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=33/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.match(
     app,
