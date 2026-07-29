@@ -449,6 +449,30 @@ export function jazzCorpusSummary({
   };
 }
 
+export function jazzPhraseCatalog({
+  phraseRatings = {},
+  minimumRating = 3,
+} = {}) {
+  return eligiblePhraseEntries(
+    WJAZZD_SOLOS,
+    phraseRatings,
+    minimumRating,
+  )
+    .filter(({ solo, phrase }) => {
+      const [start, end] = phrase;
+      return solo.events.slice(start, end + 1).length >= 2;
+    })
+    .map(({ solo, phrase }) => ({
+      phraseKey: phraseRatingKey(solo.id, phrase[2]),
+      soloId: solo.id,
+      performer: solo.performer,
+      title: solo.title,
+      phrase: phrase[2],
+      noteCount: phrase[1] - phrase[0] + 1,
+      sourceUrl: solo.sourceUrl,
+    }));
+}
+
 function availableMarkovEntries(entry, previousMidi) {
   return [...entry.next.entries()].filter(([interval]) => {
     const candidateMidi = previousMidi + interval;
@@ -522,7 +546,7 @@ function randomSequence(length, random, phraseRatings, minimumRating) {
 
 function jazzSequence(
   random,
-  maxNotes = 15,
+  maxNotes = 20,
   selectedPerformers,
   phraseRatings,
   minimumRating,
@@ -556,7 +580,7 @@ function jazzSequence(
   const selected = randomChoice(candidates, random);
   const safeMaxNotes = fullPhrase
     ? selected.notes.length
-    : Math.max(5, Math.min(15, Math.round(Number(maxNotes) || 15)));
+    : Math.max(5, Math.min(20, Math.round(Number(maxNotes) || 20)));
   const events = selected.events.slice(0, safeMaxNotes);
   const excerpt = {
     ...selected,
@@ -651,7 +675,7 @@ function jazzSequence(
 
 export function makeSequence({
   length = 5,
-  maxNotes = 15,
+  maxNotes = 20,
   mode = "random",
   selectedPerformers = DEFAULT_PERFORMERS,
   phraseRatings = {},
@@ -683,71 +707,5 @@ export function makeSequence({
   return {
     ...sequence,
     keyboard: keyboardLayoutForNotes(sequence.notes),
-  };
-}
-
-export function intervalLabel(semitones) {
-  if (semitones === 0) return "unisson";
-  const names = {
-    1: "2de mineure",
-    2: "2de majeure",
-    3: "3ce mineure",
-    4: "3ce majeure",
-    5: "4te juste",
-    6: "triton",
-    7: "5te juste",
-    8: "6te mineure",
-    9: "6te majeure",
-    10: "7e mineure",
-    11: "7e majeure",
-    12: "octave",
-  };
-  const direction = semitones > 0 ? "↑" : "↓";
-  const size = Math.abs(semitones);
-  return `${direction} ${names[size] ?? `${size} demi-tons`}`;
-}
-
-export function summarizeRecords(records) {
-  const completed = records.filter((record) => record.completedAt);
-  const noteAttempts = completed.flatMap((record) => record.attempts ?? []);
-  const firstTry = noteAttempts.filter((attempt) => attempt.guesses?.length === 1).length;
-  const responseTimes = noteAttempts
-    .map((attempt) => attempt.responseMs)
-    .filter((value) => Number.isFinite(value) && value >= 0);
-
-  const intervalMap = new Map();
-  for (const record of completed) {
-    for (const attempt of record.attempts ?? []) {
-      if (!Number.isFinite(attempt.interval)) continue;
-      const key = String(attempt.interval);
-      const bucket = intervalMap.get(key) ?? {
-        interval: attempt.interval,
-        total: 0,
-        firstTry: 0,
-      };
-      bucket.total += 1;
-      if (attempt.guesses?.length === 1) bucket.firstTry += 1;
-      intervalMap.set(key, bucket);
-    }
-  }
-
-  const weakIntervals = [...intervalMap.values()]
-    .filter((bucket) => bucket.total >= 3)
-    .map((bucket) => ({
-      ...bucket,
-      accuracy: bucket.firstTry / bucket.total,
-      label: intervalLabel(bucket.interval),
-    }))
-    .sort((a, b) => a.accuracy - b.accuracy || b.total - a.total)
-    .slice(0, 3);
-
-  return {
-    exercises: completed.length,
-    notes: noteAttempts.length,
-    accuracy: noteAttempts.length ? firstTry / noteAttempts.length : null,
-    averageResponseMs: responseTimes.length
-      ? responseTimes.reduce((sum, value) => sum + value, 0) / responseTimes.length
-      : null,
-    weakIntervals,
   };
 }
