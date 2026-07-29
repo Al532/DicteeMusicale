@@ -1408,6 +1408,136 @@ body.game-mode {
   }
 }
 
+@media (orientation: landscape) and (max-height: 600px) {
+  .modal-layer {
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+
+  #sudden-death-modal .modal-card,
+  #challenge-complete-modal .modal-card {
+    width: min(100%, 850px);
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    padding: clamp(14px, 4vh, 24px) clamp(18px, 4vw, 34px);
+    overflow-y: auto;
+    border-radius: clamp(20px, 4vw, 30px);
+  }
+
+  #sudden-death-modal .sudden-death-card {
+    display: grid;
+    grid-template-columns: minmax(105px, 0.48fr) minmax(0, 1.52fr);
+    grid-template-areas:
+      "symbol eyebrow"
+      "symbol title"
+      "symbol copy"
+      "symbol action";
+    column-gap: clamp(18px, 4vw, 36px);
+    text-align: left;
+  }
+
+  #sudden-death-modal .modal-symbol {
+    grid-area: symbol;
+    width: clamp(64px, 20vh, 82px);
+    height: clamp(64px, 20vh, 82px);
+    margin: 0 auto;
+    align-self: center;
+    border-radius: 22px;
+    font-size: clamp(1.7rem, 7vh, 2.2rem);
+  }
+
+  #sudden-death-modal .eyebrow {
+    grid-area: eyebrow;
+    margin-bottom: 3px;
+    align-self: end;
+  }
+
+  #sudden-death-modal h2 {
+    grid-area: title;
+    margin: 0 0 9px;
+    font-size: clamp(2rem, 11vh, 3rem);
+  }
+
+  #sudden-death-modal .modal-card > p:not(.eyebrow) {
+    grid-area: copy;
+    margin: 0 0 16px;
+    font-size: clamp(0.78rem, 2.2vh, 0.92rem);
+    line-height: 1.45;
+  }
+
+  #sudden-death-modal .primary-button {
+    grid-area: action;
+    min-height: 46px;
+  }
+
+  #challenge-complete-modal .completion-card {
+    display: grid;
+    grid-template-columns: minmax(145px, 0.65fr) minmax(0, 1.35fr);
+    grid-template-areas:
+      "symbol phrases"
+      "eyebrow phrases"
+      "title phrases"
+      "copy phrases"
+      "home action";
+    column-gap: clamp(18px, 4vw, 34px);
+    text-align: left;
+  }
+
+  #challenge-complete-modal .modal-symbol {
+    grid-area: symbol;
+    margin: 0 0 10px;
+    justify-self: start;
+  }
+
+  #challenge-complete-modal .eyebrow {
+    grid-area: eyebrow;
+    margin-bottom: 3px;
+    font-size: 0.62rem;
+    letter-spacing: 0.13em;
+    white-space: nowrap;
+  }
+
+  #challenge-complete-modal h2 {
+    grid-area: title;
+    margin: 0 0 9px;
+    font-size: clamp(2rem, 10vh, 2.75rem);
+  }
+
+  #challenge-complete-modal .modal-card > p:not(.eyebrow) {
+    grid-area: copy;
+    margin: 0;
+    font-size: clamp(0.76rem, 2.1vh, 0.88rem);
+    line-height: 1.42;
+  }
+
+  #challenge-complete-modal .completed-phrases {
+    grid-area: phrases;
+    margin: 0;
+    align-self: center;
+  }
+
+  #challenge-complete-modal .completed-phrases div {
+    padding: 8px 11px;
+  }
+
+  #challenge-complete-modal #finish-new-challenge {
+    grid-area: action;
+    min-height: 46px;
+    margin-top: 10px;
+  }
+
+  #challenge-complete-modal #finish-home {
+    grid-area: home;
+    min-height: 46px;
+    margin-top: 10px;
+    justify-self: start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

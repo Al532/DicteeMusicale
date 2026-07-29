@@ -1,4 +1,4 @@
-const CACHE_NAME = "dictee-musicale-v32";
+const CACHE_NAME = "dictee-musicale-v33";
 const CLARINET_SAMPLES = Array.from(
   { length: 43 },
   (_, index) => `./audio/clarinet/${index + 50}.mp3`,
@@ -10,8 +10,8 @@ const PIANO_SAMPLES = Array.from(
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=32",
-  "./src/app.js?v=32",
+  "./styles.css?v=33",
+  "./src/app.js?v=33",
   "./src/audio.js",
   "./src/engine.js",
   "./src/ratings.js",
