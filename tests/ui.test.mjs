@@ -652,11 +652,11 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v30/);
-  assert.match(index, /href="\.\/styles\.css\?v=30"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=30"/);
-  assert.match(serviceWorker, /"\.\/styles\.css\?v=30"/);
-  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=30"/);
+  assert.match(serviceWorker, /dictee-musicale-v31/);
+  assert.match(index, /href="\.\/styles\.css\?v=31"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=31"/);
+  assert.match(serviceWorker, /"\.\/styles\.css\?v=31"/);
+  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=31"/);
   assert.match(
     serviceWorker,
     /mustRevalidate[\s\S]*?\["document", "script", "style"\][\s\S]*?cache: "no-store"/,

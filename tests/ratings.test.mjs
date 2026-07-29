@@ -36,10 +36,10 @@ test("le protocole couvre les notes et les exclusions structurelles", () => {
   });
   assert.equal(summary.total, 11_082);
   assert.equal(summary.explicit, 325);
-  assert.equal(summary.structuralExcluded, 3_078);
-  assert.equal(summary.covered, 3_403);
-  assert.equal(summary.remaining, 7_679);
-  assert.deepEqual(summary.distribution, { 1: 3_215, 2: 86, 3: 102 });
+  assert.equal(summary.structuralExcluded, 3_419);
+  assert.equal(summary.covered, 3_744);
+  assert.equal(summary.remaining, 7_338);
+  assert.deepEqual(summary.distribution, { 1: 3_556, 2: 86, 3: 102 });
   assert.deepEqual(
     summary.structuralRules.map(({ scopeId, sampleSize }) => ({
       scopeId,
@@ -48,6 +48,7 @@ test("le protocole couvre les notes et les exclusions structurelles", () => {
     [
       { scopeId: "very-short-v1", sampleSize: 1_100 },
       { scopeId: "rapid-run-v1", sampleSize: 1_978 },
+      { scopeId: "dense-burst-v1", sampleSize: 341 },
     ],
   );
   assert.equal(summary.tuneScopes.length, 0);
@@ -74,23 +75,29 @@ test("les exclusions structurelles cèdent toujours devant une note directe", ()
       exclusion?.id === "rapid-run-v1" &&
       !DEFAULT_PHRASE_RATINGS[phraseKey],
   );
+  const denseBurst = entries.find(
+    ({ phraseKey, exclusion }) =>
+      exclusion?.id === "dense-burst-v1" &&
+      !DEFAULT_PHRASE_RATINGS[phraseKey],
+  );
   const directException = entries.find(
     ({ phraseKey, exclusion }) =>
       exclusion && DEFAULT_PHRASE_RATINGS[phraseKey]?.rating === 3,
   );
   assert.ok(short);
   assert.ok(rapid);
+  assert.ok(denseBurst);
   assert.ok(directException);
   assert.deepEqual(
     STRUCTURAL_EXCLUSION_RULES.map(({ id }) => id),
-    ["very-short-v1", "rapid-run-v1"],
+    ["very-short-v1", "rapid-run-v1", "dense-burst-v1"],
   );
 
   const effective = effectivePhraseRatings(
     DEFAULT_PHRASE_RATINGS,
     DEFAULT_RATING_SCOPES,
   );
-  for (const { phraseKey } of [short, rapid]) {
+  for (const { phraseKey } of [short, rapid, denseBurst]) {
     assert.equal(effective[phraseKey].rating, 1);
     assert.equal(effective[phraseKey].scope, "structural");
   }
@@ -195,7 +202,7 @@ test("une tendance cohérente à 1 étoile peut encore écarter un morceau", () 
   );
 });
 
-test("l’échantillonnage rapide équilibre les musiciens sélectionnés", () => {
+test("l’exploration équilibre les musiciens sélectionnés encore peu notés", () => {
   const selectedPerformers = ["Charlie Parker", "Miles Davis"];
   const history = [];
   const performerByPhrase = new Map(
@@ -224,4 +231,102 @@ test("l’échantillonnage rapide équilibre les musiciens sélectionnés", () =
   ).length;
   const davisCount = history.length - parkerCount;
   assert.ok(Math.abs(parkerCount - davisCount) <= 1);
+});
+
+test("le tirage principal privilégie les musiciens produisant davantage de 3 étoiles", () => {
+  const selectedPerformers = ["Paul Desmond", "Louis Armstrong"];
+  const performerByPhrase = new Map(
+    WJAZZD_SOLOS.flatMap((solo) =>
+      solo.phrases.map((phrase) => [
+        `${solo.id}:${phrase[2]}`,
+        solo.performer,
+      ]),
+    ),
+  );
+  let seed = 0x532;
+  const random = () => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const counts = { "Paul Desmond": 0, "Louis Armstrong": 0 };
+
+  for (let index = 0; index < 240; index += 1) {
+    const phraseKey = pickRatingPhrase({
+      phraseRatings: DEFAULT_PHRASE_RATINGS,
+      selectedPerformers,
+      random,
+    });
+    counts[performerByPhrase.get(phraseKey)] += 1;
+  }
+
+  assert.ok(counts["Paul Desmond"] > counts["Louis Armstrong"] * 2);
+});
+
+test("le tirage affine ensuite la préférence au niveau du morceau", () => {
+  const performer = "Curtis Fuller";
+  const entries = WJAZZD_SOLOS.filter(
+    (solo) => solo.performer === performer,
+  ).flatMap((solo) =>
+    solo.phrases.map((phrase) => ({
+      phraseKey: `${solo.id}:${phrase[2]}`,
+      title: solo.title,
+    })),
+  );
+  const byTune = new Map();
+  for (const entry of entries) {
+    const tuneEntries = byTune.get(entry.title) ?? [];
+    tuneEntries.push(entry);
+    byTune.set(entry.title, tuneEntries);
+  }
+  const goodTune = "Blue Train";
+  const weakTune = "Down Under";
+  const phraseRatings = Object.fromEntries([
+    ...byTune.get(goodTune).slice(0, 6).map(({ phraseKey }) => [
+      phraseKey,
+      { rating: 3 },
+    ]),
+    ...byTune.get(weakTune).slice(0, 6).map(({ phraseKey }) => [
+      phraseKey,
+      { rating: 1 },
+    ]),
+  ]);
+  const titleByPhrase = new Map(
+    entries.map(({ phraseKey, title }) => [phraseKey, title]),
+  );
+  let seed = 0xcafe;
+  const random = () => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const counts = { [goodTune]: 0, [weakTune]: 0 };
+
+  for (let index = 0; index < 200; index += 1) {
+    const phraseKey = pickRatingPhrase({
+      phraseRatings,
+      selectedPerformers: [performer],
+      random,
+    });
+    counts[titleByPhrase.get(phraseKey)] += 1;
+  }
+
+  assert.ok(counts[goodTune] > counts[weakTune] * 5);
+});
+
+test("une part du tirage découvre les musiciens encore trop peu notés", () => {
+  const selectedPerformers = ["Paul Desmond", "Steve Coleman"];
+  const performerByPhrase = new Map(
+    WJAZZD_SOLOS.flatMap((solo) =>
+      solo.phrases.map((phrase) => [
+        `${solo.id}:${phrase[2]}`,
+        solo.performer,
+      ]),
+    ),
+  );
+  const phraseKey = pickRatingPhrase({
+    phraseRatings: DEFAULT_PHRASE_RATINGS,
+    selectedPerformers,
+    random: () => 0,
+  });
+
+  assert.equal(performerByPhrase.get(phraseKey), "Steve Coleman");
 });

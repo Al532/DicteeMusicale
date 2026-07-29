@@ -43,10 +43,12 @@ En usage normal, les deux modes utilisent uniquement les phrases couvertes par u
 note de 3★. La notation, son filtre et son export sont masqués.
 
 La case discrète **Mode dev**, en bas de la page, réactive les étoiles et ouvre
-**Notation rapide**. Ce mode alterne équitablement les musiciens sélectionnés,
-écoute les phrases entières dans leur tonalité originale et enchaîne après la saisie
-de 1, 2 ou 3★. Un point d’étape permanent indique la couverture ; un rappel plus
-visible apparaît toutes les dix notes.
+**Notation rapide**. Ce mode privilégie les musiciens puis les morceaux dont les
+notes directes indiquent une meilleure probabilité de 3★. Vingt pour cent des
+tirages restent réservés à la découverte des musiciens ayant moins de six notes
+directes. Il écoute les phrases entières dans leur tonalité originale et enchaîne
+après la saisie de 1, 2 ou 3★. Un point d’étape permanent indique la couverture ;
+un rappel plus visible apparaît toutes les dix notes.
 
 Le protocole peut étendre uniquement une tendance de rejet à 1★ à tout un morceau
 après au moins huit notes, 35 % de couverture et 75 % d’accord, sans forte
@@ -54,12 +56,13 @@ dispersion. Une extension à tout un musicien exige au moins quarante notes rép
 sur quatre morceaux, 15 % de couverture et la même cohérence. Les notes 2★ et 3★
 restent toujours directes ; une note de phrase explicite prime sur tout rejet global.
 
-Deux formes très fortement associées aux rejets sont écartées automatiquement à 1★
+Trois formes très fortement associées aux rejets sont écartées automatiquement à 1★
 tant qu’elles n’ont pas reçu de note directe : les fragments de quatre notes ou
 moins, et les rafales d’au moins quatorze notes dont chaque nouvelle attaque arrive
-au plus 180 ms après la précédente. Une note directe reste prioritaire, afin de
-préserver les exceptions appréciées. Ces exclusions comptent dans la couverture du
-protocole et apparaissent sous forme de règles agrégées dans son export.
+au plus 180 ms après la précédente, ou d’au moins sept notes dans une fenêtre de
+500 ms. Une note directe reste prioritaire, afin de préserver les exceptions
+appréciées. Ces exclusions comptent dans la couverture du protocole et apparaissent
+sous forme de règles agrégées dans son export.
 
 ## Modèle mélodique
 

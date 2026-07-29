@@ -1,6 +1,6 @@
 import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
 
-export const RATING_PROTOCOL_VERSION = 2;
+export const RATING_PROTOCOL_VERSION = 3;
 export const RATING_REPORT_INTERVAL = 10;
 
 export const STRUCTURAL_EXCLUSION_RULES = Object.freeze([
@@ -15,7 +15,22 @@ export const STRUCTURAL_EXCLUSION_RULES = Object.freeze([
     maximumInterOnsetSeconds: 0.18,
     minimumRunNotes: 14,
   }),
+  Object.freeze({
+    id: "dense-burst-v1",
+    label: "7 notes en 500 ms",
+    maximumWindowSeconds: 0.5,
+    minimumWindowNotes: 7,
+  }),
 ]);
+
+export const RATING_SAMPLING_POLICY = Object.freeze({
+  performerExplorationRate: 0.2,
+  performerDiscoverySample: 6,
+  performerPriorSample: 6,
+  tunePriorSample: 4,
+  preferenceFloor: 0.02,
+  preferenceExponent: 2,
+});
 
 const TUNE_RULE = Object.freeze({
   minimumSample: 8,
@@ -91,10 +106,26 @@ function maximumRapidRun(events, maximumInterOnsetSeconds) {
   return maximum;
 }
 
+function maximumNotesInWindow(events, maximumWindowSeconds) {
+  let maximum = 0;
+  let start = 0;
+  for (let end = 0; end < events.length; end += 1) {
+    while (
+      start < end &&
+      events[end][1] - events[start][1] >
+        maximumWindowSeconds + Number.EPSILON
+    ) {
+      start += 1;
+    }
+    maximum = Math.max(maximum, end - start + 1);
+  }
+  return maximum;
+}
+
 export function structuralPhraseExclusion(solo, phrase) {
   if (!solo || !Array.isArray(phrase)) return null;
   const events = solo.events.slice(phrase[0], phrase[1] + 1);
-  const [shortRule, rapidRule] = STRUCTURAL_EXCLUSION_RULES;
+  const [shortRule, rapidRule, denseBurstRule] = STRUCTURAL_EXCLUSION_RULES;
   if (events.length <= shortRule.maximumNotes) {
     return {
       ...shortRule,
@@ -110,6 +141,17 @@ export function structuralPhraseExclusion(solo, phrase) {
       ...rapidRule,
       noteCount: events.length,
       rapidRunNotes,
+    };
+  }
+  const rapidWindowNotes = maximumNotesInWindow(
+    events,
+    denseBurstRule.maximumWindowSeconds,
+  );
+  if (rapidWindowNotes >= denseBurstRule.minimumWindowNotes) {
+    return {
+      ...denseBurstRule,
+      noteCount: events.length,
+      rapidWindowNotes,
     };
   }
   return null;
@@ -307,6 +349,7 @@ export function effectivePhraseRatings(phraseRatings, ratingScopes = []) {
         exclusionLabel: exclusion.label,
         noteCount: exclusion.noteCount,
         rapidRunNotes: exclusion.rapidRunNotes ?? null,
+        rapidWindowNotes: exclusion.rapidWindowNotes ?? null,
       };
       continue;
     }
@@ -395,6 +438,54 @@ function randomChoice(items, random) {
   return items[Math.floor(random() * items.length)];
 }
 
+function weightedChoice(items, weightFor, random) {
+  const weighted = items.map((item) => ({
+    item,
+    weight: Math.max(0, Number(weightFor(item)) || 0),
+  }));
+  const total = weighted.reduce((sum, { weight }) => sum + weight, 0);
+  if (!total) return randomChoice(items, random);
+  let target = random() * total;
+  for (const { item, weight } of weighted) {
+    target -= weight;
+    if (target < 0) return item;
+  }
+  return weighted.at(-1).item;
+}
+
+function directRatingStats(entries, phraseRatings) {
+  const stats = { sampleSize: 0, threeStars: 0 };
+  for (const { phraseKey } of entries) {
+    const rating = ratingValue(phraseRatings[phraseKey]);
+    if (!rating) continue;
+    stats.sampleSize += 1;
+    if (rating === 3) stats.threeStars += 1;
+  }
+  return stats;
+}
+
+function smoothedThreeStarRate(
+  entries,
+  phraseRatings,
+  priorProbability,
+  priorSample,
+) {
+  const stats = directRatingStats(entries, phraseRatings);
+  return {
+    ...stats,
+    probability:
+      (stats.threeStars + priorProbability * priorSample) /
+      (stats.sampleSize + priorSample),
+  };
+}
+
+function preferenceWeight(probability) {
+  return (
+    RATING_SAMPLING_POLICY.preferenceFloor +
+    probability ** RATING_SAMPLING_POLICY.preferenceExponent
+  );
+}
+
 export function pickRatingPhrase({
   phraseRatings = {},
   fixedScopes = [],
@@ -409,25 +500,77 @@ export function pickRatingPhrase({
   );
   if (!candidates.length) return null;
 
-  const historyCounts = new Map();
+  const performerHistoryCounts = new Map();
+  const tuneHistoryCounts = new Map();
   for (const item of sessionHistory) {
-    historyCounts.set(
+    performerHistoryCounts.set(
       item.performer,
-      (historyCounts.get(item.performer) ?? 0) + 1,
+      (performerHistoryCounts.get(item.performer) ?? 0) + 1,
     );
+    const scopeId = tuneRatingScopeId(item.performer, item.title);
+    tuneHistoryCounts.set(scopeId, (tuneHistoryCounts.get(scopeId) ?? 0) + 1);
   }
   const availablePerformers = [...new Set(
     candidates.map(({ solo }) => solo.performer),
   )];
-  const minimumCount = Math.min(
-    ...availablePerformers.map((performer) => historyCounts.get(performer) ?? 0),
+  const allEntriesByPerformer = new Map(
+    availablePerformers.map((performer) => [
+      performer,
+      phraseEntries([performer]),
+    ]),
   );
-  const performer = randomChoice(
-    availablePerformers.filter(
-      (candidate) => (historyCounts.get(candidate) ?? 0) === minimumCount,
-    ),
-    random,
+  const performerEvidence = new Map(
+    availablePerformers.map((performer) => [
+      performer,
+      smoothedThreeStarRate(
+        allEntriesByPerformer.get(performer),
+        phraseRatings,
+        1 / 3,
+        RATING_SAMPLING_POLICY.performerPriorSample,
+      ),
+    ]),
   );
+  const discoveryPerformers = availablePerformers.filter(
+    (performer) =>
+      performerEvidence.get(performer).sampleSize <
+      RATING_SAMPLING_POLICY.performerDiscoverySample,
+  );
+  const isDiscovery =
+    discoveryPerformers.length > 0 &&
+    random() < RATING_SAMPLING_POLICY.performerExplorationRate;
+
+  let performer;
+  if (isDiscovery) {
+    const minimumSample = Math.min(
+      ...discoveryPerformers.map(
+        (candidate) => performerEvidence.get(candidate).sampleSize,
+      ),
+    );
+    const leastRated = discoveryPerformers.filter(
+      (candidate) =>
+        performerEvidence.get(candidate).sampleSize === minimumSample,
+    );
+    const minimumSessionCount = Math.min(
+      ...leastRated.map(
+        (candidate) => performerHistoryCounts.get(candidate) ?? 0,
+      ),
+    );
+    performer = randomChoice(
+      leastRated.filter(
+        (candidate) =>
+          (performerHistoryCounts.get(candidate) ?? 0) === minimumSessionCount,
+      ),
+      random,
+    );
+  } else {
+    performer = weightedChoice(
+      availablePerformers,
+      (candidate) =>
+        preferenceWeight(performerEvidence.get(candidate).probability),
+      random,
+    );
+  }
+
   const performerCandidates = candidates.filter(
     ({ solo }) => solo.performer === performer,
   );
@@ -442,30 +585,46 @@ export function pickRatingPhrase({
     byTune.set(scopeId, entries);
   }
 
+  const performerProbability = performerEvidence.get(performer).probability;
   const rankedTunes = [...byTune.entries()].map(([scopeId, entries]) => {
-    const allEntries = phraseEntries([performer]).filter(
+    const allEntries = allEntriesByPerformer.get(performer).filter(
       ({ solo }) =>
         tuneRatingScopeId(solo.performer, solo.title) === scopeId,
     );
-    const evidence = evaluateEvidence(allEntries, phraseRatings, TUNE_RULE);
-    const stage =
-      evidence.sampleSize > 0 && evidence.sampleSize < evidence.required
-        ? 0
-        : evidence.sampleSize === 0
-          ? 1
-          : 2;
-    const distance =
-      stage === 0 ? evidence.required - evidence.sampleSize : evidence.sampleSize;
-    return { entries, stage, distance };
+    const evidence = smoothedThreeStarRate(
+      allEntries,
+      phraseRatings,
+      performerProbability,
+      RATING_SAMPLING_POLICY.tunePriorSample,
+    );
+    return { scopeId, entries, evidence };
   });
-  const bestStage = Math.min(...rankedTunes.map(({ stage }) => stage));
-  const stageCandidates = rankedTunes.filter(({ stage }) => stage === bestStage);
-  const bestDistance = Math.min(
-    ...stageCandidates.map(({ distance }) => distance),
-  );
-  const solo = randomChoice(
-    stageCandidates.filter(({ distance }) => distance === bestDistance),
-    random,
-  );
-  return randomChoice(solo.entries, random).phraseKey;
+  let tune;
+  if (isDiscovery) {
+    const minimumSample = Math.min(
+      ...rankedTunes.map(({ evidence }) => evidence.sampleSize),
+    );
+    const leastRated = rankedTunes.filter(
+      ({ evidence }) => evidence.sampleSize === minimumSample,
+    );
+    const minimumSessionCount = Math.min(
+      ...leastRated.map(
+        ({ scopeId }) => tuneHistoryCounts.get(scopeId) ?? 0,
+      ),
+    );
+    tune = randomChoice(
+      leastRated.filter(
+        ({ scopeId }) =>
+          (tuneHistoryCounts.get(scopeId) ?? 0) === minimumSessionCount,
+      ),
+      random,
+    );
+  } else {
+    tune = weightedChoice(
+      rankedTunes,
+      ({ evidence }) => preferenceWeight(evidence.probability),
+      random,
+    );
+  }
+  return randomChoice(tune.entries, random).phraseKey;
 }
