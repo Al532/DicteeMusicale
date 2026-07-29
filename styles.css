@@ -740,6 +740,38 @@ output {
   line-height: 1.55;
 }
 
+.install-card {
+  text-align: left;
+}
+
+.install-card h2 {
+  margin-bottom: 22px;
+}
+
+.install-steps {
+  margin: 0 0 26px;
+  padding-left: 1.35rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.install-steps li {
+  padding-left: 5px;
+}
+
+.install-steps li + li {
+  margin-top: 9px;
+}
+
+.install-steps li::marker {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.install-steps strong {
+  color: var(--text);
+}
+
 .modal-symbol {
   display: grid;
   width: 58px;
@@ -1450,6 +1482,21 @@ body.game-mode {
       max(10px, env(safe-area-inset-bottom))
       max(14px, env(safe-area-inset-left));
     overflow-y: auto;
+  }
+
+  #ios-install-modal .install-card {
+    max-height: calc(100dvh - 20px);
+    padding: clamp(18px, 5vh, 28px) clamp(22px, 5vw, 36px);
+    overflow-y: auto;
+  }
+
+  #ios-install-modal .install-card h2 {
+    margin-bottom: 14px;
+    font-size: clamp(2rem, 10vh, 2.7rem);
+  }
+
+  #ios-install-modal .install-steps {
+    margin-bottom: 16px;
   }
 
   #sudden-death-modal .modal-card,

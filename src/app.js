@@ -133,6 +133,8 @@ const elements = {
   piano: document.querySelector("#piano"),
   exportRatings: document.querySelector("#export-ratings"),
   installButton: document.querySelector("#install-button"),
+  iosInstallModal: document.querySelector("#ios-install-modal"),
+  closeIosInstall: document.querySelector("#close-ios-install"),
   fullscreenButton: document.querySelector("#fullscreen-button"),
   exitPortraitMode: document.querySelector("#exit-portrait-mode"),
   sourceLine: document.querySelector("#source-line"),
@@ -159,6 +161,7 @@ let audioContext;
 let exercise = null;
 let acceptingInput = false;
 let deferredInstallPrompt = null;
+let installInstructionsReturnFocus = null;
 let localPhraseRatings = readJson(RATINGS_KEY, {});
 if (
   !localPhraseRatings ||
@@ -197,6 +200,7 @@ let freePhraseKey = null;
 let freeToneState = null;
 let lastCompletedChallengePhrases = [];
 const fullscreenDisplayMode = window.matchMedia("(display-mode: fullscreen)");
+const standaloneDisplayMode = window.matchMedia("(display-mode: standalone)");
 const activeAudioSources = new Set();
 const decodedAudioBuffers = new Map();
 const melodySampleBuffers = new Map();
@@ -2357,18 +2361,79 @@ function registerOfflineSupport() {
   }
 }
 
+function isIosDevice() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function isInstalledApp() {
+  return (
+    fullscreenDisplayMode.matches ||
+    standaloneDisplayMode.matches ||
+    navigator.standalone === true
+  );
+}
+
+function updateInstallButton() {
+  elements.installButton.hidden =
+    isInstalledApp() || (!deferredInstallPrompt && !isIosDevice());
+}
+
+function openIosInstallInstructions() {
+  installInstructionsReturnFocus = document.activeElement;
+  elements.iosInstallModal.hidden = false;
+  elements.closeIosInstall.focus();
+}
+
+function closeIosInstallInstructions() {
+  if (elements.iosInstallModal.hidden) return;
+  elements.iosInstallModal.hidden = true;
+  installInstructionsReturnFocus?.focus?.();
+  installInstructionsReturnFocus = null;
+}
+
 function setUpInstallPrompt() {
+  updateInstallButton();
+
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstallPrompt = event;
-    elements.installButton.hidden = false;
+    updateInstallButton();
   });
-  elements.installButton.addEventListener("click", async () => {
-    if (!deferredInstallPrompt) return;
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
+
+  window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
-    elements.installButton.hidden = true;
+    closeIosInstallInstructions();
+    updateInstallButton();
+  });
+
+  fullscreenDisplayMode.addEventListener?.("change", updateInstallButton);
+  standaloneDisplayMode.addEventListener?.("change", updateInstallButton);
+
+  elements.installButton.addEventListener("click", async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      updateInstallButton();
+      return;
+    }
+    if (isIosDevice()) openIosInstallInstructions();
+  });
+
+  elements.closeIosInstall.addEventListener(
+    "click",
+    closeIosInstallInstructions,
+  );
+  elements.iosInstallModal.addEventListener("click", (event) => {
+    if (event.target === elements.iosInstallModal) {
+      closeIosInstallInstructions();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeIosInstallInstructions();
   });
 }
 

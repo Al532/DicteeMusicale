@@ -1,9 +1,9 @@
-const CACHE_NAME = "dictee-musicale-v35";
+const CACHE_NAME = "dictee-musicale-v36";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=35",
-  "./src/app.js?v=35",
+  "./styles.css?v=36",
+  "./src/app.js?v=36",
   "./src/audio.js",
   "./src/engine.js",
   "./src/ratings.js",
@@ -40,6 +40,9 @@ const APP_SHELL = [
   "./audio/bass/48.mp3",
   "./manifest.webmanifest",
   "./icon.svg",
+  "./icon-180.png",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {

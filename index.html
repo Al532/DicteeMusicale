@@ -14,13 +14,19 @@
     <title>Jazz Solo Challenge</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=35" />
-    <script type="module" src="./src/app.js?v=35"></script>
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <link rel="stylesheet" href="./styles.css?v=36" />
+    <script type="module" src="./src/app.js?v=36"></script>
   </head>
   <body>
     <main>
       <section class="home-panel" id="home-panel" aria-labelledby="home-title">
-        <button class="quiet-button compact home-install" id="install-button" hidden>
+        <button
+          class="quiet-button compact home-install"
+          id="install-button"
+          type="button"
+          hidden
+        >
           Installer
         </button>
 
@@ -273,6 +279,28 @@
         </div>
       </section>
     </main>
+
+    <div
+      class="modal-layer"
+      id="ios-install-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ios-install-title"
+      hidden
+    >
+      <div class="modal-card install-card">
+        <p class="eyebrow">Sur iPhone et iPad</p>
+        <h2 id="ios-install-title">Installer l’app</h2>
+        <ol class="install-steps">
+          <li>Ouvre cette page dans Safari.</li>
+          <li>Touche le bouton <strong>Partager</strong>.</li>
+          <li>Choisis <strong>Ajouter à l’écran d’accueil</strong>.</li>
+        </ol>
+        <button class="primary-button wide-button" id="close-ios-install" type="button">
+          J’ai compris
+        </button>
+      </div>
+    </div>
 
     <div
       class="modal-layer"

@@ -256,11 +256,11 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "landscape");
   assert.equal(manifest.name, "Jazz Solo Challenge");
-  assert.match(serviceWorker, /dictee-musicale-v35/);
-  assert.match(index, /href="\.\/styles\.css\?v=35"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=35"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=35/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=35/);
+  assert.match(serviceWorker, /dictee-musicale-v36/);
+  assert.match(index, /href="\.\/styles\.css\?v=36"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=36"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=36/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=36/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.doesNotMatch(serviceWorker, /CLARINET_SAMPLES|PIANO_SAMPLES/);
   assert.match(
@@ -276,4 +276,41 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
       assert.ok(file.size > 0);
     }),
   );
+});
+
+test("l’installation est proposée directement sur Android et expliquée sur iOS", async () => {
+  assert.match(index, /rel="apple-touch-icon" href="\.\/icon-180\.png"/);
+  assert.match(
+    index,
+    /id="ios-install-modal"[\s\S]*?Sur iPhone et iPad[\s\S]*?Partager[\s\S]*?Ajouter à l’écran d’accueil/,
+  );
+  assert.deepEqual(
+    manifest.icons
+      .filter(({ type }) => type === "image/png")
+      .map(({ src, sizes, purpose }) => ({ src, sizes, purpose })),
+    [
+      { src: "./icon-192.png", sizes: "192x192", purpose: "any" },
+      { src: "./icon-512.png", sizes: "512x512", purpose: "any" },
+    ],
+  );
+  assert.match(app, /function isIosDevice\(\)/);
+  assert.match(app, /navigator\.standalone === true/);
+  assert.match(app, /window\.addEventListener\("beforeinstallprompt"/);
+  assert.match(app, /window\.addEventListener\("appinstalled"/);
+  assert.match(
+    app,
+    /if \(deferredInstallPrompt\) \{[\s\S]*?deferredInstallPrompt\.prompt\(\)[\s\S]*?\}[\s\S]*?if \(isIosDevice\(\)\) openIosInstallInstructions\(\)/,
+  );
+
+  for (const [filename, expectedSize] of [
+    ["icon-180.png", 180],
+    ["icon-192.png", 192],
+    ["icon-512.png", 512],
+  ]) {
+    const png = await readFile(new URL(`../${filename}`, import.meta.url));
+    assert.equal(png.subarray(1, 4).toString(), "PNG");
+    assert.equal(png.readUInt32BE(16), expectedSize);
+    assert.equal(png.readUInt32BE(20), expectedSize);
+    assert.match(serviceWorker, new RegExp(`\\.\\/${filename}`));
+  }
 });
