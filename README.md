@@ -1,4 +1,4 @@
-# Sur les traces des maîtres du jazz — Ear Training
+# Jazz Solo Challenge
 
 PWA de dictée mélodique construite à partir des 456 solos de la
 [Weimar Jazz Database](https://jazzomat.hfm-weimar.de/dbformat/dbcontent.html).
@@ -44,14 +44,9 @@ musicien et morceau. La tonalité reste volontairement masquée.
 
 ## Son et lecture
 
-Le son de la mélodie et du clavier peut être synthétique, clarinette ou piano.
-Les fondamentales de basse suivent les accords annotés ; un chick de charleston
-marque les temps 2 et 4.
-
-La clarinette (43 samples, MIDI 50–92) et le piano (61 samples, MIDI 36–96)
-proviennent du projet
-[PPTrainingWeb2](https://github.com/Al532/PPTrainingWeb2). Les 21 samples de basse
-proviennent de SharpEleven.
+La mélodie et le clavier utilisent le son synthétique. Les fondamentales de
+basse suivent les accords annotés ; un chick de charleston marque les temps 2
+et 4. La vitesse se règle directement sous le clavier pendant le jeu.
 
 Six enregistrements calibrés restent accessibles dans les outils développeur
 pour *Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,
@@ -59,7 +54,7 @@ pour *Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,
 
 ## Mode développeur
 
-Le panneau Réglages permet d’activer discrètement les outils historiques :
+Le menu discret en bas de l’accueil permet d’activer les outils historiques :
 
 - phrases réelles ou générées ;
 - sélection des musiciens ;

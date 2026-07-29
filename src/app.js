@@ -89,7 +89,6 @@ const elements = {
   favoritesEmpty: document.querySelector("#favorites-empty"),
   favoriteToggle: document.querySelector("#favorite-toggle"),
   freeTranspose: document.querySelector("#free-transpose"),
-  backToFavorites: document.querySelector("#back-to-favorites"),
   challengeProgress: document.querySelector("#challenge-progress"),
   progressTitle: document.querySelector("#progress-title"),
   progressDetail: document.querySelector("#progress-detail"),
@@ -117,7 +116,6 @@ const elements = {
   selectDefaultPerformers: document.querySelector("#select-default-performers"),
   selectAllPerformers: document.querySelector("#select-all-performers"),
   clearPerformers: document.querySelector("#clear-performers"),
-  melodySound: document.querySelector("#melody-sound"),
   minimumRating: document.querySelector("#minimum-rating"),
   developerMode: document.querySelector("#developer-mode"),
   developerOnly: document.querySelectorAll("[data-developer-only]"),
@@ -282,10 +280,7 @@ function loadSettings() {
     25,
     100,
   );
-  melodySound =
-    Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, settings.melodySound)
-      ? settings.melodySound
-      : "synthetic";
+  melodySound = "synthetic";
   minimumRating =
     settings.minimumRating === "unrated"
       ? "unrated"
@@ -299,7 +294,6 @@ function loadSettings() {
     ? settings.selectedPerformers.filter((name) => knownPerformers.has(name))
     : DEFAULT_PERFORMERS;
   selectedPerformers = new Set(savedPerformers);
-  elements.melodySound.value = melodySound;
   elements.minimumRating.value = String(minimumRating);
   elements.developerMode.checked = developerMode;
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
@@ -315,7 +309,6 @@ function saveSettings() {
     realMaxNotes,
     randomPlaybackPercent: randomPlaybackSpeedPercent,
     realSpeed: realSpeedPercent,
-    melodySound,
     minimumRating,
     developerMode,
     selectedPerformers: [...selectedPerformers],
@@ -500,14 +493,6 @@ function syncMinimumRating(value) {
   saveSettings();
 }
 
-function syncMelodySound(value) {
-  melodySound = Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, value)
-    ? value
-    : "synthetic";
-  elements.melodySound.value = melodySound;
-  saveSettings();
-}
-
 function startMode(mode) {
   if ((mode === "jazz" || mode === "rating") && !selectedPerformers.size) {
     elements.selectionWarning.hidden = false;
@@ -534,7 +519,6 @@ function startMode(mode) {
   elements.sourceSummary.hidden = true;
   elements.favoriteToggle.hidden = true;
   elements.freeTranspose.hidden = true;
-  elements.backToFavorites.hidden = true;
   updateModeSettings();
   saveSettings();
   startExercise();
@@ -591,10 +575,12 @@ function renderHomeState() {
   elements.resumeChallenge.hidden = !hasSession;
   elements.newChallenge.hidden = !hasSession;
   if (!hasSession) {
-    elements.sessionStatus.textContent = "Prêt pour un nouveau défi.";
+    elements.sessionStatus.hidden = true;
+    elements.sessionStatus.textContent = "";
     return;
   }
 
+  elements.sessionStatus.hidden = false;
   if (challengeSession.phase === "training") {
     elements.sessionStatus.textContent =
       `Session en cours · phrase ${challengeSession.phraseIndex + 1} sur 3, ` +
@@ -610,6 +596,7 @@ function renderHomeState() {
 }
 
 function showHome() {
+  document.body.classList.add("home-view");
   elements.homePanel.hidden = false;
   elements.favoritesPanel.hidden = true;
   renderHomeState();
@@ -664,6 +651,7 @@ function renderFavorites() {
 }
 
 function showFavorites() {
+  document.body.classList.remove("home-view");
   elements.homePanel.hidden = true;
   elements.favoritesPanel.hidden = false;
   renderFavorites();
@@ -1590,6 +1578,7 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
     !document.body.classList.contains("game-mode");
   const isChallenge = currentMode === "challenge";
   const isFree = currentMode === "free";
+  updateModeSettings();
   document.body.classList.toggle("challenge-mode", isChallenge);
   document.body.classList.toggle("free-mode", isFree);
   document.body.classList.remove("rating-mode");
@@ -1675,7 +1664,6 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   elements.nextExercise.disabled = true;
   elements.ratingWorkspace.hidden = true;
   elements.freeTranspose.hidden = !isFree;
-  elements.backToFavorites.hidden = !isFree;
   elements.challengeProgress.hidden = isFree;
   if (isChallenge) renderChallengeProgress();
   renderFavoriteButton();
@@ -2367,6 +2355,7 @@ function updateGameModeButton() {
 }
 
 function activateGameLayout() {
+  document.body.classList.remove("home-view");
   document.body.classList.add("game-mode");
   updateGameModeButton();
 }
@@ -2468,9 +2457,6 @@ elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSp
 elements.minimumRating.addEventListener("change", () =>
   syncMinimumRating(elements.minimumRating.value),
 );
-elements.melodySound.addEventListener("change", () =>
-  syncMelodySound(elements.melodySound.value),
-);
 elements.startReal.addEventListener("click", () => startMode("jazz"));
 elements.startRandom.addEventListener("click", () => startMode("random"));
 elements.startRating.addEventListener("click", () => startMode("rating"));
@@ -2481,9 +2467,6 @@ elements.openFavorites.addEventListener("click", showFavorites);
 elements.closeFavorites.addEventListener("click", showHome);
 elements.favoriteToggle.addEventListener("click", toggleCurrentFavorite);
 elements.freeTranspose.addEventListener("click", transposeFreePhrase);
-elements.backToFavorites.addEventListener("click", () =>
-  leaveGameMode("favorites"),
-);
 elements.startSuddenDeath.addEventListener("click", launchSuddenDeath);
 elements.finishNewChallenge.addEventListener("click", startNewChallenge);
 elements.finishHome.addEventListener("click", () => leaveGameMode("home"));

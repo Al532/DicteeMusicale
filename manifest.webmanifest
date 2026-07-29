@@ -1,14 +1,14 @@
 {
-  "name": "Dictée musicale",
-  "short_name": "Dictée",
-  "description": "Entraînement à la dictée mélodique avec correction immédiate.",
+  "name": "Jazz Solo Challenge",
+  "short_name": "Jazz Solo",
+  "description": "Rejouez à l’oreille des phrases de solos de jazz dans tous les tons.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "landscape",
-  "background_color": "#111017",
-  "theme_color": "#17151f",
+  "background_color": "#10130f",
+  "theme_color": "#11130f",
   "lang": "fr",
   "icons": [
     {

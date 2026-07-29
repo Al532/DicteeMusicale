@@ -14,17 +14,25 @@ const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
 
-test("l’accueil public est centré sur un seul Défi 3×3", () => {
-  assert.match(index, /<title>Sur les traces des maîtres du jazz — Défi 3×3<\/title>/);
-  assert.match(index, /id="home-title">Écoute\. Transpose\./);
-  assert.match(index, /<h2>Défi 3×3<\/h2>/);
+test("l’accueil public présente directement Jazz Solo Challenge", () => {
+  assert.match(index, /<title>Jazz Solo Challenge<\/title>/);
   assert.match(
     index,
-    /<strong>3<\/strong> phrases[\s\S]*?<strong>3<\/strong> tons[\s\S]*?<strong>1<\/strong> mort subite/,
+    /id="home-title">[\s\S]*?<span>Jazz Solo<\/span>[\s\S]*?<span>Challenge<\/span>/,
+  );
+  assert.match(
+    index,
+    /Rejouez à l’oreille des phrases de solos de jazz, dans tous les tons\./,
+  );
+  assert.match(
+    index,
+    /<strong>3<\/strong> phrases[\s\S]*?<strong>3<\/strong> tons chacune[\s\S]*?mort subite/,
   );
   assert.match(index, /id="start-challenge"[\s\S]*?Commencer/);
   assert.match(index, /id="resume-challenge" hidden[\s\S]*?Reprendre/);
   assert.match(index, /id="open-favorites"[\s\S]*?Mode libre/);
+  assert.doesNotMatch(index, /Session guidée|≈ 10 min|Écoute\. Transpose\./);
+  assert.doesNotMatch(index, /class="settings-drawer"|Son de la mélodie/);
   assert.doesNotMatch(index, /Phrases réelles[\s\S]*Phrases générées/);
 });
 
@@ -148,7 +156,16 @@ test("le mode normal n’affiche que le musicien et le morceau", () => {
   );
 });
 
-test("le piano occupe l’espace de jeu et le portrait demande une rotation", () => {
+test("l’accueil et le jeu occupent le paysage, le portrait demande une rotation", () => {
+  assert.match(
+    styles,
+    /html:has\(body\.home-view\),[\s\S]*?body\.home-view \{[\s\S]*?overflow: hidden/,
+  );
+  assert.match(
+    styles,
+    /\.home-panel \{[\s\S]*?grid-template-columns:[\s\S]*?min-height: 100dvh/,
+  );
+  assert.match(app, /function showHome\(\) \{[\s\S]*?classList\.add\("home-view"\)/);
   assert.match(styles, /\.game-mode main \{[\s\S]*?height: 100dvh/);
   assert.match(
     styles,
@@ -157,10 +174,31 @@ test("le piano occupe l’espace de jeu et le portrait demande une rotation", ()
   assert.match(styles, /\.piano \{[\s\S]*?width: 100%;[\s\S]*?height: 100%/);
   assert.match(
     styles,
-    /@media \(orientation: portrait\)[\s\S]*?\.game-mode:not\(\.rating-mode\) \.rotate-overlay/,
+    /@media \(orientation: portrait\)[\s\S]*?\.home-view \.rotate-overlay,[\s\S]*?\.game-mode:not\(\.rating-mode\) \.rotate-overlay/,
   );
   assert.match(app, /function buildPiano\(layout\)/);
   assert.match(app, /--white-key-count/);
+});
+
+test("la vitesse se règle sous le piano sans désaxer Réécouter", () => {
+  assert.match(
+    index,
+    /class="game-controls"[\s\S]*?id="game-speed-setting"[\s\S]*?id="game-speed"[\s\S]*?id="replay"[\s\S]*?class="game-context-controls"[\s\S]*?id="free-transpose"/,
+  );
+  assert.equal((index.match(/id="game-speed"/g) ?? []).length, 1);
+  assert.match(
+    styles,
+    /\.game-controls \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns:[\s\S]*?130px/,
+  );
+  assert.match(styles, /\.replay-button \{[\s\S]*?grid-column: 2/);
+  assert.match(
+    styles,
+    /\.game-speed-control \{[\s\S]*?justify-self: start/,
+  );
+  assert.match(
+    styles,
+    /\.game-context-controls \{[\s\S]*?grid-column: 3;[\s\S]*?justify-self: end/,
+  );
 });
 
 test("les écrans de mort subite et de réussite s’adaptent au paysage", () => {
@@ -182,49 +220,41 @@ test("les écrans de mort subite et de réussite s’adaptent au paysage", () =>
   );
 });
 
-test("la lecture et le clavier conservent les instruments samplés", () => {
+test("le son public est uniquement synthétique", () => {
+  assert.doesNotMatch(index, /id="melody-sound"|Clarinette|Piano<\/option>/);
+  assert.match(app, /let melodySound = "synthetic"/);
   assert.match(
-    index,
-    /id="melody-sound"[\s\S]*?value="synthetic">Synthétique[\s\S]*?value="clarinet">Clarinette[\s\S]*?value="piano">Piano/,
+    app,
+    /function loadSettings\(\)[\s\S]*?melodySound = "synthetic"/,
   );
   assert.match(
     app,
-    /clarinet: \{[\s\S]*?minMidi: 50,[\s\S]*?maxMidi: 92,[\s\S]*?headSeconds: 0\.025/,
+    /function playTone\([\s\S]*?if \(melodySound === "synthetic"\)[\s\S]*?playSyntheticTone/,
   );
-  assert.match(
-    app,
-    /piano: \{[\s\S]*?minMidi: 36,[\s\S]*?maxMidi: 96,[\s\S]*?headSeconds: 0/,
-  );
-  assert.match(app, /const path = `audio\/\$\{sound\}\/\$\{sampleMidi\}\.mp3`/);
+  assert.doesNotMatch(app, /settings\.melodySound/);
   assert.match(app, /const path = `audio\/bass\/\$\{midi\}\.mp3`/);
 });
 
 test("la PWA embarque le nouveau moteur de session hors connexion", async () => {
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "landscape");
-  assert.match(serviceWorker, /dictee-musicale-v33/);
-  assert.match(index, /href="\.\/styles\.css\?v=33"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=33"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=33/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=33/);
+  assert.equal(manifest.name, "Jazz Solo Challenge");
+  assert.match(serviceWorker, /dictee-musicale-v34/);
+  assert.match(index, /href="\.\/styles\.css\?v=34"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=34"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=34/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=34/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
+  assert.doesNotMatch(serviceWorker, /CLARINET_SAMPLES|PIANO_SAMPLES/);
   assert.match(
     app,
     /navigator\.serviceWorker\.register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/,
   );
 
   await Promise.all(
-    Array.from({ length: 43 }, (_, index) => index + 50).map(async (midi) => {
+    Array.from({ length: 21 }, (_, index) => index + 28).map(async (midi) => {
       const file = await stat(
-        new URL(`../audio/clarinet/${midi}.mp3`, import.meta.url),
-      );
-      assert.ok(file.size > 0);
-    }),
-  );
-  await Promise.all(
-    Array.from({ length: 61 }, (_, index) => index + 36).map(async (midi) => {
-      const file = await stat(
-        new URL(`../audio/piano/${midi}.mp3`, import.meta.url),
+        new URL(`../audio/bass/${midi}.mp3`, import.meta.url),
       );
       assert.ok(file.size > 0);
     }),
