@@ -7,23 +7,16 @@ import {
 } from "../data/default-ratings.js";
 import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
 import {
+  STRUCTURAL_EXCLUSION_RULES,
   effectivePhraseRatings,
   mergePhraseRatings,
   pickRatingPhrase,
   ratingProtocolSummary,
+  structuralPhraseExclusion,
 } from "../src/ratings.js";
 
-const EXPORTED_PERFORMERS = [
-  "Benny Goodman",
-  "Gerry Mulligan",
-  "Lester Young",
-  "Louis Armstrong",
-  "Paul Desmond",
-  "Red Garland",
-];
-
-test("les 209 notes exportées sont intégrées en dur", () => {
-  assert.equal(Object.keys(DEFAULT_PHRASE_RATINGS).length, 209);
+test("les 325 notes exportées sont intégrées en dur", () => {
+  assert.equal(Object.keys(DEFAULT_PHRASE_RATINGS).length, 325);
   assert.deepEqual(
     Object.values(DEFAULT_PHRASE_RATINGS).reduce(
       (counts, { rating }) => ({
@@ -32,38 +25,80 @@ test("les 209 notes exportées sont intégrées en dur", () => {
       }),
       { 1: 0, 2: 0, 3: 0 },
     ),
-    { 1: 75, 2: 58, 3: 76 },
+    { 1: 137, 2: 86, 3: 102 },
   );
 });
 
-test("le protocole couvre le sous-ensemble connu et infère Alianca", () => {
+test("le protocole couvre les notes et les exclusions structurelles", () => {
   const summary = ratingProtocolSummary({
     phraseRatings: DEFAULT_PHRASE_RATINGS,
     fixedScopes: DEFAULT_RATING_SCOPES,
-    selectedPerformers: EXPORTED_PERFORMERS,
   });
-  assert.equal(summary.total, 547);
-  assert.equal(summary.explicit, 209);
-  assert.equal(summary.covered, 223);
-  assert.equal(summary.remaining, 324);
-  assert.equal(summary.tuneScopes.length, 1);
+  assert.equal(summary.total, 11_082);
+  assert.equal(summary.explicit, 325);
+  assert.equal(summary.structuralExcluded, 3_078);
+  assert.equal(summary.covered, 3_403);
+  assert.equal(summary.remaining, 7_679);
+  assert.deepEqual(summary.distribution, { 1: 3_215, 2: 86, 3: 102 });
   assert.deepEqual(
-    {
-      scopeId: summary.tuneScopes[0].scopeId,
-      rating: summary.tuneScopes[0].rating,
-      sampleSize: summary.tuneScopes[0].sampleSize,
-      total: summary.tuneScopes[0].total,
-    },
-    {
-      scopeId: "Paul Desmond::Alianca",
-      rating: 3,
-      sampleSize: 9,
-      total: 23,
-    },
+    summary.structuralRules.map(({ scopeId, sampleSize }) => ({
+      scopeId,
+      sampleSize,
+    })),
+    [
+      { scopeId: "very-short-v1", sampleSize: 1_100 },
+      { scopeId: "rapid-run-v1", sampleSize: 1_978 },
+    ],
   );
+  assert.equal(summary.tuneScopes.length, 0);
+  assert.equal(summary.performerScopes.length, 0);
+  assert.equal(DEFAULT_RATING_SCOPES.length, 0);
 });
 
-test("une note directe prime sur une note globale de morceau", () => {
+test("les exclusions structurelles cèdent toujours devant une note directe", () => {
+  const entries = WJAZZD_SOLOS.flatMap((solo) =>
+    solo.phrases.map((phrase) => ({
+      solo,
+      phrase,
+      phraseKey: `${solo.id}:${phrase[2]}`,
+      exclusion: structuralPhraseExclusion(solo, phrase),
+    })),
+  );
+  const short = entries.find(
+    ({ phraseKey, exclusion }) =>
+      exclusion?.id === "very-short-v1" &&
+      !DEFAULT_PHRASE_RATINGS[phraseKey],
+  );
+  const rapid = entries.find(
+    ({ phraseKey, exclusion }) =>
+      exclusion?.id === "rapid-run-v1" &&
+      !DEFAULT_PHRASE_RATINGS[phraseKey],
+  );
+  const directException = entries.find(
+    ({ phraseKey, exclusion }) =>
+      exclusion && DEFAULT_PHRASE_RATINGS[phraseKey]?.rating === 3,
+  );
+  assert.ok(short);
+  assert.ok(rapid);
+  assert.ok(directException);
+  assert.deepEqual(
+    STRUCTURAL_EXCLUSION_RULES.map(({ id }) => id),
+    ["very-short-v1", "rapid-run-v1"],
+  );
+
+  const effective = effectivePhraseRatings(
+    DEFAULT_PHRASE_RATINGS,
+    DEFAULT_RATING_SCOPES,
+  );
+  for (const { phraseKey } of [short, rapid]) {
+    assert.equal(effective[phraseKey].rating, 1);
+    assert.equal(effective[phraseKey].scope, "structural");
+  }
+  assert.equal(effective[directException.phraseKey].rating, 3);
+  assert.equal(effective[directException.phraseKey].scope, "phrase");
+});
+
+test("les décisions globales sont limitées à 1 étoile", () => {
   const alianca = WJAZZD_SOLOS.filter(
     ({ performer, title }) =>
       performer === "Paul Desmond" && title === "Alianca",
@@ -73,34 +108,91 @@ test("une note directe prime sur une note globale de morceau", () => {
       solo.phrases.map((phrase) => ({
         phraseKey: `${solo.id}:${phrase[2]}`,
         solo,
+        phrase,
       })),
     )
-    .find(({ phraseKey }) => !DEFAULT_PHRASE_RATINGS[phraseKey]);
+    .find(
+      ({ phraseKey, solo, phrase }) =>
+        !DEFAULT_PHRASE_RATINGS[phraseKey] &&
+        !structuralPhraseExclusion(solo, phrase),
+    );
   assert.ok(unratedPhrase);
 
   const summary = ratingProtocolSummary({
     phraseRatings: DEFAULT_PHRASE_RATINGS,
   });
-  assert.equal(
-    summary.effectiveRatings[unratedPhrase.phraseKey].rating,
-    3,
-  );
-  assert.equal(
-    summary.effectiveRatings[unratedPhrase.phraseKey].scope,
-    "tune",
-  );
+  assert.equal(summary.tuneScopes.length, 0);
+  assert.equal(summary.effectiveRatings[unratedPhrase.phraseKey], undefined);
+
+  const rejected = effectivePhraseRatings(DEFAULT_PHRASE_RATINGS, [
+    {
+      scope: "tune",
+      scopeId: "Paul Desmond::Alianca",
+      rating: 1,
+      performer: "Paul Desmond",
+      title: "Alianca",
+      origin: "inferred",
+    },
+    {
+      scope: "tune",
+      scopeId: "Paul Desmond::Alianca",
+      rating: 3,
+      performer: "Paul Desmond",
+      title: "Alianca",
+      origin: "inferred",
+      updatedAt: "2026-07-29T01:00:00.000Z",
+    },
+  ]);
+  assert.equal(rejected[unratedPhrase.phraseKey].rating, 1);
+  assert.equal(rejected[unratedPhrase.phraseKey].scope, "tune");
 
   const overridden = effectivePhraseRatings(
     mergePhraseRatings(DEFAULT_PHRASE_RATINGS, {
       [unratedPhrase.phraseKey]: {
-        rating: 1,
+        rating: 3,
         updatedAt: "2026-07-29T00:00:00.000Z",
       },
     }),
-    summary.scopes,
+    [{
+      scope: "tune",
+      scopeId: "Paul Desmond::Alianca",
+      rating: 1,
+    }],
   );
-  assert.equal(overridden[unratedPhrase.phraseKey].rating, 1);
+  assert.equal(overridden[unratedPhrase.phraseKey].rating, 3);
   assert.equal(overridden[unratedPhrase.phraseKey].scope, "phrase");
+});
+
+test("une tendance cohérente à 1 étoile peut encore écarter un morceau", () => {
+  const tunes = new Map();
+  for (const solo of WJAZZD_SOLOS) {
+    const scopeId = `${solo.performer}::${solo.title}`;
+    const entries = tunes.get(scopeId) ?? [];
+    entries.push(
+      ...solo.phrases.map((phrase) => ({
+        phraseKey: `${solo.id}:${phrase[2]}`,
+        solo,
+      })),
+    );
+    tunes.set(scopeId, entries);
+  }
+  const [scopeId, entries] = [...tunes].find(
+    ([, tuneEntries]) => tuneEntries.length >= 8,
+  );
+  const required = Math.max(8, Math.ceil(entries.length * 0.35));
+  const phraseRatings = Object.fromEntries(
+    entries.slice(0, required).map(({ phraseKey }) => [
+      phraseKey,
+      { rating: 1 },
+    ]),
+  );
+
+  const summary = ratingProtocolSummary({ phraseRatings });
+  assert.ok(
+    summary.tuneScopes.some(
+      (scope) => scope.scopeId === scopeId && scope.rating === 1,
+    ),
+  );
 });
 
 test("l’échantillonnage rapide équilibre les musiciens sélectionnés", () => {

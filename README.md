@@ -48,11 +48,18 @@ La case discrète **Mode dev**, en bas de la page, réactive les étoiles et ouv
 de 1, 2 ou 3★. Un point d’étape permanent indique la couverture ; un rappel plus
 visible apparaît toutes les dix notes.
 
-Le protocole peut étendre une tendance à tout un morceau après au moins huit notes,
-35 % de couverture et 75 % d’accord, sans forte dispersion entre 1★ et 3★. Une
-extension à tout un musicien exige au moins quarante notes réparties sur quatre
-morceaux, 15 % de couverture et la même cohérence. Une note de phrase explicite
-reste toujours prioritaire sur ces décisions globales.
+Le protocole peut étendre uniquement une tendance de rejet à 1★ à tout un morceau
+après au moins huit notes, 35 % de couverture et 75 % d’accord, sans forte
+dispersion. Une extension à tout un musicien exige au moins quarante notes réparties
+sur quatre morceaux, 15 % de couverture et la même cohérence. Les notes 2★ et 3★
+restent toujours directes ; une note de phrase explicite prime sur tout rejet global.
+
+Deux formes très fortement associées aux rejets sont écartées automatiquement à 1★
+tant qu’elles n’ont pas reçu de note directe : les fragments de quatre notes ou
+moins, et les rafales d’au moins quatorze notes dont chaque nouvelle attaque arrive
+au plus 180 ms après la précédente. Une note directe reste prioritaire, afin de
+préserver les exceptions appréciées. Ces exclusions comptent dans la couverture du
+protocole et apparaissent sous forme de règles agrégées dans son export.
 
 ## Modèle mélodique
 

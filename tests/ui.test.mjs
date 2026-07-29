@@ -332,6 +332,10 @@ test("le protocole est exportable et inclus dans la sauvegarde", () => {
     app,
     /schemaVersion: 3,[\s\S]*?records,[\s\S]*?ratings: phraseRatings,[\s\S]*?ratingScopes: fixedRatingScopes/,
   );
+  assert.match(
+    app,
+    /\[\.\.\.protocol\.scopes, \.\.\.protocol\.structuralRules\]/,
+  );
   assert.match(app, /elements\.exportRatings\.addEventListener\("click", exportRatings\)/);
 });
 
@@ -614,11 +618,11 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v28/);
-  assert.match(index, /href="\.\/styles\.css\?v=28"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=28"/);
-  assert.match(serviceWorker, /"\.\/styles\.css\?v=28"/);
-  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=28"/);
+  assert.match(serviceWorker, /dictee-musicale-v29/);
+  assert.match(index, /href="\.\/styles\.css\?v=29"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=29"/);
+  assert.match(serviceWorker, /"\.\/styles\.css\?v=29"/);
+  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=29"/);
   assert.match(
     serviceWorker,
     /mustRevalidate[\s\S]*?\["document", "script", "style"\][\s\S]*?cache: "no-store"/,

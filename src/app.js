@@ -305,6 +305,9 @@ function renderProtocolHomeSummary() {
   elements.ratingHomeSummary.textContent =
     `${summary.explicit} notes directes · ` +
     `${summary.covered} sur ${summary.total} phrases couvertes` +
+    (summary.structuralExcluded
+      ? ` · ${summary.structuralExcluded} exclusions structurelles`
+      : "") +
     (scopeCount
       ? ` · ${scopeCount} décision${scopeCount > 1 ? "s" : ""} globale${scopeCount > 1 ? "s" : ""}`
       : "");
@@ -1093,6 +1096,9 @@ function renderRatingSession() {
   elements.ratingCoverageSummary.textContent =
     `${summary.covered} sur ${summary.total} phrases couvertes` +
     ` (${summary.total ? Math.round((summary.covered / summary.total) * 100) : 0} %)` +
+    (summary.structuralExcluded
+      ? ` · ${summary.structuralExcluded} exclusions structurelles`
+      : "") +
     (newScopes.length
       ? ` · ${newScopes.length} nouvelle${newScopes.length > 1 ? "s" : ""} décision${newScopes.length > 1 ? "s" : ""} globale${newScopes.length > 1 ? "s" : ""}`
       : "");
@@ -1716,6 +1722,7 @@ function exportCsv() {
 }
 
 function exportRatings() {
+  const protocol = currentRatingProtocol(false);
   const rows = [
     [
       "protocole_version",
@@ -1754,7 +1761,7 @@ function exportRatings() {
       entry.updatedAt,
     ]);
   }
-  for (const scope of currentRatingProtocol(false).scopes) {
+  for (const scope of [...protocol.scopes, ...protocol.structuralRules]) {
     rows.push([
       RATING_PROTOCOL_VERSION,
       scope.scope,

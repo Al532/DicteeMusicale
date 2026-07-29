@@ -81,14 +81,20 @@ for (const cells of rows) {
   }
 
   const scopeId = entry.identifiant;
-  if (!scopeId || !["tune", "performer"].includes(scope)) continue;
+  if (
+    !scopeId ||
+    !["tune", "performer"].includes(scope) ||
+    rating !== 1
+  ) {
+    continue;
+  }
   ratingScopes.push({
     scope,
     scopeId,
     rating,
     performer: entry.musicien || null,
     title: entry.morceau || null,
-    origin: "embedded",
+    origin: entry.origine || "embedded",
     sampleSize: Number(entry.taille_echantillon) || null,
     agreement: Number(entry.accord) || null,
     coverage: Number(entry.couverture) || null,

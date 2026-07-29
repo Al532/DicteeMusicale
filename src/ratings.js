@@ -1,7 +1,21 @@
 import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
 
-export const RATING_PROTOCOL_VERSION = 1;
+export const RATING_PROTOCOL_VERSION = 2;
 export const RATING_REPORT_INTERVAL = 10;
+
+export const STRUCTURAL_EXCLUSION_RULES = Object.freeze([
+  Object.freeze({
+    id: "very-short-v1",
+    label: "4 notes ou moins",
+    maximumNotes: 4,
+  }),
+  Object.freeze({
+    id: "rapid-run-v1",
+    label: "14 notes rapides consécutives (180 ms au plus entre attaques)",
+    maximumInterOnsetSeconds: 0.18,
+    minimumRunNotes: 14,
+  }),
+]);
 
 const TUNE_RULE = Object.freeze({
   minimumSample: 8,
@@ -60,6 +74,45 @@ function phraseEntries(selectedPerformers = null) {
       phraseKey: `${solo.id}:${phrase[2]}`,
     }));
   });
+}
+
+function maximumRapidRun(events, maximumInterOnsetSeconds) {
+  let maximum = events.length ? 1 : 0;
+  let current = maximum;
+  for (let index = 1; index < events.length; index += 1) {
+    const interOnsetSeconds = events[index][1] - events[index - 1][1];
+    if (interOnsetSeconds <= maximumInterOnsetSeconds + Number.EPSILON) {
+      current += 1;
+      maximum = Math.max(maximum, current);
+    } else {
+      current = 1;
+    }
+  }
+  return maximum;
+}
+
+export function structuralPhraseExclusion(solo, phrase) {
+  if (!solo || !Array.isArray(phrase)) return null;
+  const events = solo.events.slice(phrase[0], phrase[1] + 1);
+  const [shortRule, rapidRule] = STRUCTURAL_EXCLUSION_RULES;
+  if (events.length <= shortRule.maximumNotes) {
+    return {
+      ...shortRule,
+      noteCount: events.length,
+    };
+  }
+  const rapidRunNotes = maximumRapidRun(
+    events,
+    rapidRule.maximumInterOnsetSeconds,
+  );
+  if (rapidRunNotes >= rapidRule.minimumRunNotes) {
+    return {
+      ...rapidRule,
+      noteCount: events.length,
+      rapidRunNotes,
+    };
+  }
+  return null;
 }
 
 export function tuneRatingScopeId(performer, title) {
@@ -123,7 +176,7 @@ function normalizedFixedScopes(fixedScopes) {
       !scope ||
       !["tune", "performer"].includes(scope.scope) ||
       !scope.scopeId ||
-      !rating
+      rating !== 1
     ) {
       return [];
     }
@@ -166,7 +219,7 @@ export function deriveRatingScopes(phraseRatings, fixedScopes = []) {
     if (fixedKeys.has(`tune:${scopeId}`)) continue;
     const { solo } = entries[0];
     const evidence = evaluateEvidence(entries, phraseRatings, TUNE_RULE);
-    if (!evidence.qualifies) continue;
+    if (!evidence.qualifies || evidence.rating !== 1) continue;
     inferred.push({
       scope: "tune",
       scopeId,
@@ -195,7 +248,7 @@ export function deriveRatingScopes(phraseRatings, fixedScopes = []) {
     );
     if (ratedTunes.size < PERFORMER_RULE.minimumTunes) continue;
     const evidence = evaluateEvidence(entries, phraseRatings, PERFORMER_RULE);
-    if (!evidence.qualifies) continue;
+    if (!evidence.qualifies || evidence.rating !== 1) continue;
     inferred.push({
       scope: "performer",
       scopeId: performer,
@@ -238,6 +291,25 @@ export function effectivePhraseRatings(phraseRatings, ratingScopes = []) {
       };
       continue;
     }
+    const exclusion = structuralPhraseExclusion(solo, phrase);
+    if (exclusion) {
+      merged[phraseKey] = {
+        rating: 1,
+        scope: "structural",
+        scopeId: exclusion.id,
+        origin: "structural",
+        updatedAt: null,
+        soloId: solo.id,
+        performer: solo.performer,
+        title: solo.title,
+        phrase: phrase[2],
+        sourceUrl: solo.sourceUrl,
+        exclusionLabel: exclusion.label,
+        noteCount: exclusion.noteCount,
+        rapidRunNotes: exclusion.rapidRunNotes ?? null,
+      };
+      continue;
+    }
     const scope =
       tuneScopes.get(tuneRatingScopeId(solo.performer, solo.title)) ??
       performerScopes.get(solo.performer);
@@ -272,6 +344,9 @@ export function ratingProtocolSummary({
   const covered = entries.filter(({ phraseKey }) =>
     ratingValue(effective[phraseKey]),
   );
+  const structuralExclusions = entries.filter(
+    ({ phraseKey }) => effective[phraseKey]?.scope === "structural",
+  );
   const distribution = { 1: 0, 2: 0, 3: 0 };
   for (const { phraseKey } of covered) {
     distribution[ratingValue(effective[phraseKey])] += 1;
@@ -280,6 +355,23 @@ export function ratingProtocolSummary({
   const relevantScopes = scopes.filter(
     (scope) => !selected || selected.has(scope.performer),
   );
+  const structuralRules = STRUCTURAL_EXCLUSION_RULES.map((rule) => {
+    const sampleSize = structuralExclusions.filter(
+      ({ phraseKey }) => effective[phraseKey]?.scopeId === rule.id,
+    ).length;
+    return {
+      scope: "rule",
+      scopeId: rule.id,
+      rating: 1,
+      performer: null,
+      title: rule.label,
+      origin: "structural",
+      sampleSize,
+      agreement: null,
+      coverage: entries.length ? sampleSize / entries.length : 0,
+      updatedAt: null,
+    };
+  });
 
   return {
     protocolVersion: RATING_PROTOCOL_VERSION,
@@ -288,6 +380,8 @@ export function ratingProtocolSummary({
     covered: covered.length,
     remaining: entries.length - covered.length,
     distribution,
+    structuralExcluded: structuralExclusions.length,
+    structuralRules,
     scopes: relevantScopes,
     tuneScopes: relevantScopes.filter((scope) => scope.scope === "tune"),
     performerScopes: relevantScopes.filter(
