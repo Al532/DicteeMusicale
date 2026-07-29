@@ -106,6 +106,9 @@ const elements = {
   exitPortraitMode: document.querySelector("#exit-portrait-mode"),
   sourceLine: document.querySelector("#source-line"),
   sourceDetails: document.querySelector("#source-details"),
+  phraseReference: document.querySelector("#phrase-reference"),
+  phraseId: document.querySelector("#phrase-id"),
+  copyPhraseId: document.querySelector("#copy-phrase-id"),
   sourceLink: document.querySelector("#source-link"),
   audioSourceLink: document.querySelector("#audio-source-link"),
   originalControls: document.querySelector("#original-controls"),
@@ -174,6 +177,7 @@ let restartTimer = null;
 let completionTimer = null;
 let gameModeStartTimer = null;
 let quickRatingAdvanceTimer = null;
+let phraseIdCopyTimer = null;
 let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
@@ -1368,6 +1372,21 @@ function renderSource(source) {
     : "";
   elements.sourceDetails.textContent =
     `Source : ${source.label}${transposition}${originalTempo}.`;
+  window.clearTimeout(phraseIdCopyTimer);
+  phraseIdCopyTimer = null;
+  elements.copyPhraseId.textContent = "Copier";
+  if (source.phraseKey) {
+    elements.phraseReference.hidden = false;
+    elements.phraseId.textContent = source.phraseKey;
+    elements.copyPhraseId.setAttribute(
+      "aria-label",
+      `Copier l’identifiant ${source.phraseKey}`,
+    );
+  } else {
+    elements.phraseReference.hidden = true;
+    elements.phraseId.textContent = "";
+    elements.copyPhraseId.removeAttribute("aria-label");
+  }
   if (source.url) {
     elements.sourceLink.hidden = false;
     elements.sourceLink.href = source.url;
@@ -1384,6 +1403,38 @@ function renderSource(source) {
     elements.audioSourceLink.hidden = true;
     elements.audioSourceLink.removeAttribute("href");
   }
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    try {
+      return document.execCommand("copy");
+    } finally {
+      textarea.remove();
+    }
+  }
+}
+
+async function copyCurrentPhraseId() {
+  const phraseId = exercise?.source?.phraseKey;
+  if (!phraseId) return;
+  const copied = await copyText(phraseId);
+  elements.copyPhraseId.textContent = copied ? "Copié" : "Échec";
+  window.clearTimeout(phraseIdCopyTimer);
+  phraseIdCopyTimer = window.setTimeout(() => {
+    phraseIdCopyTimer = null;
+    elements.copyPhraseId.textContent = "Copier";
+  }, 1_500);
 }
 
 function hideCompletionModal() {
@@ -1994,6 +2045,7 @@ elements.clearPerformers.addEventListener("click", () =>
 elements.nextExercise.addEventListener("click", goToNextExercise);
 elements.replay.addEventListener("click", togglePlayback);
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
+elements.copyPhraseId.addEventListener("click", copyCurrentPhraseId);
 elements.transposeOriginal.addEventListener("change", saveSettings);
 elements.completionOriginal.addEventListener("click", toggleCompletionOriginal);
 elements.restartExercise.addEventListener("click", restartSameExercise);

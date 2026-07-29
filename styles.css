@@ -517,6 +517,41 @@ button:disabled {
   text-underline-offset: 3px;
 }
 
+.phrase-reference {
+  display: inline-flex;
+  max-width: 100%;
+  margin-left: 6px;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(36, 33, 46, 0.78);
+}
+
+.phrase-reference code {
+  padding-left: 7px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  user-select: all;
+  white-space: nowrap;
+}
+
+.phrase-reference button {
+  min-height: 24px;
+  padding: 0 8px;
+  color: var(--accent-strong);
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+  font-size: 0.66rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
 .piano-shell {
   display: none;
   width: 100%;
@@ -1015,6 +1050,33 @@ body.game-mode {
 }
 
 @media (orientation: portrait) {
+  .rating-mode .exercise-panel .section-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .rating-mode .exercise-actions {
+    display: grid;
+    grid-template-columns: minmax(72px, 1fr) 88px 68px 38px;
+    width: 100%;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .rating-mode .game-speed-setting:not([hidden]) {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .rating-mode #replay,
+  .rating-mode #next-exercise {
+    width: auto;
+    min-width: 0;
+    padding-inline: 7px;
+  }
+
   .rating-mode .rating-workspace:not([hidden]) {
     grid-template-columns: 1fr;
   }

@@ -374,6 +374,40 @@ test("le mode dev propose une notation rapide avec bilans réguliers", () => {
   assert.match(styles, /\.rating-mode \.piano-shell[\s\S]*?display: none !important;/);
 });
 
+test("le mode notation reste entièrement visible en portrait", () => {
+  assert.match(
+    styles,
+    /@media \(orientation: portrait\)[\s\S]*?\.rating-mode \.exercise-panel \.section-heading \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/,
+  );
+  assert.match(
+    styles,
+    /\.rating-mode \.exercise-actions \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(72px, 1fr\) 88px 68px 38px;[\s\S]*?width: 100%;/,
+  );
+  assert.match(
+    styles,
+    /\.rating-mode #replay,[\s\S]*?\.rating-mode #next-exercise \{[\s\S]*?min-width: 0;/,
+  );
+});
+
+test("chaque phrase réelle affiche son identifiant interne copiable", () => {
+  assert.match(
+    index,
+    /id="phrase-reference" hidden[\s\S]*?id="phrase-id"[\s\S]*?id="copy-phrase-id"[\s\S]*?Copier/,
+  );
+  assert.match(
+    app,
+    /function renderSource\(source\) \{[\s\S]*?source\.phraseKey[\s\S]*?elements\.phraseId\.textContent = source\.phraseKey/,
+  );
+  assert.match(
+    app,
+    /async function copyCurrentPhraseId\(\) \{[\s\S]*?exercise\?\.source\?\.phraseKey[\s\S]*?copyText\(phraseId\)/,
+  );
+  assert.match(
+    app,
+    /elements\.copyPhraseId\.addEventListener\("click", copyCurrentPhraseId\)/,
+  );
+});
+
 test("Réécouter devient Stop pendant la lecture et arrête toutes les sources", () => {
   assert.match(app, /elements\.replay\.textContent = playing \? "Stop" : "Réécouter"/);
   assert.match(app, /function togglePlayback\(\) \{[\s\S]*?if \(isPlaying\) \{[\s\S]*?stopAllTones\(\)/);
@@ -618,11 +652,11 @@ test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
 });
 
 test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v29/);
-  assert.match(index, /href="\.\/styles\.css\?v=29"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=29"/);
-  assert.match(serviceWorker, /"\.\/styles\.css\?v=29"/);
-  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=29"/);
+  assert.match(serviceWorker, /dictee-musicale-v30/);
+  assert.match(index, /href="\.\/styles\.css\?v=30"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=30"/);
+  assert.match(serviceWorker, /"\.\/styles\.css\?v=30"/);
+  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=30"/);
   assert.match(
     serviceWorker,
     /mustRevalidate[\s\S]*?\["document", "script", "style"\][\s\S]*?cache: "no-store"/,
