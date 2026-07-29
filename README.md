@@ -1,121 +1,78 @@
 # Sur les traces des maîtres du jazz — Ear Training
 
-Dictée mélodique construite à partir des 456 solos de la
+PWA de dictée mélodique construite à partir des 456 solos de la
 [Weimar Jazz Database](https://jazzomat.hfm-weimar.de/dbformat/dbcontent.html).
-L’application joue une phrase réelle issue des solistes sélectionnés ou une phrase
-générée à partir de l’ensemble du corpus, puis demande de la retrouver intégralement
-au clavier.
+L’expérience publique est volontairement centrée sur un seul parcours guidé.
 
-- 456 solos, 78 musiciens, 11 082 phrases annotées et 200 809 notes ;
-- filtre persistant des musiciens pour les phrases réelles ;
-- en usage normal, sélection limitée aux phrases évaluées 3★ ;
-- protocole développeur de notation rapide et de couverture du corpus ;
-- séquences de 3 à 15 notes en mode généré ;
-- extraits de 5 à 15 notes en mode réel ;
-- transposition uniforme dans les 12 tons ;
-- rythmes, silences et articulations issus des transcriptions ;
-- son de mélodie synthétique, de clarinette ou de piano, au choix ;
-- fondamentales de basse synchronisées aux changements d’accord des phrases réelles ;
-- statistiques et protocole de notation exportables en JSON ou CSV ;
-- fonctionnement hors connexion après une première visite.
+## Défi 3×3
 
-## Utilisation
+À chaque tirage, les phrases 3★ disponibles sont classées par leur longueur
+réelle puis réparties dynamiquement en trois tiers. Une session prend une phrase
+dans chacun de ces pools, dans l’ordre : courte, moyenne, longue. Les catégories
+s’adaptent donc automatiquement à l’évolution du corpus au lieu de dépendre de
+seuils figés.
 
-La page d’accueil propose deux modes :
+Seules les phrases évaluées 3★ sont proposées. Chacune doit être réussie dans
+trois tonalités consécutives avant de passer à la suivante, soit neuf manches.
+Les extraits sont limités aux vingt premières notes.
 
-- **Phrases réelles** tire une phrase annotée parmi les solos des musiciens cochés.
-  La vitesse peut être réglée de 25 à 100 % sans modifier les proportions rythmiques.
-- **Phrases générées** utilise un modèle de Markov à ordre variable construit sur
-  l’ensemble des 78 musiciens. La longueur est réglable de 3 à 15 notes.
+La session se termine par une mort subite :
 
-Le menu **Musiciens inclus** permet de sélectionner individuellement les 78 solistes,
-de tout sélectionner, de tout désélectionner ou de restaurer le préréglage
-**Jazz classique** :
+- les trois phrases reviennent à tour de rôle ;
+- les réécoutes restent libres avant de jouer ;
+- la première note lancée ouvre l’unique tentative ;
+- une erreur renvoie immédiatement la phrase en fin de file ;
+- à son retour, elle est proposée dans une nouvelle tonalité ;
+- une réussite retire définitivement la phrase du round.
 
-Louis Armstrong, Coleman Hawkins, Lester Young, Charlie Parker, Dizzy Gillespie,
-Miles Davis, Clifford Brown, Chet Baker, Sonny Rollins, John Coltrane,
-Cannonball Adderley, Dexter Gordon et Stan Getz.
+Chaque phrase conserve son propre cycle de douze tonalités, tonalité originale
+comprise. Les douze sont épuisées sans répétition avant un nouveau tirage, y
+compris entre les neuf manches et la mort subite.
 
-La sélection est conservée sur l’appareil. Au moins un musicien doit être coché pour
-lancer une phrase réelle ; elle ne limite pas le corpus des phrases générées.
+La session en cours est sauvegardée localement et peut être reprise. Les phrases
+déjà terminées sont évitées ; chaque catégorie de longueur recommence son cycle
+seulement lorsqu’elle a été épuisée.
 
-En usage normal, les deux modes utilisent uniquement les phrases couvertes par une
-note de 3★. La notation, son filtre et son export sont masqués.
+## Favoris et mode libre
 
-La case discrète **Mode dev**, en bas de la page, réactive les étoiles et ouvre
-**Notation rapide**. Ce mode privilégie les musiciens puis les morceaux dont les
-notes directes indiquent une meilleure probabilité de 3★. Vingt pour cent des
-tirages restent réservés à la découverte des musiciens ayant moins de six notes
-directes. Il écoute les phrases entières dans leur tonalité originale et enchaîne
-après la saisie de 1, 2 ou 3★. Un point d’étape permanent indique la couverture ;
-un rappel plus visible apparaît toutes les dix notes.
+Une phrase peut être ajoutée aux favoris pendant le jeu. Le mode libre présente
+ces favoris sous forme de liste, puis permet de les écouter, les rejouer et les
+transposer sans objectif de session.
 
-Le protocole peut étendre uniquement une tendance de rejet à 1★ à tout un morceau
-après au moins huit notes, 35 % de couverture et 75 % d’accord, sans forte
-dispersion. Une extension à tout un musicien exige au moins quarante notes réparties
-sur quatre morceaux, 15 % de couverture et la même cohérence. Les notes 2★ et 3★
-restent toujours directes ; une note de phrase explicite prime sur tout rejet global.
+Dans le parcours normal, seules les informations essentielles sont affichées :
+musicien et morceau. La tonalité reste volontairement masquée.
 
-Trois formes très fortement associées aux rejets sont écartées automatiquement à 1★
-tant qu’elles n’ont pas reçu de note directe : les fragments de quatre notes ou
-moins, et les rafales d’au moins quatorze notes dont chaque nouvelle attaque arrive
-au plus 180 ms après la précédente, ou d’au moins sept notes dans une fenêtre de
-500 ms. Une note directe reste prioritaire, afin de préserver les exceptions
-appréciées. Ces exclusions comptent dans la couverture du protocole et apparaissent
-sous forme de règles agrégées dans son export.
+## Son et lecture
 
-## Modèle mélodique
+Le son de la mélodie et du clavier peut être synthétique, clarinette ou piano.
+Les fondamentales de basse suivent les accords annotés ; un chick de charleston
+marque les temps 2 et 4.
 
-Le modèle de Markov utilise tout le corpus, puis est reconstruit et mis en cache
-lorsqu’un filtre d’étoiles restreint les phrases sources.
-Il utilise jusqu’aux huit intervalles précédents lorsque le contexte a été observé au
-moins deux fois, puis se replie progressivement vers les ordres inférieurs.
+La clarinette (43 samples, MIDI 50–92) et le piano (61 samples, MIDI 36–96)
+proviennent du projet
+[PPTrainingWeb2](https://github.com/Al532/PPTrainingWeb2). Les 21 samples de basse
+proviennent de SharpEleven.
 
-Les fragments existants ne sont pas exclus : le générateur peut volontairement retrouver
-et prolonger des licks présents dans les solos sources.
+Six enregistrements calibrés restent accessibles dans les outils développeur
+pour *Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,
+*Thriving on a Riff* et *Yardbird Suite*.
 
-## Phrases réelles et enregistrements
+## Mode développeur
 
-Les hauteurs, positions, durées, mesures, temps, accords et limites `PHRASE` proviennent
-de la WJazzD v2.1 (base v2.2). Chaque exercice indique le musicien, le morceau, la
-phrase, les mesures et renvoie vers la fiche officielle.
+Le panneau Réglages permet d’activer discrètement les outils historiques :
 
-En mode réel, une fondamentale de basse marque chaque accord annoté. Les renversements
-utilisent leur basse explicite, la ligne suit la transposition de l’exercice et choisit
-automatiquement une octave dans la tessiture MIDI 28–48. Les 21 samples chromatiques
-proviennent du projet SharpEleven.
+- phrases réelles ou générées ;
+- sélection des musiciens ;
+- filtre de notation ;
+- notation rapide à trois étoiles ;
+- export du protocole.
 
-Le son de la mélodie et du clavier est sélectionnable et mémorisé sur l’appareil.
-Le son synthétique est choisi par défaut. La clarinette (43 samples, MIDI 50–92)
-et le piano (61 samples, MIDI 36–96) proviennent du projet
-[PPTrainingWeb2](https://github.com/Al532/PPTrainingWeb2). Pour une hauteur
-exceptionnelle hors de la tessiture d’un instrument, l’échantillon de même classe de
-hauteur le plus proche est corrigé d’une ou plusieurs octaves.
-
-La lecture commence au dernier temps fort précédant la première note de la phrase
-(temps 1 ou 3 en 4/4), afin de conserver son placement rythmique dans la mesure.
-
-Six enregistrements déjà calibrés sont disponibles pour *Billie’s Bounce*,
-*Donna Lee*, *Ornithology*, *Scrapple from the Apple*, *Thriving on a Riff* et
-*Yardbird Suite*. Le bouton **Écouter l’original**, son option de transposition et le
-lien vers l’enregistrement sont entièrement masqués pour les autres solos.
-
-Le clavier suit le registre réel de la phrase transposée. Il est composé de zones
-indivisibles **do–mi** et **fa–si**, avec un minimum de quatre zones. Un chick de
-charleston marque les temps 2 et 4 lorsqu’ils existent dans l’annotation.
-
-## Statistiques
-
-Une ligne par note est disponible dans l’export CSV : cible, intervalle mélodique,
-nombre d’essais, réussite au premier coup, temps de réponse et nombre de réécoutes.
-En mode dev, un second CSV exporte le protocole : notes explicites, décisions globales,
-taille d’échantillon, accord et couverture. La sauvegarde JSON inclut les exercices et
-les notations et peut être restaurée sur un autre appareil. Les données ne quittent
-jamais le navigateur.
+Les rejets structurels et les inférences globales à 1★ restent gérés par le
+protocole existant. Une note directe demeure toujours prioritaire.
 
 ## Développement
 
-L’application n’a aucune dépendance externe.
+L’application n’a aucune dépendance d’exécution.
 
 ```bash
 npm test
@@ -128,14 +85,11 @@ Pour reconstruire les données après téléchargement de `wjazzd.db` :
 python scripts/generate_wjazzd_data.py /chemin/vers/wjazzd.db data/wjazzd-solos.js
 ```
 
-Pour intégrer en dur le dernier export du protocole :
+Pour intégrer le dernier export du protocole :
 
 ```bash
 npm run ratings:generate -- /chemin/vers/dictee-musicale-protocole-AAAA-MM-JJ.csv data/default-ratings.js
 ```
-
-Le script `scripts/calibrate_parker_audio.py` reste disponible pour recalibrer les six
-enregistrements historiques.
 
 ## Licence
 

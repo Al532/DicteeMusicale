@@ -4,689 +4,196 @@ import { readFile, stat } from "node:fs/promises";
 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
+const session = await readFile(
+  new URL("../src/session.js", import.meta.url),
+  "utf8",
+);
 const styles = await readFile(new URL("../styles.css", import.meta.url), "utf8");
 const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
 const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
 
-test("l’identité et les indications correspondent à l’entraînement jazz", () => {
+test("l’accueil public est centré sur un seul Défi 3×3", () => {
+  assert.match(index, /<title>Sur les traces des maîtres du jazz — Défi 3×3<\/title>/);
+  assert.match(index, /id="home-title">Écoute\. Transpose\./);
+  assert.match(index, /<h2>Défi 3×3<\/h2>/);
   assert.match(
     index,
-    /<title>Sur les traces des maîtres du jazz - Ear Training<\/title>/,
+    /<strong>3<\/strong> phrases[\s\S]*?<strong>3<\/strong> tons[\s\S]*?<strong>1<\/strong> mort subite/,
   );
-  assert.match(index, /<p class="eyebrow">Ear Training<\/p>/);
-  assert.match(index, /<h1>Sur les traces des maîtres du jazz<\/h1>/);
-  assert.doesNotMatch(index, /Sur les traces de Bird|sur Charlie Parker/);
-  assert.doesNotMatch(index, /class="site-(?:subtitle|description)"/);
-  assert.match(index, /id="exercise-title">Écoute, puis retrouve la phrase<\/h2>/);
-  assert.match(index, /Phrase retrouvée[\s\S]*?id="completion-title">Bien joué !<\/h2>/);
-  assert.match(app, /Erreur — on réécoute depuis le début\./);
-  assert.match(app, /À toi — retrouve la note/);
+  assert.match(index, /id="start-challenge"[\s\S]*?Commencer/);
+  assert.match(index, /id="resume-challenge" hidden[\s\S]*?Reprendre/);
+  assert.match(index, /id="open-favorites"[\s\S]*?Mode libre/);
+  assert.doesNotMatch(index, /Phrases réelles[\s\S]*Phrases générées/);
 });
 
-test("l’accueil propose les deux modes et le filtre des musiciens", () => {
-  const home = index.match(
-    /<section class="panel settings-panel"[\s\S]*?<\/section>/,
-  )?.[0];
-  assert.ok(home);
-  assert.match(home, /id="start-real"[\s\S]*?Phrases réelles/);
-  assert.match(home, /id="start-random"[\s\S]*?Phrases générées/);
-  assert.match(home, /id="musician-picker"/);
-  assert.match(home, /id="musician-list"/);
-  assert.match(home, /id="select-default-performers"/);
-  assert.match(home, /id="select-all-performers"/);
-  assert.match(home, /id="clear-performers"/);
-  assert.match(app, /let currentMode = "jazz"/);
-  assert.match(app, /selectedPerformers = new Set\(DEFAULT_PERFORMERS\)/);
-  assert.match(app, /selectedPerformers: \[\.\.\.selectedPerformers\]/);
-  assert.match(app, /function renderPerformerOptions\(\)/);
-  assert.match(app, /function updatePerformerSelectionState\(\)/);
-  assert.match(app, /function startMode\(mode\)/);
-});
-
-test("le filtre d’étoiles est réservé au mode dev et le public reste à 3 étoiles", () => {
+test("les anciens outils restent confinés au mode développeur", () => {
   assert.match(
     index,
-    /id="minimum-rating"[\s\S]*?value="0">Toutes les phrases[\s\S]*?value="unrated">Phrases non notées[\s\S]*?value="2">2 étoiles ou plus[\s\S]*?value="3">3 étoiles uniquement/,
+    /class="developer-lab developer-only" data-developer-only hidden[\s\S]*?id="start-real"[\s\S]*?id="start-random"[\s\S]*?id="start-rating"[\s\S]*?id="musician-picker"[\s\S]*?id="minimum-rating"/,
   );
-  assert.match(app, /let minimumRating = 0/);
-  assert.match(app, /settings\.minimumRating === "unrated"/);
-  assert.match(
-    app,
-    /phraseRatings: protocol\.effectiveRatings,[\s\S]*?minimumRating: isRatingMode \? 0 : activeMinimumRating\(\)/,
-  );
-  assert.match(index, /data-developer-only hidden[\s\S]*?id="minimum-rating"/);
   assert.match(index, /id="developer-mode" type="checkbox"/);
-  assert.match(
-    app,
-    /developerMode = Boolean\(settings\.developerMode\)/,
-  );
-  assert.match(
-    app,
-    /function saveSettings\(\)[\s\S]*?developerMode,/,
-  );
-  assert.match(
-    app,
-    /function activeMinimumRating\(\) \{\s*return developerMode \? minimumRating : 3;/,
-  );
-  assert.match(app, /elements\.startRandom\.disabled = false/);
-  assert.match(
-    app,
-    /elements\.minimumRating\.addEventListener\("change"[\s\S]*?syncMinimumRating/,
-  );
-  assert.match(
-    app,
-    /function syncMinimumRating\(value\) \{[\s\S]*?value === "unrated"/,
-  );
+  assert.match(app, /function renderDeveloperMode\(\)/);
 });
 
-test("la vitesse des phrases réelles va de 25 à 100 % et vaut 100 % par défaut", () => {
-  assert.match(app, /let realSpeedPercent = 100/);
-  assert.match(app, /exercise\.speedPercent = realSpeedPercent/);
-  assert.match(app, /const timeScale = 100 \/ exercise\.speedPercent/);
+test("les statistiques de progression et leur collecte ont disparu", () => {
+  assert.doesNotMatch(index, /Statistiques|Progression|stat-(?:exercises|notes|accuracy|response)/);
+  assert.doesNotMatch(index, /export-csv|export-json|reset-stats|import-json/);
+  assert.doesNotMatch(app, /renderStats|summarizeRecords|STORAGE_KEY|records\.push|exportCsv|resetStats/);
+  assert.doesNotMatch(index, /score|points/i);
+});
+
+test("le défi utilise uniquement le catalogue 3★ et tronque à vingt notes", () => {
+  assert.match(app, /const REAL_MAX_NOTES = 20/);
+  assert.match(
+    app,
+    /function challengeCatalog\(\)[\s\S]*?jazzPhraseCatalog\(\{[\s\S]*?minimumRating: 3/,
+  );
+  assert.match(
+    app,
+    /function loadPublicPhrase\([\s\S]*?maxNotes: REAL_MAX_NOTES,[\s\S]*?minimumRating: isChallenge \? 3 : 0/,
+  );
+  assert.match(session, /export const CHALLENGE_PHRASE_COUNT = 3/);
+  assert.match(session, /export const TRAINING_TONES_PER_PHRASE = 3/);
+});
+
+test("les trois transpositions d’une phrase restent consécutives", () => {
+  assert.match(
+    session,
+    /if \(session\.toneIndex \+ 1 < TRAINING_TONES_PER_PHRASE\) \{[\s\S]*?session\.toneIndex \+= 1;[\s\S]*?\} else if \(session\.phraseIndex \+ 1 < CHALLENGE_PHRASE_COUNT\) \{[\s\S]*?session\.phraseIndex \+= 1;[\s\S]*?session\.toneIndex = 0;/,
+  );
+  assert.match(app, /Phrase \$\{challengeSession\.phraseIndex \+ 1\} sur 3/);
+  assert.match(app, /Ton \$\{challengeSession\.toneIndex \+ 1\} sur 3/);
+  assert.match(index, /id="progress-dots"/);
+});
+
+test("la mort subite autorise les réécoutes avant l’unique tentative", () => {
+  assert.match(index, /id="sudden-death-title">Mort subite<\/h2>/);
   assert.match(
     index,
-    /id="game-speed" type="range" min="25" max="100" step="5" value="100"/,
-  );
-  assert.match(app, /elements\.gameSpeed\.addEventListener\("input"/);
-});
-
-test("la vitesse aléatoire affiche 25–100 % et double son maximum réel", () => {
-  assert.doesNotMatch(index, /BPM/);
-  assert.match(app, /const RANDOM_PLAYBACK_MIN_PERCENT = 50/);
-  assert.match(app, /const RANDOM_PLAYBACK_MAX_PERCENT = 640/);
-  assert.match(app, /function randomSliderToPlaybackPercent\(value\)/);
-  assert.match(
-    app,
-    /RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE \*\s*\(exercise\.playbackRatePercent \/ 100\)/,
-  );
-});
-
-test("la longueur reste disponible dans les deux modes", () => {
-  assert.match(app, /elements\.gameLength\.min = isReal \? "5" : "3"/);
-  assert.match(app, /elements\.gameLength\.max = "15"/);
-  assert.match(app, /maxNotes: realMaxNotes/);
-  assert.doesNotMatch(app, /Illimité|=== 16/);
-});
-
-test("le slider plein écran s’adapte aux deux modes", () => {
-  assert.match(
-    app,
-    /if \(isReal\) \{[\s\S]*?gameSpeed\.min = "25";[\s\S]*?gameSpeed\.max = "100";/,
+    /Réécoute autant que nécessaire[\s\S]*?Dès ta première note, tu n’as qu’une\s+tentative/,
   );
   assert.match(
     app,
-    /else \{[\s\S]*?gameSpeed\.min = String\(RANDOM_SLIDER_MIN\);[\s\S]*?gameSpeed\.max = String\(RANDOM_SLIDER_MAX\);/,
-  );
-  assert.match(app, /function syncGameSpeed\(value\)/);
-});
-
-test("seule la première touche est animée pendant la lecture", () => {
-  const guardedFlashes = app.match(
-    /if \(index === 0\) \{\s*flashPlayedKey\(midi,[\s\S]*?\);\s*\}/g,
-  );
-  assert.equal(guardedFlashes?.length, 2);
-});
-
-test("la lecture audio commence bien par la première note", () => {
-  const playback = app.match(
-    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
-  )?.[1];
-  assert.ok(playback);
-  assert.equal(playback.match(/exercise\.notes\.forEach/g)?.length, 2);
-  assert.equal(playback.match(/playTone\(midi,/g)?.length, 2);
-  assert.doesNotMatch(playback, /exercise\.notes\.slice\(1\)/);
-});
-
-test("le son synthétique est proposé par défaut avec les instruments en option", () => {
-  assert.match(
-    index,
-    /id="melody-sound"[\s\S]*?value="synthetic">Synthétique[\s\S]*?value="clarinet">Clarinette[\s\S]*?value="piano">Piano/,
-  );
-  assert.match(app, /let melodySound = "synthetic"/);
-  assert.match(
-    app,
-    /Object\.hasOwn\(MELODY_SAMPLE_INSTRUMENTS, settings\.melodySound\)[\s\S]*?: "synthetic"/,
-  );
-  assert.match(app, /melodySound,/);
-  assert.match(
-    app,
-    /elements\.melodySound\.addEventListener\("change"[\s\S]*?syncMelodySound/,
+    /challengeSession\?\.phase === "sudden-death"[\s\S]*?!exercise\.executionStarted[\s\S]*?exercise\.executionStarted = true;[\s\S]*?elements\.replay\.disabled = true/,
   );
   assert.match(
     app,
-    /function playTone\([\s\S]*?melodySound === "synthetic"[\s\S]*?playSyntheticTone/,
+    /function failSuddenDeath\(\)[\s\S]*?resolveSuddenDeath\(challengeSession, false\)[\s\S]*?loadChallengeRound\(\)/,
+  );
+  assert.match(
+    session,
+    /if \(success\) \{[\s\S]*?suddenCompleted\.push\(phraseKey\);[\s\S]*?\} else \{[\s\S]*?suddenQueue\.push\(phraseKey\);/,
   );
 });
 
-test("la clarinette utilise ses samples pour la mélodie et le clavier", () => {
+test("les cycles de tonalités sont indépendants et persistent avec la session", () => {
+  assert.match(
+    session,
+    /makeJazzTranspositionCycle\(\{[\s\S]*?avoidFirstTransposition: phrase\.lastTransposition,[\s\S]*?random/,
+  );
+  assert.match(
+    session,
+    /remainingTranspositions:[\s\S]*?lastTransposition:[\s\S]*?transpositionsUsed:[\s\S]*?cycleNumber:/,
+  );
+  assert.match(app, /const CHALLENGE_SESSION_KEY = "dictee-musicale\.challenge-session\.v1"/);
+  assert.match(app, /function persistChallengeSession\(\)/);
+  assert.match(app, /function resumeChallenge\(\)/);
+  assert.match(app, /isResumableChallengeSession/);
+});
+
+test("chaque session progresse d’une phrase courte à une moyenne puis une longue", () => {
+  assert.match(
+    session,
+    /function dynamicLengthPools\(catalog\)[\s\S]*?Math\.ceil\(sorted\.length \/ 3\)[\s\S]*?Math\.ceil\(\(sorted\.length \* 2\) \/ 3\)/,
+  );
+  assert.match(
+    session,
+    /const \{ pools, cutoffs \} = dynamicLengthPools\(phrases\)[\s\S]*?for \(const pool of pools\)[\s\S]*?pool\.filter\([\s\S]*?!completed\.has\(phraseKey\)/,
+  );
+  assert.match(session, /resetPhraseKeys\.push\(\.\.\.pool\.map/);
+  assert.match(app, /const COMPLETED_PHRASES_KEY = "dictee-musicale\.completed-phrases\.v1"/);
   assert.match(
     app,
-    /clarinet: \{[\s\S]*?minMidi: 50,[\s\S]*?maxMidi: 92,[\s\S]*?headSeconds: 0\.025/,
+    /selection\.resetPhraseKeys\.length[\s\S]*?completedPhraseKeys = completedPhraseKeys\.filter/,
   );
-  assert.match(app, /const path = `audio\/\$\{sound\}\/\$\{sampleMidi\}\.mp3`/);
+});
+
+test("les favoris sont accessibles pendant le jeu et dans une liste libre", () => {
+  assert.match(index, /id="favorite-toggle"/);
+  assert.match(index, /id="favorites-list"/);
+  assert.match(index, /id="favorites-empty"/);
+  assert.match(index, /id="free-transpose" hidden[\s\S]*?Autre ton/);
+  assert.match(app, /const FAVORITES_KEY = "dictee-musicale\.favorites\.v1"/);
+  assert.match(app, /function toggleCurrentFavorite\(\)/);
+  assert.match(app, /function renderFavorites\(\)/);
+  assert.match(app, /function startFreePhrase\(phraseKey\)/);
+  assert.match(app, /function transposeFreePhrase\(\)/);
+});
+
+test("le mode normal n’affiche que le musicien et le morceau", () => {
+  assert.match(index, /id="source-summary" hidden/);
   assert.match(
     app,
-    /const playbackRate = 2 \*\* \(\(midi - sampleMidi\) \/ 12\)/,
-  );
-  assert.match(app, /source\.buffer = buffer/);
-  assert.match(app, /source\.start\(start, sampleOffset\)/);
-  assert.match(
-    app,
-    /await preloadMelodySamples\(keyboardMidiNotes\(generated\.keyboard\)\)/,
+    /elements\.sourceSummary\.append\([\s\S]*?performer,[\s\S]*?document\.createTextNode\(` — \$\{source\.title\}`\)/,
   );
   assert.match(
     app,
-    /await preloadMelodySamples\(keyboardMidiNotes\(exercise\.keyboard\)\)/,
+    /elements\.sourceLine\.hidden =\s*!developerMode \|\| currentMode === "challenge" \|\| currentMode === "free"/,
   );
   assert.match(
     app,
-    /async function preloadMelodySamples\(notes\) \{[\s\S]*?!Object\.hasOwn\(MELODY_SAMPLE_INSTRUMENTS, sound\)[\s\S]*?return/,
+    /function loadPublicPhrase\([\s\S]*?elements\.sourceLine\.hidden = true/,
   );
 });
 
-test("le piano utilise 61 samples chromatiques sans tronquer leur attaque", () => {
+test("le piano occupe l’espace de jeu et le portrait demande une rotation", () => {
+  assert.match(styles, /\.game-mode main \{[\s\S]*?height: 100dvh/);
   assert.match(
-    app,
-    /piano: \{[\s\S]*?minMidi: 36,[\s\S]*?maxMidi: 96,[\s\S]*?headSeconds: 0/,
+    styles,
+    /\.game-mode \.exercise-panel \{[\s\S]*?grid-template-rows:[\s\S]*?minmax\(110px, 1fr\)/,
   );
-  assert.match(
-    serviceWorker,
-    /Array\.from\([\s\S]*?\{ length: 61 \}[\s\S]*?audio\/piano\/\$\{index \+ 36\}\.mp3/,
-  );
-});
-
-test("les notes restent pleines presque jusqu’à leur fin annotée", () => {
-  assert.match(
-    app,
-    /safeDuration - Math\.min\(0\.035, safeDuration \* 0\.15\)/,
-  );
-  assert.doesNotMatch(app, /safeDuration \* 0\.72/);
-});
-
-test("le mode aléatoire joue legato jusqu’à la note suivante", () => {
-  const playback = app.match(
-    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
-  )?.[1];
-  assert.ok(playback);
-  assert.match(
-    playback,
-    /RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE \*\s*\(exercise\.playbackRatePercent \/ 100\)/,
-  );
-  assert.match(playback, /const noteIntervalMs = 60_000 \/ notesPerMinute/);
-  assert.match(
-    playback,
-    /const toneDuration = noteIntervalMs \/ 1000 \+ LEGATO_RELEASE_SECONDS/,
-  );
-  assert.doesNotMatch(playback, /toneDuration = Math\.min/);
-});
-
-test("la première note est indiquée sur le clavier mais doit être saisie", () => {
-  assert.match(app, /currentIndex: 0/);
-  assert.match(app, /markReferenceKey\(\)/);
-  assert.doesNotMatch(index, /id="sequence"/);
-});
-
-test("la PWA se lance en plein écran paysage", () => {
-  assert.equal(manifest.display, "fullscreen");
-  assert.equal(manifest.orientation, "landscape");
-  assert.deepEqual(manifest.display_override, ["fullscreen", "standalone"]);
-});
-
-test("le bouton de jeu demande le plein écran et verrouille le paysage", () => {
-  assert.match(index, /id="fullscreen-button">Plein écran</);
-  assert.match(index, /class="rotate-overlay"/);
-  assert.match(index, /id="exit-portrait-mode"[\s\S]*?aria-label="Quitter le plein écran"[\s\S]*?>\s*×\s*</);
-  assert.match(app, /document\.documentElement\.requestFullscreen/);
-  assert.match(app, /screen\.orientation\?\.lock\?\.\("landscape"\)/);
-  assert.match(app, /document\.addEventListener\("fullscreenchange"/);
-  assert.match(app, /elements\.fullscreenButton\.textContent = active \? "×" : "Plein écran"/);
-});
-
-test("chaque bouton d’accueil ouvre son mode de jeu", () => {
-  assert.match(
-    app,
-    /async function startExercise\(\) \{[\s\S]*?makeSequence\([\s\S]*?await enterGameMode\(\)/,
-  );
-  assert.match(app, /elements\.startReal\.addEventListener\("click", \(\) => startMode\("jazz"\)\)/);
-  assert.match(app, /elements\.startRandom\.addEventListener\("click", \(\) => startMode\("random"\)\)/);
-  assert.match(styles, /\.piano-shell \{\s*display: none;/);
-  assert.match(styles, /\.game-mode \.piano-shell \{\s*display: block;/);
-  assert.match(styles, /\.exercise-panel \{\s*display: none;/);
-  assert.match(styles, /\.game-mode \.exercise-panel \{\s*display: grid;/);
-});
-
-test("le mode jeu donne toute la largeur disponible au piano dynamique", () => {
-  assert.match(styles, /\.game-mode main \{[\s\S]*?width: 100%;[\s\S]*?height: 100dvh;/);
-  assert.match(styles, /\.game-mode \.piano \{[\s\S]*?width: 100%;[\s\S]*?min-width: 0;/);
+  assert.match(styles, /\.piano \{[\s\S]*?width: 100%;[\s\S]*?height: 100%/);
   assert.match(
     styles,
     /@media \(orientation: portrait\)[\s\S]*?\.game-mode:not\(\.rating-mode\) \.rotate-overlay/,
   );
   assert.match(app, /function buildPiano\(layout\)/);
   assert.match(app, /--white-key-count/);
-  assert.match(app, /midi = layout\.startMidi; midi <= layout\.endMidi/);
 });
 
-test("les cases de notes et leur logique ont été entièrement retirées", () => {
-  assert.doesNotMatch(index, /id="sequence"/);
-  assert.doesNotMatch(app, /renderSequence|playRecordedNote|elements\.sequence/);
-  assert.doesNotMatch(styles, /\.sequence/);
-});
-
-test("Suivant est disponible en jeu et Note de départ a disparu", () => {
+test("la lecture et le clavier conservent les instruments samplés", () => {
   assert.match(
     index,
-    /class="ghost-button compact" id="next-exercise" disabled>Suivant</,
-  );
-  assert.doesNotMatch(index, /id="reference-note"/);
-  assert.match(app, /elements\.nextExercise\.addEventListener\("click", goToNextExercise\)/);
-  assert.doesNotMatch(app, /playReference|referenceNote/);
-});
-
-test("les phrases réelles se notent sur trois étoiles seulement en mode dev", () => {
-  for (const id of ["exercise-rating", "completion-rating"]) {
-    const rating = index.match(
-      new RegExp(`id="${id}"[\\s\\S]*?<\\/div>`),
-    )?.[0];
-    assert.ok(rating);
-    assert.equal(rating.match(/data-rating="[123]"/g)?.length, 3);
-  }
-  assert.match(app, /const RATINGS_KEY = "dictee-musicale\.ratings\.v1"/);
-  assert.match(
-    app,
-    /function setPhraseRating\([\s\S]*?\{ automatic = false,[\s\S]*?if \(!developerMode\) return false;/,
+    /id="melody-sound"[\s\S]*?value="synthetic">Synthétique[\s\S]*?value="clarinet">Clarinette[\s\S]*?value="piano">Piano/,
   );
   assert.match(
     app,
-    /function renderStarRating\(element, rating\) \{[\s\S]*?value <= rating[\s\S]*?aria-pressed/,
-  );
-  assert.match(app, /`Note actuelle : \$\{rating\} étoile/);
-  assert.match(app, /writeJson\(RATINGS_KEY, localPhraseRatings\)/);
-  assert.match(
-    app,
-    /element\.hidden =\s*!developerMode \|\| currentMode === "rating" \|\| !isRealPhrase/,
+    /clarinet: \{[\s\S]*?minMidi: 50,[\s\S]*?maxMidi: 92,[\s\S]*?headSeconds: 0\.025/,
   );
   assert.match(
     app,
-    /function goToNextExercise\(\) \{[\s\S]*?!exercise\.solvedAtLeastOnce[\s\S]*?setPhraseRating\(1, \{ automatic: true \}\)/,
+    /piano: \{[\s\S]*?minMidi: 36,[\s\S]*?maxMidi: 96,[\s\S]*?headSeconds: 0/,
   );
-  assert.match(
-    app,
-    /async function transposeSameExercise\(\) \{[\s\S]*?setPhraseRating\(3, \{ automatic: true \}\)/,
-  );
-  assert.match(
-    app,
-    /function finishExercise\(\) \{[\s\S]*?exercise\.solvedAtLeastOnce = true/,
-  );
-  assert.match(styles, /\.star-rating button\.selected \{[\s\S]*?color: var\(--accent-strong\)/);
-});
-
-test("le protocole est exportable et inclus dans la sauvegarde", () => {
-  assert.match(index, /id="export-ratings"[\s\S]*?data-developer-only[\s\S]*?Protocole ★/);
-  assert.match(app, /function exportRatings\(\)/);
-  assert.match(app, /dictee-musicale-protocole-/);
-  assert.match(app, /"protocole_version"[\s\S]*?"portee"[\s\S]*?"taille_echantillon"/);
-  assert.match(
-    app,
-    /schemaVersion: 3,[\s\S]*?records,[\s\S]*?ratings: phraseRatings,[\s\S]*?ratingScopes: fixedRatingScopes/,
-  );
-  assert.match(
-    app,
-    /\[\.\.\.protocol\.scopes, \.\.\.protocol\.structuralRules\]/,
-  );
-  assert.match(app, /elements\.exportRatings\.addEventListener\("click", exportRatings\)/);
-});
-
-test("le mode dev propose une notation rapide avec bilans réguliers", () => {
-  assert.match(
-    index,
-    /class="developer-tools[\s\S]*?id="start-rating"[\s\S]*?Notation rapide/,
-  );
-  assert.equal(index.match(/data-quick-rating="[123]"/g)?.length, 3);
-  assert.match(index, /id="rating-session-summary"/);
-  assert.match(index, /id="rating-coverage-summary"/);
-  assert.match(index, /id="undo-rating"/);
-  assert.match(app, /const RATING_REPORT_INTERVAL = 10|RATING_REPORT_INTERVAL,/);
-  assert.match(
-    app,
-    /pickRatingPhrase\(\{[\s\S]*?selectedPerformers: \[\.\.\.selectedPerformers\],[\s\S]*?sessionHistory: ratingSessionHistory/,
-  );
-  assert.match(
-    app,
-    /fullPhrase: isRatingMode,[\s\S]*?transpositionOverride: isRatingMode \? 0 : null/,
-  );
-  assert.match(
-    app,
-    /function setQuickRating\(event\)[\s\S]*?setPhraseRating\(rating, \{ origin: "protocol" \}\)[\s\S]*?startExercise\(\)/,
-  );
-  assert.match(
-    app,
-    /function playSequence\([\s\S]*?if \(currentMode === "rating"\) setQuickRatingEnabled\(true\)/,
-  );
-  const quickRatingHandler = app.match(
-    /function setQuickRating\(event\) \{[\s\S]*?(?=\nfunction undoLastRating)/,
-  );
-  assert.ok(quickRatingHandler);
-  assert.doesNotMatch(quickRatingHandler[0], /isPlaying|isOriginalPlaying/);
-  assert.match(styles, /\.rating-mode \.rating-workspace:not\(\[hidden\]\) \{\s*display: grid;/);
-  assert.match(styles, /\.rating-mode \.piano-shell[\s\S]*?display: none !important;/);
-});
-
-test("le mode notation reste entièrement visible en portrait", () => {
-  assert.match(
-    styles,
-    /@media \(orientation: portrait\)[\s\S]*?\.rating-mode \.exercise-panel \.section-heading \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/,
-  );
-  assert.match(
-    styles,
-    /\.rating-mode \.exercise-actions \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(72px, 1fr\) 88px 68px 38px;[\s\S]*?width: 100%;/,
-  );
-  assert.match(
-    styles,
-    /\.rating-mode #replay,[\s\S]*?\.rating-mode #next-exercise \{[\s\S]*?min-width: 0;/,
-  );
-});
-
-test("chaque phrase réelle affiche son identifiant interne copiable", () => {
-  assert.match(
-    index,
-    /id="phrase-reference" hidden[\s\S]*?id="phrase-id"[\s\S]*?id="copy-phrase-id"[\s\S]*?Copier/,
-  );
-  assert.match(
-    app,
-    /function renderSource\(source\) \{[\s\S]*?source\.phraseKey[\s\S]*?elements\.phraseId\.textContent = source\.phraseKey/,
-  );
-  assert.match(
-    app,
-    /async function copyCurrentPhraseId\(\) \{[\s\S]*?exercise\?\.source\?\.phraseKey[\s\S]*?copyText\(phraseId\)/,
-  );
-  assert.match(
-    app,
-    /elements\.copyPhraseId\.addEventListener\("click", copyCurrentPhraseId\)/,
-  );
-});
-
-test("Réécouter devient Stop pendant la lecture et arrête toutes les sources", () => {
-  assert.match(app, /elements\.replay\.textContent = playing \? "Stop" : "Réécouter"/);
-  assert.match(app, /function togglePlayback\(\) \{[\s\S]*?if \(isPlaying\) \{[\s\S]*?stopAllTones\(\)/);
-  assert.match(app, /for \(const source of activeAudioSources\) \{[\s\S]*?source\.stop\(\)/);
-  assert.match(app, /elements\.replay\.addEventListener\("click", togglePlayback\)/);
-});
-
-test("la première note interrompt la lecture sauf si elle prolonge une rafale erronée", () => {
-  assert.match(app, /const INPUT_BURST_QUIET_MS = 500/);
-  assert.match(
-    app,
-    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{[\s\S]*?guardPlaybackFromInputBurst = guardInputBurst;/,
-  );
-  assert.match(
-    app,
-    /function restartAfterMistake\(\) \{[\s\S]*?playSequence\(\{ guardInputBurst: true \}\)/,
-  );
-  assert.match(
-    app,
-    /function handlePianoInput\(midi, key\) \{[\s\S]*?if \(guardPlaybackFromInputBurst\) \{[\s\S]*?quietBeforeInput < INPUT_BURST_QUIET_MS[\s\S]*?return;[\s\S]*?guardPlaybackFromInputBurst = false;[\s\S]*?if \(isPlaying \|\| isOriginalPlaying\) \{[\s\S]*?stopAllTones\(\);[\s\S]*?restoreExerciseInput\("Lecture interrompue\. À toi\."\);[\s\S]*?const target = exercise\.notes\[exercise\.currentIndex\]/,
-  );
-});
-
-test("les chicks ne sont programmés que pour la lecture rythmée réelle", () => {
-  const playback = app.match(
-    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
-  )?.[1];
-  assert.ok(playback);
-  assert.match(
-    playback,
-    /if \(exercise\.timings\) \{[\s\S]*?for \(const chick of exercise\.chicks \?\? \[\]\) \{[\s\S]*?playChick\(chick\.offset \* timeScale\)/,
-  );
-  assert.match(app, /filter\.type = "highpass"/);
-  assert.match(app, /gain\.gain\.setValueAtTime\(0\.055, start\)/);
-});
-
-test("une fondamentale samplée accompagne chaque accord des phrases réelles", () => {
-  const playback = app.match(
-    /function playSequence\(\{ guardInputBurst = false \} = \{\}\) \{([\s\S]*?)\n\}\n\nfunction markReferenceKey/,
-  )?.[1];
-  assert.ok(playback);
-  assert.match(
-    playback,
-    /for \(const bassHit of exercise\.bassHits \?\? \[\]\) \{[\s\S]*?playBass\([\s\S]*?bassHit\.midi,[\s\S]*?bassHit\.offset \* timeScale,[\s\S]*?bassHit\.duration \* timeScale/,
-  );
-  assert.match(app, /const BASS_GAIN = 0\.3/);
+  assert.match(app, /const path = `audio\/\$\{sound\}\/\$\{sampleMidi\}\.mp3`/);
   assert.match(app, /const path = `audio\/bass\/\$\{midi\}\.mp3`/);
-  assert.match(app, /await preloadBassSamples\(generated\.bassHits \?\? \[\]\)/);
-  assert.match(
-    app,
-    /exercise\.bassHits = voiceBassHits\(exercise\.bassHits \?\? \[\], transposition\)/,
-  );
 });
 
-test("le lecteur original commence à la frontière et conserve une courte fin", () => {
-  assert.match(index, /id="original-controls" hidden/);
-  assert.match(index, /id="play-original"[\s\S]*?>\s*Écouter l’original\s*</);
-  assert.match(index, /id="audio-source-link"/);
-  assert.doesNotMatch(app, /ORIGINAL_CONTEXT_(?:BEFORE|AFTER)_SECONDS/);
-  assert.match(
-    app,
-    /const phraseStart = sourceMeta\.audioOffset \+ sourceMeta\.onsetStart/,
-  );
-  assert.match(
-    app,
-    /const phraseEnd = sourceMeta\.audioOffset \+ sourceMeta\.onsetEnd/,
-  );
-  assert.match(app, /const clipStart = Math\.max\(0, phraseStart\)/);
-  assert.match(app, /const ORIGINAL_TAIL_SECONDS = 0\.25/);
-  assert.match(
-    app,
-    /const clipEnd = Math\.min\([\s\S]*?recording\.duration,[\s\S]*?phraseEnd \+ ORIGINAL_TAIL_SECONDS/,
-  );
-  assert.match(app, /sliceAudioBuffer\(context, recording, clipStart, clipEnd\)/);
-  assert.match(app, /elements\.audioSourceLink\.href = source\.audioSourceUrl/);
-});
-
-test("le toggle transpose l’original sans changer sa durée", () => {
-  assert.match(index, /id="transpose-original" type="checkbox"/);
-  assert.match(
-    app,
-    /elements\.transposeOriginal\.checked\s*\?\s*sourceMeta\.transposition\s*:\s*0/,
-  );
-  assert.match(app, /clip = pitchShiftAudioBuffer\(context, clip, semitones\)/);
-  assert.match(app, /elements\.transposeOriginal\.addEventListener\("change", saveSettings\)/);
-});
-
-test("l’écoute originale est visible seulement quand un fichier est disponible", () => {
-  assert.match(
-    app,
-    /elements\.playOriginal\.textContent = playing \? "Stop" : "Écouter l’original"/,
-  );
-  assert.match(index, /<span>Transposer<\/span>/);
-  assert.match(app, /elements\.originalControls\.hidden = isRatingMode \|\| !hasOriginal/);
-  assert.match(
-    styles,
-    /\.game-mode \.original-controls:not\(\[hidden\]\) \{\s*display: grid;/,
-  );
-  assert.match(styles, /\.original-listen-button \{[\s\S]*?background: var\(--accent\)/);
-  assert.match(app, /elements\.playOriginal\.addEventListener\("click", toggleOriginalPlayback\)/);
-});
-
-test("les liens de source restent dans la continuité du texte", () => {
-  assert.match(
-    index,
-    /<p class="source-line"[\s\S]*?<span id="source-details"><\/span>[\s\S]*?<a id="source-link"/,
-  );
-  assert.match(styles, /\.source-line \{\s*display: block;/);
-  assert.match(styles, /\.source-line a \{[\s\S]*?margin-left: 6px;[\s\S]*?white-space: nowrap;/);
-});
-
-test("une erreur efface la progression puis relance automatiquement depuis le début", () => {
-  assert.match(app, /const WRONG_NOTE_REPLAY_DELAY_MS = 650/);
-  assert.match(
-    app,
-    /function resetExerciseProgress\(\) \{[\s\S]*?exercise\.currentIndex = 0;[\s\S]*?exercise\.guessStartedAt = null;/,
-  );
-  assert.match(
-    app,
-    /if \(!isCorrect\) \{[\s\S]*?restartAfterMistake\(\);[\s\S]*?return;/,
-  );
-  assert.match(
-    app,
-    /function restartAfterMistake\(\) \{[\s\S]*?resetExerciseProgress\(\);[\s\S]*?window\.setTimeout\([\s\S]*?playSequence\(\{ guardInputBurst: true \}\);[\s\S]*?WRONG_NOTE_REPLAY_DELAY_MS/,
-  );
-});
-
-test("Réécouter remet toujours la saisie à la première note", () => {
-  const toggle = app.match(
-    /function togglePlayback\(\) \{([\s\S]*?)\n\}\n\nfunction resetExerciseProgress/,
-  )?.[1];
-  assert.ok(toggle);
-  assert.equal(toggle.match(/resetExerciseProgress\(\)/g)?.length, 2);
-  assert.match(toggle, /if \(exercise\.completedAt\) \{\s*prepareRepeatedExercise\(\)/);
-});
-
-test("les notes déjà justes ne deviennent pas des erreurs après une remise à zéro", () => {
-  assert.match(
-    app,
-    /const wasAlreadySolved = attempt\.guesses\.some\(\(guess\) =>[\s\S]*?isCorrectMidi\(target, guess\.midi\)/,
-  );
-  assert.match(app, /if \(!isCorrect \|\| !wasAlreadySolved\) \{\s*attempt\.guesses\.push/);
-});
-
-test("le nombre de notes est réglable aussi dans l’interface de jeu", () => {
-  assert.match(index, /id="game-length" type="range" min="5" max="15" value="15"/);
-  assert.match(index, /id="game-length-output">15<\/output>/);
-  assert.match(styles, /\.game-mode \.game-length-setting \{\s*display: grid;/);
-  assert.match(app, /elements\.gameLength\.addEventListener\("input"/);
-  assert.doesNotMatch(index, /Illimité|∞/);
-});
-
-test("les toggles de lecture gardent une largeur fixe pour ne pas déplacer les sliders", () => {
-  assert.match(styles, /#replay \{[\s\S]*?width: 92px;[\s\S]*?min-width: 92px;/);
-  assert.match(styles, /\.original-listen-button \{[\s\S]*?width: 168px;/);
-});
-
-test("la réussite ouvre une modale avec les quatre suites possibles", () => {
-  assert.match(index, /id="completion-modal"[\s\S]*?role="dialog"/);
-  assert.match(index, /id="restart-exercise">Recommencer<\/button>/);
-  assert.match(
-    index,
-    /class="primary-button" id="transpose-exercise">Transposer<\/button>/,
-  );
-  assert.match(index, /id="completion-next">Suivant<\/button>/);
-  assert.match(
-    index,
-    /id="completion-exit"[\s\S]*?aria-label="Quitter le mode jeu"[\s\S]*?>\s*×\s*<\/button>/,
-  );
-  assert.match(app, /function finishExercise\(\) \{[\s\S]*?scheduleCompletionModal\(\)/);
-  assert.match(
-    app,
-    /function restartSameExercise\(\) \{[\s\S]*?prepareRepeatedExercise\(\);[\s\S]*?resetExerciseProgress\(\);[\s\S]*?playSequence\(\)/,
-  );
-  assert.match(
-    app,
-    /function transposeSameExercise\(\) \{[\s\S]*?makeJazzTranspositionCycle\([\s\S]*?exercise\.transpositionCycle\.shift\(\)[\s\S]*?exercise\.originalNotes\.map\([\s\S]*?keyboardLayoutForNotes\(exercise\.notes\)[\s\S]*?playSequence\(\)/,
-  );
-  assert.match(app, /elements\.completionNext\.addEventListener\("click", goToNextExercise\)/);
-  assert.match(
-    app,
-    /elements\.transposeExercise\.addEventListener\("click", transposeSameExercise\)/,
-  );
-  assert.match(app, /elements\.completionExit\.addEventListener\("click", leaveGameMode\)/);
-  assert.match(styles, /\.completion-modal:not\(\[hidden\]\) \{\s*display: grid;/);
-});
-
-test("la modale n’offre l’original qu’en mode Phrases réelles", () => {
-  assert.match(index, /id="completion-original"[\s\S]*?>\s*Écouter l’original\s*</);
-  assert.match(
-    app,
-    /function showCompletionModal\(\) \{\s*elements\.completionOriginal\.hidden = !exercise\?\.source\?\.audioFile/,
-  );
-  assert.match(styles, /\[hidden\] \{\s*display: none !important;/);
-  assert.match(app, /const hasOriginal = Boolean\(generated\.meta\.source\.audioFile\)/);
-  const modalPlayback = app.match(
-    /function toggleCompletionOriginal\(\) \{([\s\S]*?)\n\}/,
-  )?.[1];
-  assert.ok(modalPlayback);
-  assert.match(modalPlayback, /playOriginalExcerpt\(\{ forceOriginalPitch: true \}\)/);
-  assert.doesNotMatch(modalPlayback, /hideCompletionModal/);
-  assert.match(
-    app,
-    /const semitones = !forceOriginalPitch && elements\.transposeOriginal\.checked/,
-  );
-  assert.match(styles, /\.completion-original \{[\s\S]*?grid-column: 1 \/ -1;/);
-});
-
-test("la modale attend la fin du dernier geste avant de s’afficher", () => {
-  assert.match(app, /const COMPLETION_MODAL_DELAY_MS = 350/);
-  assert.match(
-    app,
-    /function scheduleCompletionModal\(\) \{[\s\S]*?window\.setTimeout\([\s\S]*?showCompletionModal\(\);[\s\S]*?COMPLETION_MODAL_DELAY_MS/,
-  );
-  assert.match(
-    app,
-    /function hideCompletionModal\(\) \{[\s\S]*?window\.clearTimeout\(completionTimer\);[\s\S]*?completionTimer = null;/,
-  );
-});
-
-test("la première phrase attend la mise en place du mode jeu", () => {
-  assert.match(app, /const GAME_MODE_START_DELAY_MS = 900/);
-  assert.match(
-    app,
-    /const enteringGameMode = !document\.body\.classList\.contains\("game-mode"\);[\s\S]*?if \(enteringGameMode\) await enterGameMode\(\)/,
-  );
-  assert.match(
-    app,
-    /if \(enteringGameMode\) \{[\s\S]*?Prépare-toi…[\s\S]*?window\.setTimeout\([\s\S]*?playSequence\(\);[\s\S]*?GAME_MODE_START_DELAY_MS/,
-  );
-  assert.match(
-    app,
-    /function stopAllTones\(\) \{[\s\S]*?window\.clearTimeout\(gameModeStartTimer\)/,
-  );
-});
-
-test("le bouton Transposer est aussi mis en valeur que Suivant", () => {
-  assert.match(
-    index,
-    /class="primary-button" id="transpose-exercise">Transposer<\/button>[\s\S]*?class="primary-button" id="completion-next">Suivant<\/button>/,
-  );
-});
-
-test("les enregistrements et le pitch-shifter sont disponibles hors connexion", async () => {
-  assert.match(serviceWorker, /dictee-musicale-v31/);
-  assert.match(index, /href="\.\/styles\.css\?v=31"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=31"/);
-  assert.match(serviceWorker, /"\.\/styles\.css\?v=31"/);
-  assert.match(serviceWorker, /"\.\/src\/app\.js\?v=31"/);
-  assert.match(
-    serviceWorker,
-    /mustRevalidate[\s\S]*?\["document", "script", "style"\][\s\S]*?cache: "no-store"/,
-  );
+test("la PWA embarque le nouveau moteur de session hors connexion", async () => {
+  assert.equal(manifest.display, "fullscreen");
+  assert.equal(manifest.orientation, "landscape");
+  assert.match(serviceWorker, /dictee-musicale-v32/);
+  assert.match(index, /href="\.\/styles\.css\?v=32"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=32"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=32/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=32/);
+  assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.match(
     app,
     /navigator\.serviceWorker\.register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/,
   );
-  assert.match(serviceWorker, /\.\/src\/ratings\.js/);
-  assert.match(serviceWorker, /\.\/data\/default-ratings\.js/);
-  assert.match(serviceWorker, /\.\/data\/wjazzd-solos\.js/);
-  assert.match(serviceWorker, /\.\/data\/wjazzd-chords\.js/);
-  assert.match(serviceWorker, /\.\/src\/audio\.js/);
-  for (const name of [
-    "billies-bounce",
-    "donna-lee",
-    "ornithology",
-    "scrapple-from-the-apple",
-    "thriving-on-a-riff",
-    "yardbird-suite",
-  ]) {
-    assert.match(serviceWorker, new RegExp(`\\./audio/parker/${name}\\.mp3`));
-  }
-  for (let midi = 28; midi <= 48; midi += 1) {
-    assert.match(serviceWorker, new RegExp(`\\./audio/bass/${midi}\\.mp3`));
-  }
-  assert.match(
-    serviceWorker,
-    /Array\.from\([\s\S]*?\{ length: 43 \}[\s\S]*?audio\/clarinet\/\$\{index \+ 50\}\.mp3/,
-  );
+
   await Promise.all(
     Array.from({ length: 43 }, (_, index) => index + 50).map(async (midi) => {
       const file = await stat(

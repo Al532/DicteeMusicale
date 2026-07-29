@@ -16,6 +16,7 @@ import {
   bassPitchClassForChord,
   isCorrectMidi,
   jazzCorpusSummary,
+  jazzPhraseCatalog,
   keyboardLayoutForNotes,
   makeJazzTranspositionCycle,
   makeSequence,
@@ -25,7 +26,6 @@ import {
   playbackStartOnStrongBeat,
   randomDifferentJazzTransposition,
   randomJazzTransposition,
-  summarizeRecords,
   voiceBassHits,
 } from "../src/engine.js";
 
@@ -406,7 +406,7 @@ test("seuls les six solos calibrés exposent un enregistrement", async () => {
   );
 });
 
-test("le mode réel reste limité à 5–15 notes", () => {
+test("le mode réel reste limité à 5–20 notes", () => {
   const options = (maxNotes) => ({
     mode: "jazz",
     selectedPerformers: ["Charlie Parker"],
@@ -417,8 +417,8 @@ test("le mode réel reste limité à 5–15 notes", () => {
   const fiveNotes = makeSequence(options(5));
   const oversizedLimit = makeSequence(options(99));
 
-  assert.equal(defaultLimit.notes.length, 15);
-  assert.equal(defaultLimit.meta.source.maxNotes, 15);
+  assert.equal(defaultLimit.notes.length, 20);
+  assert.equal(defaultLimit.meta.source.maxNotes, 20);
   assert.deepEqual(fiveNotes.notes, defaultLimit.notes.slice(0, 5));
   assert.deepEqual(oversizedLimit.notes, defaultLimit.notes);
   assert.equal(fiveNotes.timings.length, fiveNotes.notes.length);
@@ -428,10 +428,10 @@ test("le protocole peut écouter une phrase précise en entier et dans le ton or
   const solo = WJAZZD_SOLOS.find(
     (candidate) =>
       candidate.performer === "Paul Desmond" &&
-      candidate.phrases.some(([start, end]) => end - start + 1 > 15),
+      candidate.phrases.some(([start, end]) => end - start + 1 > 20),
   );
   const phrase = solo.phrases.find(
-    ([start, end]) => end - start + 1 > 15,
+    ([start, end]) => end - start + 1 > 20,
   );
   const phraseKey = phraseRatingKey(solo.id, phrase[2]);
   const result = makeSequence({
@@ -555,44 +555,15 @@ test("la longueur générée est bornée", () => {
   );
 });
 
-test("les statistiques ne comptent que les phrases terminées", () => {
-  const summary = summarizeRecords([
-    {
-      completedAt: "2026-07-26T12:00:00Z",
-      attempts: [
-        { interval: 2, guesses: [{ midi: 62 }], responseMs: 1000 },
-        {
-          interval: -1,
-          guesses: [{ midi: 61 }, { midi: 60 }],
-          responseMs: 2000,
-        },
-      ],
-    },
-    {
-      completedAt: null,
-      attempts: [
-        { interval: 5, guesses: [{ midi: 65 }], responseMs: 500 },
-      ],
-    },
-  ]);
-
-  assert.equal(summary.exercises, 1);
-  assert.equal(summary.notes, 2);
-  assert.equal(summary.accuracy, 0.5);
-  assert.equal(summary.averageResponseMs, 1500);
-});
-
-test("la première note compte comme saisie mais pas comme intervalle", () => {
-  const summary = summarizeRecords([
-    {
-      completedAt: "2026-07-26T12:00:00Z",
-      attempts: Array.from({ length: 3 }, () => ({
-        interval: null,
-        guesses: [{ midi: 60 }],
-        responseMs: 500,
-      })),
-    },
-  ]);
-  assert.equal(summary.notes, 3);
-  assert.equal(summary.weakIntervals.length, 0);
+test("le catalogue public expose uniquement les phrases correspondant au filtre", () => {
+  const ratings = {
+    [phraseRatingKey(WJAZZD_SOLOS[0].id, WJAZZD_SOLOS[0].phrases[0][2])]: 3,
+  };
+  const catalog = jazzPhraseCatalog({
+    phraseRatings: ratings,
+    minimumRating: 3,
+  });
+  assert.equal(catalog.length, 1);
+  assert.equal(catalog[0].performer, WJAZZD_SOLOS[0].performer);
+  assert.ok(catalog[0].noteCount >= 2);
 });
