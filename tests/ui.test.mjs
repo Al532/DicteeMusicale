@@ -13,24 +13,30 @@ const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8
 const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
+const frenchManifest = JSON.parse(
+  await readFile(new URL("../manifest-fr.webmanifest", import.meta.url), "utf8"),
+);
+const icon = await readFile(new URL("../icon.svg", import.meta.url), "utf8");
 
 test("l’accueil public présente directement Jazz Solo Challenge", () => {
   assert.match(index, /<title>Jazz Solo Challenge<\/title>/);
+  assert.match(index, /<html lang="en">/);
   assert.match(
     index,
     /id="home-title">[\s\S]*?<span>Jazz Solo<\/span>[\s\S]*?<span>Challenge<\/span>/,
   );
   assert.match(
     index,
-    /Rejouez à l’oreille des phrases de solos de jazz, dans tous les tons\./,
+    /Play jazz solo phrases back by ear, in every key\./,
   );
-  assert.match(
-    index,
-    /<strong>3<\/strong> phrases[\s\S]*?<strong>3<\/strong> tons chacune[\s\S]*?mort subite/,
-  );
-  assert.match(index, /id="start-challenge"[\s\S]*?Commencer/);
-  assert.match(index, /id="resume-challenge" hidden[\s\S]*?Reprendre/);
-  assert.match(index, /id="open-favorites"[\s\S]*?Mode libre/);
+  assert.match(index, /data-i18n="home\.rule\.phrases">phrases/);
+  assert.match(index, /data-i18n="home\.rule\.keysEach">keys each/);
+  assert.match(index, /data-i18n="home\.rule\.suddenDeath">sudden death/);
+  assert.match(index, /id="start-challenge"[\s\S]*?data-i18n="home\.start">Start/);
+  assert.match(index, /id="resume-challenge" hidden[\s\S]*?data-i18n="home\.resume">Resume/);
+  assert.match(index, /id="open-favorites"[\s\S]*?data-i18n="home\.freeMode">Free mode/);
+  assert.match(index, /navigator\.languages\?\.\[0\][\s\S]*?\^fr[\s\S]*?"fr" : "en"/);
+  assert.match(index, /manifest-fr\.webmanifest/);
   assert.doesNotMatch(index, /Session guidée|≈ 10 min|Écoute\. Transpose\./);
   assert.doesNotMatch(index, /class="settings-drawer"|Son de la mélodie/);
   assert.doesNotMatch(index, /Phrases réelles[\s\S]*Phrases générées/);
@@ -71,16 +77,25 @@ test("les trois transpositions d’une phrase restent consécutives", () => {
     session,
     /if \(session\.toneIndex \+ 1 < TRAINING_TONES_PER_PHRASE\) \{[\s\S]*?session\.toneIndex \+= 1;[\s\S]*?\} else if \(session\.phraseIndex \+ 1 < CHALLENGE_PHRASE_COUNT\) \{[\s\S]*?session\.phraseIndex \+= 1;[\s\S]*?session\.toneIndex = 0;/,
   );
-  assert.match(app, /Phrase \$\{challengeSession\.phraseIndex \+ 1\} sur 3/);
-  assert.match(app, /Ton \$\{challengeSession\.toneIndex \+ 1\} sur 3/);
+  assert.match(
+    app,
+    /t\("challenge\.progressPhrase", \{[\s\S]*?challengeSession\.phraseIndex \+ 1/,
+  );
+  assert.match(
+    app,
+    /t\("challenge\.progressTone", \{[\s\S]*?challengeSession\.toneIndex \+ 1/,
+  );
   assert.match(index, /id="progress-dots"/);
 });
 
 test("la mort subite autorise les réécoutes avant l’unique tentative", () => {
-  assert.match(index, /id="sudden-death-title">Mort subite<\/h2>/);
   assert.match(
     index,
-    /Réécoute autant que nécessaire[\s\S]*?Dès ta première note, tu n’as qu’une\s+tentative/,
+    /id="sudden-death-title" data-i18n="sudden\.title">Sudden death<\/h2>/,
+  );
+  assert.match(
+    index,
+    /data-i18n="sudden\.body"[\s\S]*?Replay as often as needed[\s\S]*?you have one\s+attempt/,
   );
   assert.match(
     app,
@@ -132,7 +147,10 @@ test("les favoris sont accessibles pendant le jeu et dans une liste libre", () =
   assert.match(index, /id="favorite-toggle"/);
   assert.match(index, /id="favorites-list"/);
   assert.match(index, /id="favorites-empty"/);
-  assert.match(index, /id="free-transpose" hidden[\s\S]*?Autre ton/);
+  assert.match(
+    index,
+    /id="free-transpose" hidden[\s\S]*?data-i18n="free\.otherKey">Another key/,
+  );
   assert.match(app, /const FAVORITES_KEY = "dictee-musicale\.favorites\.v1"/);
   assert.match(app, /function toggleCurrentFavorite\(\)/);
   assert.match(app, /function renderFavorites\(\)/);
@@ -256,11 +274,16 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "landscape");
   assert.equal(manifest.name, "Jazz Solo Challenge");
-  assert.match(serviceWorker, /dictee-musicale-v36/);
-  assert.match(index, /href="\.\/styles\.css\?v=36"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=36"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=36/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=36/);
+  assert.equal(manifest.lang, "en");
+  assert.equal(frenchManifest.lang, "fr");
+  assert.equal(frenchManifest.name, manifest.name);
+  assert.match(serviceWorker, /dictee-musicale-v37/);
+  assert.match(index, /href="\.\/styles\.css\?v=37"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=37"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=37/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=37/);
+  assert.match(serviceWorker, /\.\/src\/i18n\.js/);
+  assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.doesNotMatch(serviceWorker, /CLARINET_SAMPLES|PIANO_SAMPLES/);
   assert.match(
@@ -282,7 +305,7 @@ test("l’installation est proposée directement sur Android et expliquée sur i
   assert.match(index, /rel="apple-touch-icon" href="\.\/icon-180\.png"/);
   assert.match(
     index,
-    /id="ios-install-modal"[\s\S]*?Sur iPhone et iPad[\s\S]*?Partager[\s\S]*?Ajouter à l’écran d’accueil/,
+    /id="ios-install-modal"[\s\S]*?data-i18n="ios\.kicker">On iPhone and iPad[\s\S]*?data-i18n="ios\.share">Share[\s\S]*?data-i18n="ios\.addToHome">Add to Home Screen/,
   );
   assert.deepEqual(
     manifest.icons
@@ -313,4 +336,11 @@ test("l’installation est proposée directement sur Android et expliquée sur i
     assert.equal(png.readUInt32BE(20), expectedSize);
     assert.match(serviceWorker, new RegExp(`\\.\\/${filename}`));
   }
+});
+
+test("l’icône reprend la palette de l’app sans l’artefact au-dessus de la hampe", () => {
+  assert.match(icon, /<rect[^>]*fill="#11130f"/);
+  assert.match(icon, /<circle[^>]*fill="#d8e56d"/);
+  assert.match(icon, /<path d="M194 157v190/);
+  assert.doesNotMatch(icon, /M194 139/);
 });

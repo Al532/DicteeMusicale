@@ -1,6 +1,5 @@
 import {
   DEFAULT_PERFORMERS,
-  NOTE_NAMES,
   WJAZZD_PERFORMERS,
   isCorrectMidi,
   jazzPhraseCatalog,
@@ -30,9 +29,19 @@ import {
   ratingProtocolSummary,
 } from "./ratings.js";
 import {
+  applyDocumentTranslations,
+  locale,
+  localizeError,
+  noteName,
+  sourceLabel,
+  t,
+} from "./i18n.js";
+import {
   DEFAULT_PHRASE_RATINGS,
   DEFAULT_RATING_SCOPES,
 } from "../data/default-ratings.js";
+
+applyDocumentTranslations();
 
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RATINGS_KEY = "dictee-musicale.ratings.v1";
@@ -56,13 +65,13 @@ const QUICK_RATING_ADVANCE_DELAY_MS = 180;
 const INPUT_BURST_QUIET_MS = 500;
 const MELODY_SAMPLE_INSTRUMENTS = {
   clarinet: {
-    label: "clarinette",
+    labelKey: "instrument.clarinet",
     minMidi: 50,
     maxMidi: 92,
     headSeconds: 0.025,
   },
   piano: {
-    label: "piano",
+    labelKey: "instrument.piano",
     minMidi: 36,
     maxMidi: 96,
     headSeconds: 0,
@@ -337,13 +346,18 @@ function renderProtocolHomeSummary() {
   const scopeCount =
     summary.tuneScopes.length + summary.performerScopes.length;
   elements.ratingHomeSummary.textContent =
-    `${summary.explicit} notes directes · ` +
-    `${summary.covered} sur ${summary.total} phrases couvertes` +
+    `${t("protocol.direct", { count: summary.explicit })} · ` +
+    t("protocol.covered", {
+      covered: summary.covered,
+      total: summary.total,
+    }) +
     (summary.structuralExcluded
-      ? ` · ${summary.structuralExcluded} exclusions structurelles`
+      ? ` · ${t("protocol.structuralExcluded", {
+          count: summary.structuralExcluded,
+        })}`
       : "") +
     (scopeCount
-      ? ` · ${scopeCount} décision${scopeCount > 1 ? "s" : ""} globale${scopeCount > 1 ? "s" : ""}`
+      ? ` · ${t("protocol.globalDecisions", { count: scopeCount })}`
       : "");
 }
 
@@ -373,9 +387,11 @@ function updatePerformerSelectionState() {
       sum + (selectedPerformers.has(name) ? soloCount : 0),
     0,
   );
-  elements.musicianSelectionCount.textContent =
-    `${selectedPerformers.size} sur ${WJAZZD_PERFORMERS.length}` +
-    ` · ${selectedSoloCount} solos`;
+  elements.musicianSelectionCount.textContent = t("performers.selected", {
+    selected: selectedPerformers.size,
+    total: WJAZZD_PERFORMERS.length,
+    solos: selectedSoloCount,
+  });
   const hasSelection = selectedPerformers.size > 0;
   elements.startReal.disabled = !hasSelection;
   elements.startRandom.disabled = false;
@@ -401,13 +417,13 @@ function setPerformerSelection(names) {
 
 function renderPerformerOptions() {
   const performers = [...WJAZZD_PERFORMERS].sort((left, right) =>
-    left.name.localeCompare(right.name, "fr"),
+    left.name.localeCompare(right.name, locale),
   );
   const fragment = document.createDocumentFragment();
   for (const { name, soloCount } of performers) {
     const label = document.createElement("label");
     label.className = "musician-option";
-    label.title = `${name} — ${soloCount} solo${soloCount > 1 ? "s" : ""}`;
+    label.title = t("performers.optionTitle", { name, solos: soloCount });
 
     const input = document.createElement("input");
     input.type = "checkbox";
@@ -438,7 +454,9 @@ function updateSettingLabels() {
 function updateModeSettings() {
   const isReal = currentMode !== "random";
   elements.gameSpeedSetting.hidden = false;
-  elements.gameLengthLabel.textContent = isReal ? "Notes max" : "Notes";
+  elements.gameLengthLabel.textContent = t(
+    isReal ? "developer.maxNotes" : "developer.notes",
+  );
   elements.gameLength.min = isReal ? "5" : "3";
   elements.gameLength.max = isReal ? String(REAL_MAX_NOTES) : "15";
   elements.gameLength.value = isReal ? realMaxNotes : randomLength;
@@ -586,16 +604,16 @@ function renderHomeState() {
 
   elements.sessionStatus.hidden = false;
   if (challengeSession.phase === "training") {
-    elements.sessionStatus.textContent =
-      `Session en cours · phrase ${challengeSession.phraseIndex + 1} sur 3, ` +
-      `ton ${challengeSession.toneIndex + 1} sur 3.`;
+    elements.sessionStatus.textContent = t("session.training", {
+      phrase: challengeSession.phraseIndex + 1,
+      tone: challengeSession.toneIndex + 1,
+    });
   } else if (challengeSession.phase === "transition") {
-    elements.sessionStatus.textContent =
-      "Les neuf manches sont terminées · mort subite à lancer.";
+    elements.sessionStatus.textContent = t("session.transition");
   } else {
-    elements.sessionStatus.textContent =
-      `Mort subite en cours · ${challengeSession.suddenQueue.length} ` +
-      `phrase${challengeSession.suddenQueue.length > 1 ? "s" : ""} restante${challengeSession.suddenQueue.length > 1 ? "s" : ""}.`;
+    elements.sessionStatus.textContent = t("session.sudden", {
+      count: challengeSession.suddenQueue.length,
+    });
   }
 }
 
@@ -613,8 +631,8 @@ function renderFavorites() {
     .filter(Boolean)
     .sort(
       (left, right) =>
-        left.performer.localeCompare(right.performer, "fr") ||
-        left.title.localeCompare(right.title, "fr"),
+        left.performer.localeCompare(right.performer, locale) ||
+        left.title.localeCompare(right.title, locale),
     );
 
   elements.favoritesList.replaceChildren();
@@ -639,7 +657,10 @@ function renderFavorites() {
     remove.textContent = "♥";
     remove.setAttribute(
       "aria-label",
-      `Retirer ${phrase.performer}, ${phrase.title} des favoris`,
+      t("favorites.removeSpecific", {
+        performer: phrase.performer,
+        title: phrase.title,
+      }),
     );
     remove.addEventListener("click", () => {
       favoritePhraseKeys = favoritePhraseKeys.filter(
@@ -667,15 +688,14 @@ function isFavorite(phraseKey) {
 
 function renderFavoriteControl(button, phraseKey, subject = "") {
   const favorite = isFavorite(phraseKey);
-  const subjectLabel = subject ? ` ${subject}` : "";
   button.classList.toggle("active", favorite);
   button.textContent = favorite ? "♥" : "♡";
   button.setAttribute("aria-pressed", String(favorite));
   button.setAttribute(
     "aria-label",
     favorite
-      ? `Retirer${subjectLabel} des favoris`
-      : `Ajouter${subjectLabel} aux favoris`,
+      ? t("favorites.remove", { subject })
+      : t("favorites.addSubject", { subject }),
   );
 }
 
@@ -729,19 +749,22 @@ function renderChallengeProgress() {
     challengeSession?.phase === "sudden-death",
   );
   if (challengeSession?.phase === "training") {
-    elements.progressTitle.textContent =
-      `Phrase ${challengeSession.phraseIndex + 1} sur 3`;
-    elements.progressDetail.textContent =
-      `Ton ${challengeSession.toneIndex + 1} sur 3`;
+    elements.progressTitle.textContent = t("challenge.progressPhrase", {
+      current: challengeSession.phraseIndex + 1,
+    });
+    elements.progressDetail.textContent = t("challenge.progressTone", {
+      current: challengeSession.toneIndex + 1,
+    });
     const current = currentTrainingRoundIndex();
     renderProgressDots(9, current, current);
     return;
   }
   if (challengeSession?.phase === "sudden-death") {
     const remaining = challengeSession.suddenQueue.length;
-    elements.progressTitle.textContent = "Mort subite";
-    elements.progressDetail.textContent =
-      `${remaining} phrase${remaining > 1 ? "s" : ""} à valider`;
+    elements.progressTitle.textContent = t("mode.suddenDeath");
+    elements.progressDetail.textContent = t("challenge.remaining", {
+      count: remaining,
+    });
     renderProgressDots(
       3,
       challengeSession.suddenCompleted.length,
@@ -835,7 +858,11 @@ function buildPiano(layout) {
   elements.piano.style.setProperty("--white-key-count", String(whiteCount));
   elements.piano.setAttribute(
     "aria-label",
-    `Piano de ${layout.chunkCount} zones, du ${noteLabel(layout.startMidi)} au ${noteLabel(layout.endMidi)}`,
+    t("piano.range", {
+      chunks: layout.chunkCount,
+      start: noteLabel(layout.startMidi),
+      end: noteLabel(layout.endMidi),
+    }),
   );
 
   for (const [whiteIndex, midi] of whiteMidi.entries()) {
@@ -861,7 +888,7 @@ function buildPiano(layout) {
 }
 
 function noteLabel(midi) {
-  return `${NOTE_NAMES[pitchClass(midi)]}${Math.floor(midi / 12) - 1}`;
+  return `${noteName(pitchClass(midi))}${Math.floor(midi / 12) - 1}`;
 }
 
 function createKey(midi, color) {
@@ -917,7 +944,10 @@ function loadMelodySample(midi, sound = melodySound) {
       .then((response) => {
         if (!response.ok) {
           throw new Error(
-            `Sample de ${instrument.label} indisponible (${response.status})`,
+            t("error.melodySampleUnavailable", {
+              instrument: t(instrument.labelKey),
+              status: response.status,
+            }),
           );
         }
         return response.arrayBuffer();
@@ -1083,7 +1113,9 @@ function loadBassSample(midi) {
     const loading = fetch(new URL(path, document.baseURI))
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`Sample de basse indisponible (${response.status})`);
+          throw new Error(
+            t("error.bassSampleUnavailable", { status: response.status }),
+          );
         }
         return response.arrayBuffer();
       })
@@ -1138,15 +1170,19 @@ function playBass(midi, startAt, duration) {
 
 function setPlaybackState(playing) {
   isPlaying = playing;
-  elements.replay.textContent = playing ? "Stop" : "Réécouter";
+  elements.replay.textContent = t(playing ? "audio.stop" : "game.replay");
   elements.replay.setAttribute("aria-pressed", String(playing));
 }
 
 function setOriginalPlaybackState(playing) {
   isOriginalPlaying = playing;
-  elements.playOriginal.textContent = playing ? "Stop" : "Écouter l’original";
+  elements.playOriginal.textContent = t(
+    playing ? "audio.stop" : "audio.listenOriginal",
+  );
   elements.playOriginal.setAttribute("aria-pressed", String(playing));
-  elements.completionOriginal.textContent = playing ? "Stop" : "Écouter l’original";
+  elements.completionOriginal.textContent = t(
+    playing ? "audio.stop" : "audio.listenOriginal",
+  );
   elements.completionOriginal.setAttribute("aria-pressed", String(playing));
 }
 
@@ -1192,7 +1228,7 @@ function restoreExerciseInput(message = null) {
     setQuickRatingEnabled(true);
     elements.feedback.className = "feedback";
     elements.feedback.textContent =
-      message ?? "Attribue 1, 2 ou 3 étoiles — touches 1, 2 ou 3.";
+      message ?? t("rating.prompt");
     return;
   }
   acceptingInput = exercise.currentIndex < exercise.notes.length;
@@ -1205,11 +1241,12 @@ function restoreExerciseInput(message = null) {
     currentMode === "challenge" &&
     challengeSession?.phase === "sudden-death"
   ) {
-    elements.feedback.textContent =
-      "Réécoute si nécessaire. Ta première note lancera l’unique tentative.";
+    elements.feedback.textContent = t("sudden.instructions");
   } else {
-    elements.feedback.textContent =
-      `À toi — retrouve la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
+    elements.feedback.textContent = t("game.findNote", {
+      current: exercise.currentIndex + 1,
+      total: exercise.notes.length,
+    });
   }
 }
 
@@ -1218,7 +1255,9 @@ function loadOriginalAudio(path) {
     const loading = fetch(new URL(path, document.baseURI))
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`Enregistrement indisponible (${response.status})`);
+          throw new Error(
+            t("error.recordingUnavailable", { status: response.status }),
+          );
         }
         return response.arrayBuffer();
       })
@@ -1241,7 +1280,7 @@ async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
   setOriginalPlaybackState(true);
   acceptingInput = false;
   elements.feedback.className = "feedback";
-  elements.feedback.textContent = "Chargement de l’enregistrement…";
+  elements.feedback.textContent = t("audio.loadingRecording");
 
   try {
     const context = getAudioContext();
@@ -1261,7 +1300,7 @@ async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
       : 0;
 
     if (semitones) {
-      elements.feedback.textContent = "Transposition de l’enregistrement…";
+      elements.feedback.textContent = t("audio.transposingRecording");
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
       if (token !== originalPlaybackToken) return;
       clip = pitchShiftAudioBuffer(context, clip, semitones);
@@ -1285,10 +1324,9 @@ async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
       restoreExerciseInput();
     });
 
-    const transpositionLabel = semitones
-      ? ` transposé ${semitones > 0 ? "+" : ""}${semitones}`
-      : "";
-    elements.feedback.textContent = `Enregistrement original${transpositionLabel}…`;
+    elements.feedback.textContent = t("audio.recording", {
+      transposition: semitones,
+    });
     recordingSource.start();
     playbackTimer = window.setTimeout(() => {
       playbackTimer = null;
@@ -1298,7 +1336,7 @@ async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
   } catch {
     if (token !== originalPlaybackToken) return;
     setOriginalPlaybackState(false);
-    restoreExerciseInput("Impossible de lire cet enregistrement.");
+    restoreExerciseInput(t("audio.readError"));
     elements.feedback.className = "feedback error";
   }
 }
@@ -1307,7 +1345,7 @@ function toggleOriginalPlayback() {
   if (!exercise?.source?.audioFile) return;
   if (isOriginalPlaying) {
     stopAllTones();
-    restoreExerciseInput("Lecture originale arrêtée. À toi.");
+    restoreExerciseInput(t("audio.originalStopped"));
     return;
   }
   playOriginalExcerpt();
@@ -1337,7 +1375,7 @@ function playSequence({ guardInputBurst = false } = {}) {
   if (currentMode === "rating") setQuickRatingEnabled(true);
   acceptingInput = false;
   elements.feedback.className = "feedback";
-  elements.feedback.textContent = "Écoute bien…";
+  elements.feedback.textContent = t("audio.listenCarefully");
   let playbackDuration;
   if (exercise.timings) {
     exercise.speedPercent = realSpeedPercent;
@@ -1395,11 +1433,12 @@ function playSequence({ guardInputBurst = false } = {}) {
       currentMode === "challenge" &&
       challengeSession?.phase === "sudden-death"
     ) {
-      elements.feedback.textContent =
-        "Réécoute si nécessaire. Ta première note lancera l’unique tentative.";
+      elements.feedback.textContent = t("sudden.instructions");
     } else {
-      elements.feedback.textContent =
-        `À toi — retrouve la note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
+      elements.feedback.textContent = t("game.findNote", {
+        current: exercise.currentIndex + 1,
+        total: exercise.notes.length,
+      });
     }
   }, playbackDuration);
 }
@@ -1441,18 +1480,31 @@ function renderRatingSession() {
   );
 
   elements.ratingSessionSummary.textContent =
-    `${sessionCount} phrase${sessionCount > 1 ? "s" : ""} notée${sessionCount > 1 ? "s" : ""}` +
+    t("rating.sessionCount", { count: sessionCount }) +
     (sessionCount
-      ? ` · ${distribution[1]} / ${distribution[2]} / ${distribution[3]} en 1★ / 2★ / 3★`
-      : " dans cette session");
+      ? ` · ${t("rating.sessionDistribution", {
+          one: distribution[1],
+          two: distribution[2],
+          three: distribution[3],
+        })}`
+      : "");
   elements.ratingCoverageSummary.textContent =
-    `${summary.covered} sur ${summary.total} phrases couvertes` +
-    ` (${summary.total ? Math.round((summary.covered / summary.total) * 100) : 0} %)` +
+    t("rating.coverage", {
+      covered: summary.covered,
+      total: summary.total,
+      percent: summary.total
+        ? Math.round((summary.covered / summary.total) * 100)
+        : 0,
+    }) +
     (summary.structuralExcluded
-      ? ` · ${summary.structuralExcluded} exclusions structurelles`
+      ? ` · ${t("protocol.structuralExcluded", {
+          count: summary.structuralExcluded,
+        })}`
       : "") +
     (newScopes.length
-      ? ` · ${newScopes.length} nouvelle${newScopes.length > 1 ? "s" : ""} décision${newScopes.length > 1 ? "s" : ""} globale${newScopes.length > 1 ? "s" : ""}`
+      ? ` · ${t("rating.newGlobalDecisions", {
+          count: newScopes.length,
+        })}`
       : "");
   elements.undoRating.disabled = !sessionCount;
   renderProtocolHomeSummary();
@@ -1480,8 +1532,8 @@ function renderStarRating(element, rating) {
   element.setAttribute(
     "aria-label",
     rating
-      ? `Note actuelle : ${rating} étoile${rating > 1 ? "s" : ""}`
-      : "Phrase non notée",
+      ? t("rating.current", { rating })
+      : t("rating.unrated"),
   );
   for (const button of element.querySelectorAll("[data-rating]")) {
     const value = Number(button.dataset.rating);
@@ -1560,8 +1612,10 @@ function setQuickRating(event) {
   elements.feedback.className = "feedback success";
   elements.feedback.textContent =
     ratingSessionHistory.length % RATING_REPORT_INTERVAL === 0
-      ? `Point d’étape : ${ratingSessionHistory.length} notes saisies.`
-      : `${rating} étoile${rating > 1 ? "s" : ""} enregistrée${rating > 1 ? "s" : ""}.`;
+      ? t("rating.checkpointEntered", {
+          count: ratingSessionHistory.length,
+        })
+      : t("rating.recorded", { rating });
   quickRatingAdvanceTimer = window.setTimeout(() => {
     quickRatingAdvanceTimer = null;
     startExercise();
@@ -1581,7 +1635,7 @@ function undoLastRating() {
   writeJson(RATINGS_KEY, localPhraseRatings);
   renderRatingSession();
   elements.feedback.className = "feedback";
-  elements.feedback.textContent = "Dernière note annulée.";
+  elements.feedback.textContent = t("rating.undone");
   setQuickRatingEnabled(true);
 }
 
@@ -1616,8 +1670,9 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
       transpositionOverride: transposition,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Cette phrase est indisponible.";
+    const message = localizeError(
+      error instanceof Error ? error.message : t("phrase.unavailable"),
+    );
     elements.sessionStatus.textContent = message;
     elements.feedback.className = "feedback error";
     elements.feedback.textContent = message;
@@ -1665,16 +1720,16 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
 
   elements.kicker.textContent =
     isFree
-      ? "Mode libre"
+      ? t("mode.free")
       : challengeSession?.phase === "sudden-death"
-        ? "Mort subite"
-        : "Défi 3×3";
+        ? t("mode.suddenDeath")
+        : t("mode.challenge");
   elements.exerciseTitle.textContent =
     isFree
-      ? "Explore la phrase"
+      ? t("game.explorePhrase")
       : challengeSession?.phase === "sudden-death"
-        ? "Du premier coup"
-        : "Écoute, puis retrouve la phrase";
+        ? t("game.firstTry")
+        : t("game.listenFind");
   renderSource(generated.meta.source);
   elements.sourceLine.hidden = true;
   elements.originalControls.hidden = true;
@@ -1691,7 +1746,7 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   if (enteringGameMode) {
     acceptingInput = false;
     elements.feedback.className = "feedback";
-    elements.feedback.textContent = "Prépare-toi…";
+    elements.feedback.textContent = t("game.getReady");
     gameModeStartTimer = window.setTimeout(() => {
       gameModeStartTimer = null;
       playSequence();
@@ -1745,8 +1800,7 @@ async function startExercise() {
     : null;
   if (isRatingMode && !targetPhraseKey) {
     elements.feedback.className = "feedback success";
-    elements.feedback.textContent =
-      "Toutes les phrases sélectionnées sont couvertes par le protocole.";
+    elements.feedback.textContent = t("rating.allCovered");
     renderRatingSession();
     return;
   }
@@ -1767,16 +1821,16 @@ async function startExercise() {
       transpositionOverride: isRatingMode ? 0 : null,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Aucune phrase disponible.";
+    const message = localizeError(
+      error instanceof Error ? error.message : t("phrase.noneAvailable"),
+    );
     elements.selectionWarning.textContent = message;
     elements.selectionWarning.hidden = false;
     elements.feedback.className = "feedback error";
     elements.feedback.textContent = message;
     return;
   }
-  elements.selectionWarning.textContent =
-    "Sélectionne au moins un musicien pour les phrases réelles.";
+  elements.selectionWarning.textContent = t("selection.real");
   elements.selectionWarning.hidden = true;
   if (enteringGameMode) await enterGameMode();
   try {
@@ -1821,10 +1875,13 @@ async function startExercise() {
     solvedAtLeastOnce: false,
   };
 
-  elements.kicker.textContent = generated.meta.label;
+  elements.kicker.textContent =
+    generated.meta.source.kind === "generated"
+      ? t("mode.generated")
+      : generated.meta.label;
   elements.exerciseTitle.textContent = isRatingMode
-    ? "Écoute, puis note la phrase"
-    : "Écoute, puis retrouve la phrase";
+    ? t("rating.listenRate")
+    : t("game.listenFind");
   renderSource(generated.meta.source);
   const hasOriginal = Boolean(generated.meta.source.audioFile);
   elements.originalControls.hidden = isRatingMode || !hasOriginal;
@@ -1832,7 +1889,9 @@ async function startExercise() {
   elements.transposeOriginal.disabled = !hasOriginal;
   elements.replay.disabled = enteringGameMode;
   elements.nextExercise.disabled = false;
-  elements.nextExercise.textContent = isRatingMode ? "Passer" : "Suivant";
+  elements.nextExercise.textContent = t(
+    isRatingMode ? "common.skip" : "common.next",
+  );
   elements.ratingWorkspace.hidden = !isRatingMode;
   setQuickRatingEnabled(false);
   renderRatingControls();
@@ -1841,7 +1900,7 @@ async function startExercise() {
   if (enteringGameMode) {
     acceptingInput = false;
     elements.feedback.className = "feedback";
-    elements.feedback.textContent = "Prépare-toi…";
+    elements.feedback.textContent = t("game.getReady");
     gameModeStartTimer = window.setTimeout(() => {
       gameModeStartTimer = null;
       playSequence();
@@ -1868,23 +1927,27 @@ function renderSource(source) {
   const transposition =
     Number.isFinite(source.transposition)
       ? source.transposition === 0
-        ? " · tonalité originale"
-        : ` · transposition ${source.transposition > 0 ? "+" : ""}${source.transposition} demi-tons`
+        ? t("source.originalKey")
+        : t("source.transposition", { value: source.transposition })
       : "";
   const originalTempo = Number.isFinite(source.originalTempo)
-    ? ` · tempo original ${Math.round(source.originalTempo)} BPM`
+    ? t("source.originalTempo", {
+        tempo: Math.round(source.originalTempo),
+      })
     : "";
-  elements.sourceDetails.textContent =
-    `Source : ${source.label}${transposition}${originalTempo}.`;
+  elements.sourceDetails.textContent = t("source.details", {
+    label: sourceLabel(source),
+    details: [transposition, originalTempo].filter(Boolean).join(" · "),
+  });
   window.clearTimeout(phraseIdCopyTimer);
   phraseIdCopyTimer = null;
-  elements.copyPhraseId.textContent = "Copier";
+  elements.copyPhraseId.textContent = t("source.copy");
   if (source.phraseKey) {
     elements.phraseReference.hidden = false;
     elements.phraseId.textContent = source.phraseKey;
     elements.copyPhraseId.setAttribute(
       "aria-label",
-      `Copier l’identifiant ${source.phraseKey}`,
+      t("source.copyId", { id: source.phraseKey }),
     );
   } else {
     elements.phraseReference.hidden = true;
@@ -1894,7 +1957,7 @@ function renderSource(source) {
   if (source.url) {
     elements.sourceLink.hidden = false;
     elements.sourceLink.href = source.url;
-    elements.sourceLink.textContent = source.dataset ?? "Voir la source";
+    elements.sourceLink.textContent = source.dataset ?? t("source.view");
   } else {
     elements.sourceLink.hidden = true;
     elements.sourceLink.removeAttribute("href");
@@ -1902,7 +1965,7 @@ function renderSource(source) {
   if (source.audioSourceUrl) {
     elements.audioSourceLink.hidden = false;
     elements.audioSourceLink.href = source.audioSourceUrl;
-    elements.audioSourceLink.textContent = "Enregistrement source";
+    elements.audioSourceLink.textContent = t("source.recordingLink");
   } else {
     elements.audioSourceLink.hidden = true;
     elements.audioSourceLink.removeAttribute("href");
@@ -1934,11 +1997,13 @@ async function copyCurrentPhraseId() {
   const phraseId = exercise?.source?.phraseKey;
   if (!phraseId) return;
   const copied = await copyText(phraseId);
-  elements.copyPhraseId.textContent = copied ? "Copié" : "Échec";
+  elements.copyPhraseId.textContent = t(
+    copied ? "source.copied" : "source.copyFailed",
+  );
   window.clearTimeout(phraseIdCopyTimer);
   phraseIdCopyTimer = window.setTimeout(() => {
     phraseIdCopyTimer = null;
-    elements.copyPhraseId.textContent = "Copier";
+    elements.copyPhraseId.textContent = t("source.copy");
   }, 1_500);
 }
 
@@ -2024,14 +2089,13 @@ function togglePlayback() {
     exercise.executionStarted
   ) {
     elements.feedback.className = "feedback";
-    elements.feedback.textContent =
-      "Tentative en cours — termine la phrase sans réécouter.";
+    elements.feedback.textContent = t("playback.suddenLocked");
     return;
   }
   if (isPlaying) {
     stopAllTones();
     resetExerciseProgress();
-    restoreExerciseInput("Lecture arrêtée. Repars de la première note.");
+    restoreExerciseInput(t("playback.stopped"));
     return;
   }
   if (exercise.completedAt) {
@@ -2054,7 +2118,7 @@ function resetExerciseProgress() {
 function restartAfterMistake() {
   resetExerciseProgress();
   elements.feedback.className = "feedback error";
-  elements.feedback.textContent = "Erreur — on réécoute depuis le début.";
+  elements.feedback.textContent = t("playback.mistake");
   restartTimer = window.setTimeout(() => {
     restartTimer = null;
     playSequence({ guardInputBurst: true });
@@ -2065,7 +2129,7 @@ function failSuddenDeath() {
   acceptingInput = false;
   elements.replay.disabled = true;
   elements.feedback.className = "feedback error";
-  elements.feedback.textContent = "Raté — on passe à la phrase suivante.";
+  elements.feedback.textContent = t("playback.suddenFailed");
   resolveSuddenDeath(challengeSession, false);
   persistChallengeSession();
   roundAdvanceTimer = window.setTimeout(async () => {
@@ -2084,7 +2148,7 @@ function handlePianoInput(midi, key) {
   }
   if (isPlaying || isOriginalPlaying) {
     stopAllTones();
-    restoreExerciseInput("Lecture interrompue. À toi.");
+    restoreExerciseInput(t("playback.interrupted"));
   }
 
   playTone(midi, 0, 0.36);
@@ -2100,7 +2164,7 @@ function handlePianoInput(midi, key) {
     exercise.executionStarted = true;
     elements.replay.disabled = true;
     elements.feedback.className = "feedback";
-    elements.feedback.textContent = "Tentative lancée.";
+    elements.feedback.textContent = t("playback.attemptStarted");
   }
 
   const target = exercise.notes[exercise.currentIndex];
@@ -2164,8 +2228,14 @@ function handlePianoInput(midi, key) {
   elements.feedback.textContent =
     currentMode === "challenge" &&
     challengeSession?.phase === "sudden-death"
-      ? `${exercise.currentIndex} sur ${exercise.notes.length}.`
-      : `Juste. Note ${exercise.currentIndex + 1} sur ${exercise.notes.length}.`;
+      ? t("playback.progress", {
+          current: exercise.currentIndex,
+          total: exercise.notes.length,
+        })
+      : t("playback.correct", {
+          current: exercise.currentIndex + 1,
+          total: exercise.notes.length,
+        });
 }
 
 function renderCompletedChallenge(phrases) {
@@ -2223,7 +2293,7 @@ function finishExercise() {
   exercise.solvedAtLeastOnce = true;
   elements.feedback.className = "feedback success";
   if (currentMode === "challenge" && challengeSession?.phase === "training") {
-    elements.feedback.textContent = "Ton validé.";
+    elements.feedback.textContent = t("finish.toneValidated");
     advanceTraining(challengeSession);
     persistChallengeSession();
     roundAdvanceTimer = window.setTimeout(async () => {
@@ -2240,7 +2310,7 @@ function finishExercise() {
     currentMode === "challenge" &&
     challengeSession?.phase === "sudden-death"
   ) {
-    elements.feedback.textContent = "Phrase validée du premier coup.";
+    elements.feedback.textContent = t("finish.suddenValidated");
     resolveSuddenDeath(challengeSession, true);
     if (challengeSession.phase === "complete") {
       completeChallenge();
@@ -2254,13 +2324,12 @@ function finishExercise() {
     return;
   }
   if (currentMode === "free") {
-    elements.feedback.textContent =
-      "Phrase retrouvée. Rejoue-la ou change de ton.";
+    elements.feedback.textContent = t("finish.free");
     elements.replay.disabled = false;
     return;
   }
 
-  elements.feedback.textContent = "Phrase terminée.";
+  elements.feedback.textContent = t("finish.phrase");
   scheduleCompletionModal();
 }
 
@@ -2439,10 +2508,12 @@ function setUpInstallPrompt() {
 
 function updateGameModeButton() {
   const active = document.body.classList.contains("game-mode");
-  elements.fullscreenButton.textContent = active ? "×" : "Plein écran";
+  elements.fullscreenButton.textContent = active
+    ? "×"
+    : t("fullscreen.enter");
   elements.fullscreenButton.setAttribute(
     "aria-label",
-    active ? "Quitter le plein écran" : "Passer en plein écran",
+    t(active ? "fullscreen.exit" : "fullscreen.enterAria"),
   );
   elements.fullscreenButton.setAttribute("aria-pressed", String(active));
 }

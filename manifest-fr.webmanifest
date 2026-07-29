@@ -1,7 +1,7 @@
 {
   "name": "Jazz Solo Challenge",
   "short_name": "Jazz Solo",
-  "description": "Play jazz solo phrases back by ear in every key.",
+  "description": "Rejouez à l’oreille des phrases de solos de jazz dans tous les tons.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
@@ -9,7 +9,7 @@
   "orientation": "landscape",
   "background_color": "#10130f",
   "theme_color": "#11130f",
-  "lang": "en",
+  "lang": "fr",
   "icons": [
     {
       "src": "./icon-192.png",

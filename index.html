@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -9,14 +9,25 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta
       name="description"
-      content="Rejouez à l’oreille des phrases de solos de jazz dans tous les tons."
+      content="Play jazz solo phrases back by ear in every key."
     />
     <title>Jazz Solo Challenge</title>
     <link rel="manifest" href="./manifest.webmanifest" />
+    <script>
+      const primaryLanguage =
+        navigator.languages?.[0] ?? navigator.language ?? "en";
+      const appLocale = /^fr(?:-|$)/i.test(primaryLanguage) ? "fr" : "en";
+      document.documentElement.lang = appLocale;
+      globalThis.__JAZZ_SOLO_LOCALE__ = appLocale;
+      if (appLocale === "fr") {
+        document.querySelector('link[rel="manifest"]').href =
+          "./manifest-fr.webmanifest";
+      }
+    </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=36" />
-    <script type="module" src="./src/app.js?v=36"></script>
+    <link rel="stylesheet" href="./styles.css?v=37" />
+    <script type="module" src="./src/app.js?v=37"></script>
   </head>
   <body>
     <main>
@@ -27,7 +38,7 @@
           type="button"
           hidden
         >
-          Installer
+          <span data-i18n="home.install">Install</span>
         </button>
 
         <div class="home-copy">
@@ -35,15 +46,22 @@
             <span>Jazz Solo</span>
             <span>Challenge</span>
           </h1>
-          <p class="home-intro">
-            Rejouez à l’oreille des phrases de solos de jazz, dans tous les tons.
+          <p class="home-intro" data-i18n="home.intro">
+            Play jazz solo phrases back by ear, in every key.
           </p>
-          <div class="challenge-rule" aria-label="Déroulement du défi">
-            <span><strong>3</strong> phrases</span>
+          <div
+            class="challenge-rule"
+            aria-label="Challenge format"
+            data-i18n-aria-label="home.rule.aria"
+          >
+            <span><strong>3</strong> <span data-i18n="home.rule.phrases">phrases</span></span>
             <i aria-hidden="true"></i>
-            <span><strong>3</strong> tons chacune</span>
+            <span><strong>3</strong> <span data-i18n="home.rule.keysEach">keys each</span></span>
             <i aria-hidden="true"></i>
-            <span>puis <strong>mort subite</strong></span>
+            <span>
+              <span data-i18n="home.rule.then">then</span>
+              <strong data-i18n="home.rule.suddenDeath">sudden death</strong>
+            </span>
           </div>
         </div>
 
@@ -51,63 +69,68 @@
           <p class="session-status" id="session-status" hidden></p>
           <div class="challenge-actions">
             <button class="primary-button wide-button" id="start-challenge">
-              Commencer
+              <span data-i18n="home.start">Start</span>
             </button>
             <button class="primary-button wide-button" id="resume-challenge" hidden>
-              Reprendre
+              <span data-i18n="home.resume">Resume</span>
             </button>
             <button class="free-mode-button" id="open-favorites" type="button">
-              <span>Mode libre</span>
-              <small>Mes phrases favorites</small>
+              <span data-i18n="home.freeMode">Free mode</span>
+              <small data-i18n="home.favorites">My favorite phrases</small>
             </button>
             <button class="text-button" id="new-challenge" hidden>
-              Abandonner et recommencer
+              <span data-i18n="home.restart">Quit and start over</span>
             </button>
           </div>
         </div>
 
         <details class="developer-access">
-          <summary aria-label="Outils développeur" title="Outils développeur">
+          <summary
+            aria-label="Developer tools"
+            title="Developer tools"
+            data-i18n-aria-label="developer.tools"
+            data-i18n-title="developer.tools"
+          >
             <span aria-hidden="true">•••</span>
           </summary>
           <div class="developer-access-panel">
             <label class="developer-toggle">
               <input id="developer-mode" type="checkbox" />
-              <span>Mode développeur</span>
+              <span data-i18n="developer.mode">Developer mode</span>
             </label>
 
             <div class="developer-lab developer-only" data-developer-only hidden>
               <div class="developer-heading">
                 <div>
-                  <p class="eyebrow">Atelier</p>
-                  <strong>Corpus et notation</strong>
+                  <p class="eyebrow" data-i18n="developer.workshop">Workshop</p>
+                  <strong data-i18n="developer.corpusRatings">Corpus and ratings</strong>
                 </div>
                 <button class="quiet-button compact" id="export-ratings" type="button">
-                  Exporter le protocole
+                  <span data-i18n="developer.exportProtocol">Export protocol</span>
                 </button>
               </div>
 
               <div class="mode-launchers">
-                <button class="quiet-button" id="start-real">Phrase réelle</button>
-                <button class="quiet-button" id="start-random">Phrase générée</button>
-                <button class="primary-button" id="start-rating">Notation rapide</button>
+                <button class="quiet-button" id="start-real" data-i18n="developer.realPhrase">Real phrase</button>
+                <button class="quiet-button" id="start-random" data-i18n="developer.generatedPhrase">Generated phrase</button>
+                <button class="primary-button" id="start-rating" data-i18n="developer.quickRating">Quick rating</button>
               </div>
 
               <details class="musician-picker" id="musician-picker">
                 <summary>
-                  <span>Musiciens inclus</span>
+                  <span data-i18n="developer.musiciansIncluded">Included musicians</span>
                   <strong id="musician-selection-count"></strong>
                 </summary>
                 <div class="musician-picker-content">
                   <div class="musician-picker-actions">
                     <button class="quiet-button compact" id="select-default-performers" type="button">
-                      Jazz classique
+                      <span data-i18n="developer.classicJazz">Classic jazz</span>
                     </button>
                     <button class="quiet-button compact" id="select-all-performers" type="button">
-                      Tous
+                      <span data-i18n="common.all">All</span>
                     </button>
                     <button class="quiet-button compact" id="clear-performers" type="button">
-                      Aucun
+                      <span data-i18n="common.none">None</span>
                     </button>
                   </div>
                   <div class="musician-list" id="musician-list"></div>
@@ -116,22 +139,22 @@
 
               <div class="developer-settings">
                 <label class="setting-field">
-                  <span><span id="game-length-label">Notes max</span> <output id="game-length-output">20</output></span>
+                  <span><span id="game-length-label" data-i18n="developer.maxNotes">Max notes</span> <output id="game-length-output">20</output></span>
                   <input id="game-length" type="range" min="5" max="20" value="20" />
                 </label>
                 <label class="setting-field">
-                  <span>Notation minimale</span>
+                  <span data-i18n="developer.minimumRating">Minimum rating</span>
                   <select id="minimum-rating">
-                    <option value="0">Toutes les phrases</option>
-                    <option value="unrated">Phrases non notées</option>
-                    <option value="2">2 étoiles ou plus</option>
-                    <option value="3">3 étoiles uniquement</option>
+                    <option value="0" data-i18n="developer.allPhrases">All phrases</option>
+                    <option value="unrated" data-i18n="developer.unratedPhrases">Unrated phrases</option>
+                    <option value="2" data-i18n="developer.twoStars">2 stars or more</option>
+                    <option value="3" data-i18n="developer.threeStars">3 stars only</option>
                   </select>
                 </label>
               </div>
-              <p id="rating-home-summary">Calcul de la couverture…</p>
+              <p id="rating-home-summary" data-i18n="developer.calculatingCoverage">Calculating coverage…</p>
               <p class="selection-warning" id="selection-warning" hidden>
-                Sélectionne au moins un musicien.
+                <span data-i18n="developer.selectMusician">Select at least one musician.</span>
               </p>
             </div>
           </div>
@@ -140,20 +163,27 @@
 
       <section class="favorites-panel" id="favorites-panel" aria-labelledby="favorites-title" hidden>
         <div class="page-heading">
-          <button class="icon-button" id="close-favorites" aria-label="Retour">←</button>
+          <button
+            class="icon-button"
+            id="close-favorites"
+            aria-label="Back"
+            data-i18n-aria-label="favorites.back"
+          >←</button>
           <div>
-            <p class="eyebrow">Mode libre</p>
-            <h1 id="favorites-title">Mes phrases</h1>
+            <p class="eyebrow" data-i18n="favorites.kicker">Free mode</p>
+            <h1 id="favorites-title" data-i18n="favorites.title">My phrases</h1>
           </div>
         </div>
-        <p class="favorites-intro">
-          Choisis une phrase, puis explore-la librement dans les douze tons.
+        <p class="favorites-intro" data-i18n="favorites.intro">
+          Choose a phrase, then explore it freely in all twelve keys.
         </p>
         <div class="favorites-list" id="favorites-list"></div>
         <div class="empty-state" id="favorites-empty" hidden>
           <span aria-hidden="true">♡</span>
-          <strong>Aucune phrase favorite</strong>
-          <p>Ajoute des favoris pendant un défi pour les retrouver ici.</p>
+          <strong data-i18n="favorites.empty.title">No favorite phrases</strong>
+          <p data-i18n="favorites.empty.body">
+            Add favorites during a challenge to find them here.
+          </p>
         </div>
       </section>
 
@@ -162,18 +192,20 @@
           <button
             class="icon-button game-exit"
             id="fullscreen-button"
-            aria-label="Quitter la session"
+            aria-label="Exit session"
+            data-i18n-aria-label="game.exitSession"
           >
             ×
           </button>
           <div class="game-heading">
-            <p class="eyebrow" id="exercise-kicker">Défi 3×3</p>
-            <h2 id="exercise-title">Écoute, puis retrouve la phrase</h2>
+            <p class="eyebrow" id="exercise-kicker" data-i18n="challenge.kicker">3×3 Challenge</p>
+            <h2 id="exercise-title" data-i18n="game.listenFind">Listen, then find the phrase</h2>
           </div>
           <button
             class="favorite-button"
             id="favorite-toggle"
-            aria-label="Ajouter aux favoris"
+            aria-label="Add to favorites"
+            data-i18n-aria-label="favorites.add"
             aria-pressed="false"
           >
             ♡
@@ -182,35 +214,39 @@
 
         <div class="challenge-progress" id="challenge-progress">
           <div class="progress-copy">
-            <strong id="progress-title">Phrase 1 sur 3</strong>
-            <span id="progress-detail">Ton 1 sur 3</span>
+            <strong id="progress-title">Phrase 1 of 3</strong>
+            <span id="progress-detail">Key 1 of 3</span>
           </div>
           <div class="progress-dots" id="progress-dots" aria-hidden="true"></div>
         </div>
 
         <p class="source-summary" id="source-summary" hidden></p>
         <div class="feedback" id="feedback" role="status" aria-live="polite">
-          Prépare-toi…
+          <span data-i18n="game.getReady">Get ready…</span>
         </div>
 
         <div class="rating-workspace" id="rating-workspace" hidden>
-          <div class="quick-rating" aria-label="Noter rapidement cette phrase">
+          <div
+            class="quick-rating"
+            aria-label="Quickly rate this phrase"
+            data-i18n-aria-label="rating.quick.aria"
+          >
             <button type="button" data-quick-rating="1">
-              <strong>1 ★</strong><span>À écarter</span>
+              <strong>1 ★</strong><span data-i18n="rating.discard">Discard</span>
             </button>
             <button type="button" data-quick-rating="2">
-              <strong>2 ★</strong><span>À garder</span>
+              <strong>2 ★</strong><span data-i18n="rating.keep">Keep</span>
             </button>
             <button type="button" data-quick-rating="3">
-              <strong>3 ★</strong><span>À proposer</span>
+              <strong>3 ★</strong><span data-i18n="rating.recommend">Recommend</span>
             </button>
           </div>
           <div class="rating-report">
-            <p class="eyebrow">Point d’étape</p>
-            <strong id="rating-session-summary">0 phrase notée dans cette session</strong>
+            <p class="eyebrow" data-i18n="rating.checkpoint">Checkpoint</p>
+            <strong id="rating-session-summary">0 phrases rated in this session</strong>
             <span id="rating-coverage-summary"></span>
             <button class="text-button" id="undo-rating" type="button" disabled>
-              Annuler la dernière note
+              <span data-i18n="rating.undo">Undo last rating</span>
             </button>
           </div>
         </div>
@@ -219,11 +255,11 @@
           <span id="source-details"></span>
           <span class="phrase-reference" id="phrase-reference" hidden>
             <code id="phrase-id"></code>
-            <button id="copy-phrase-id" type="button">Copier</button>
+            <button id="copy-phrase-id" type="button" data-i18n="source.copy">Copy</button>
           </span>
-          <a id="source-link" href="#" target="_blank" rel="noreferrer">Source</a>
+          <a id="source-link" href="#" target="_blank" rel="noreferrer" data-i18n="source.source">Source</a>
           <a id="audio-source-link" href="#" target="_blank" rel="noreferrer" hidden>
-            Enregistrement
+            <span data-i18n="source.recording">Recording</span>
           </a>
         </p>
 
@@ -234,7 +270,7 @@
         <div class="game-controls">
           <div class="game-speed-control" id="game-speed-setting">
             <label class="setting-field">
-              <span>Vitesse <output id="game-speed-output">100 %</output></span>
+              <span><span data-i18n="game.speed">Speed</span> <output id="game-speed-output">100 %</output></span>
               <input
                 id="game-speed"
                 type="range"
@@ -242,37 +278,39 @@
                 max="100"
                 step="5"
                 value="100"
-                aria-label="Vitesse de lecture"
+                aria-label="Playback speed"
+                data-i18n-aria-label="game.playbackSpeed"
               />
             </label>
           </div>
           <button class="quiet-button replay-button" id="replay" disabled>
-            Réécouter
+            <span data-i18n="game.replay">Replay</span>
           </button>
           <div class="game-context-controls">
             <button class="primary-button" id="free-transpose" hidden>
-              Autre ton
+              <span data-i18n="free.otherKey">Another key</span>
             </button>
             <button class="quiet-button developer-game-control" id="next-exercise" disabled>
-              Suivant
+              <span data-i18n="common.next">Next</span>
             </button>
             <div
               class="star-rating developer-game-control"
               id="exercise-rating"
-              aria-label="Noter cette phrase"
+              aria-label="Rate this phrase"
+              data-i18n-aria-label="rating.aria"
               hidden
             >
-              <button type="button" data-rating="1" aria-label="Noter 1 étoile">★</button>
-              <button type="button" data-rating="2" aria-label="Noter 2 étoiles">★</button>
-              <button type="button" data-rating="3" aria-label="Noter 3 étoiles">★</button>
+              <button type="button" data-rating="1" aria-label="Rate 1 star" data-i18n-aria-label="rating.oneStar">★</button>
+              <button type="button" data-rating="2" aria-label="Rate 2 stars" data-i18n-aria-label="rating.twoStars">★</button>
+              <button type="button" data-rating="3" aria-label="Rate 3 stars" data-i18n-aria-label="rating.threeStars">★</button>
             </div>
             <div class="original-controls developer-game-control" id="original-controls" hidden>
               <button class="quiet-button" id="play-original" aria-pressed="false" disabled>
-                Écouter l’original
+                <span data-i18n="game.listenOriginal">Play original</span>
               </button>
               <label class="transpose-toggle">
                 <input id="transpose-original" type="checkbox" />
-                <span>Transposer</span>
+                <span data-i18n="game.transpose">Transpose</span>
               </label>
             </div>
           </div>
@@ -289,15 +327,22 @@
       hidden
     >
       <div class="modal-card install-card">
-        <p class="eyebrow">Sur iPhone et iPad</p>
-        <h2 id="ios-install-title">Installer l’app</h2>
+        <p class="eyebrow" data-i18n="ios.kicker">On iPhone and iPad</p>
+        <h2 id="ios-install-title" data-i18n="ios.title">Install the app</h2>
         <ol class="install-steps">
-          <li>Ouvre cette page dans Safari.</li>
-          <li>Touche le bouton <strong>Partager</strong>.</li>
-          <li>Choisis <strong>Ajouter à l’écran d’accueil</strong>.</li>
+          <li data-i18n="ios.stepSafari">Open this page in Safari.</li>
+          <li>
+            <span data-i18n="ios.stepShareBefore">Tap the</span>
+            <strong data-i18n="ios.share">Share</strong>
+            <span data-i18n="ios.stepShareAfter">button.</span>
+          </li>
+          <li>
+            <span data-i18n="ios.stepAddBefore">Choose</span>
+            <strong data-i18n="ios.addToHome">Add to Home Screen</strong><span data-i18n="ios.stepAddAfter">.</span>
+          </li>
         </ol>
         <button class="primary-button wide-button" id="close-ios-install" type="button">
-          J’ai compris
+          <span data-i18n="ios.done">Got it</span>
         </button>
       </div>
     </div>
@@ -312,14 +357,14 @@
     >
       <div class="modal-card sudden-death-card">
         <span class="modal-symbol" aria-hidden="true">⚡</span>
-        <p class="eyebrow">Round final</p>
-        <h2 id="sudden-death-title">Mort subite</h2>
-        <p>
-          Réécoute autant que nécessaire. Dès ta première note, tu n’as qu’une
-          tentative. Une erreur, et la phrase reviendra plus tard dans un autre ton.
+        <p class="eyebrow" data-i18n="sudden.kicker">Final round</p>
+        <h2 id="sudden-death-title" data-i18n="sudden.title">Sudden death</h2>
+        <p data-i18n="sudden.body">
+          Replay as often as needed. Once you play your first note, you have one
+          attempt. Make a mistake, and the phrase will return later in another key.
         </p>
         <button class="primary-button wide-button" id="start-sudden-death">
-          Je suis prêt
+          <span data-i18n="sudden.ready">I’m ready</span>
         </button>
       </div>
     </div>
@@ -334,14 +379,16 @@
     >
       <div class="modal-card completion-card">
         <span class="modal-symbol success-symbol" aria-hidden="true">✓</span>
-        <p class="eyebrow">Session terminée</p>
-        <h2 id="challenge-complete-title">Défi réussi</h2>
-        <p>Trois phrases ancrées, chacune retrouvée du premier coup.</p>
+        <p class="eyebrow" data-i18n="complete.kicker">Session complete</p>
+        <h2 id="challenge-complete-title" data-i18n="complete.title">Challenge complete</h2>
+        <p data-i18n="complete.body">
+          Three phrases learned, each found on the first try.
+        </p>
         <div class="completed-phrases" id="completed-phrases"></div>
         <button class="primary-button wide-button" id="finish-new-challenge">
-          Nouveau défi
+          <span data-i18n="complete.new">New challenge</span>
         </button>
-        <button class="text-button" id="finish-home">Retour à l’accueil</button>
+        <button class="text-button" id="finish-home" data-i18n="complete.home">Back to home</button>
       </div>
     </div>
 
@@ -354,26 +401,27 @@
       hidden
     >
       <div class="modal-card completion-card">
-        <p class="eyebrow">Phrase retrouvée</p>
-        <h2 id="completion-title">Bien joué !</h2>
+        <p class="eyebrow" data-i18n="completion.kicker">Phrase complete</p>
+        <h2 id="completion-title" data-i18n="completion.title">Well done!</h2>
         <div
           class="star-rating"
           id="completion-rating"
-          aria-label="Noter cette phrase"
+          aria-label="Rate this phrase"
+          data-i18n-aria-label="rating.aria"
           hidden
         >
-          <button type="button" data-rating="1" aria-label="Noter 1 étoile">★</button>
-          <button type="button" data-rating="2" aria-label="Noter 2 étoiles">★</button>
-          <button type="button" data-rating="3" aria-label="Noter 3 étoiles">★</button>
+          <button type="button" data-rating="1" aria-label="Rate 1 star" data-i18n-aria-label="rating.oneStar">★</button>
+          <button type="button" data-rating="2" aria-label="Rate 2 stars" data-i18n-aria-label="rating.twoStars">★</button>
+          <button type="button" data-rating="3" aria-label="Rate 3 stars" data-i18n-aria-label="rating.threeStars">★</button>
         </div>
         <div class="legacy-completion-actions">
           <button class="quiet-button" id="completion-original" aria-pressed="false" hidden>
-            Écouter l’original
+            <span data-i18n="game.listenOriginal">Play original</span>
           </button>
-          <button class="quiet-button" id="restart-exercise">Recommencer</button>
-          <button class="primary-button" id="transpose-exercise">Transposer</button>
-          <button class="primary-button" id="completion-next">Suivant</button>
-          <button class="text-button" id="completion-exit">Quitter</button>
+          <button class="quiet-button" id="restart-exercise" data-i18n="completion.restart">Start over</button>
+          <button class="primary-button" id="transpose-exercise" data-i18n="game.transpose">Transpose</button>
+          <button class="primary-button" id="completion-next" data-i18n="common.next">Next</button>
+          <button class="text-button" id="completion-exit" data-i18n="completion.exit">Exit</button>
         </div>
       </div>
     </div>
@@ -381,9 +429,14 @@
     <div class="rotate-overlay" aria-live="polite">
       <div>
         <span class="rotate-icon" aria-hidden="true">↻</span>
-        <strong>Tourne l’appareil</strong>
-        <p>Jazz Solo Challenge se joue en paysage.</p>
-        <button class="icon-button" id="exit-portrait-mode" aria-label="Quitter">×</button>
+        <strong data-i18n="rotate.title">Rotate your device</strong>
+        <p data-i18n="rotate.body">Jazz Solo Challenge is played in landscape.</p>
+        <button
+          class="icon-button"
+          id="exit-portrait-mode"
+          aria-label="Exit"
+          data-i18n-aria-label="rotate.exit"
+        >×</button>
       </div>
     </div>
   </body>
