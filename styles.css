@@ -418,7 +418,7 @@ body.home-view {
   position: absolute;
   right: 0;
   bottom: 42px;
-  width: min(720px, calc(100vw - 36px));
+  width: min(250px, calc(100vw - 36px));
   max-height: min(78vh, 560px);
   padding: 18px;
   overflow-y: auto;
@@ -426,6 +426,23 @@ body.home-view {
   border-radius: var(--radius);
   background: rgba(21, 24, 20, 0.98);
   box-shadow: var(--shadow);
+}
+
+.developer-home-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.developer-home-actions .primary-button {
+  grid-column: 1 / -1;
+}
+
+.developer-home-actions button {
+  min-height: 44px;
 }
 
 .developer-settings {
@@ -973,6 +990,27 @@ body.game-mode {
   gap: 20px;
 }
 
+.review-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.review-navigation .icon-button {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+
+.review-navigation strong {
+  min-width: 70px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
 .progress-copy {
   display: flex;
   align-items: baseline;
@@ -1225,6 +1263,7 @@ body.game-mode {
   justify-self: end;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .game-context-controls .star-rating {
@@ -1235,8 +1274,69 @@ body.game-mode {
   display: none;
 }
 
-.developer-mode.game-mode:not(.challenge-mode):not(.free-mode) .developer-game-control:not([hidden]) {
+.developer-mode.game-mode .developer-game-control:not([hidden]) {
   display: flex;
+}
+
+.phrase-adjustments {
+  width: min(100%, 330px);
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.phrase-stepper {
+  display: grid;
+  grid-template-columns: auto 27px minmax(34px, auto) 27px;
+  min-height: 34px;
+  align-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.phrase-stepper > span {
+  padding-left: 9px;
+}
+
+.phrase-stepper button {
+  width: 27px;
+  min-width: 27px;
+  min-height: 32px;
+  padding: 0;
+  color: var(--text);
+  border: 0;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.phrase-stepper button:hover:not(:disabled) {
+  color: var(--accent);
+  background: rgba(216, 229, 109, 0.07);
+}
+
+.phrase-stepper output {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.developer-mode .game-controls {
+  grid-template-columns:
+    minmax(135px, 0.65fr)
+    110px
+    minmax(240px, 1.35fr);
+}
+
+.developer-mode .replay-button {
+  width: 110px;
 }
 
 .original-controls {
@@ -1259,6 +1359,20 @@ body.game-mode {
 
 .rating-workspace {
   min-height: 0;
+}
+
+.quick-rating-column {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 9px;
+}
+
+.set-phrase-end {
+  width: 100%;
+  min-height: 42px;
+  color: var(--accent);
+  border-color: var(--line-strong);
 }
 
 .quick-rating {
@@ -1336,6 +1450,10 @@ body.game-mode {
   gap: 12px;
 }
 
+.review-mode .challenge-progress {
+  grid-template-columns: auto auto;
+}
+
 .rating-mode .source-line {
   display: block !important;
   grid-area: source;
@@ -1364,6 +1482,14 @@ body.game-mode {
 
   .musician-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phrase-stepper {
+    grid-template-columns: 27px minmax(34px, auto) 27px;
+  }
+
+  .phrase-stepper > span {
+    display: none;
   }
 
   .favorites-panel {
@@ -1432,6 +1558,27 @@ body.game-mode {
 
   .rating-mode .rating-workspace:not([hidden]) {
     grid-template-columns: 1fr;
+  }
+
+  .developer-mode.rating-mode .game-controls {
+    grid-template-columns: minmax(0, 1fr) 110px;
+  }
+
+  .developer-mode.rating-mode .replay-button {
+    width: 110px;
+    grid-column: 2;
+  }
+
+  .developer-mode.rating-mode .game-context-controls {
+    width: 100%;
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: center;
+  }
+
+  .developer-mode.rating-mode .phrase-adjustments {
+    width: 100%;
+    justify-content: center;
   }
 }
 

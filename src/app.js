@@ -29,6 +29,11 @@ import {
   ratingProtocolSummary,
 } from "./ratings.js";
 import {
+  DEFAULT_PHRASE_MAX_NOTES,
+  mergePhraseSettings,
+  resolvePhraseSettings,
+} from "./phrase-settings.js";
+import {
   applyDocumentTranslations,
   locale,
   localizeError,
@@ -40,16 +45,18 @@ import {
   DEFAULT_PHRASE_RATINGS,
   DEFAULT_RATING_SCOPES,
 } from "../data/default-ratings.js";
+import { DEFAULT_PHRASE_SETTINGS } from "../data/default-phrase-settings.js";
 
 applyDocumentTranslations();
 
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RATINGS_KEY = "dictee-musicale.ratings.v1";
 const RATING_SCOPES_KEY = "dictee-musicale.rating-scopes.v1";
+const PHRASE_SETTINGS_KEY = "dictee-musicale.phrase-settings.v1";
 const CHALLENGE_SESSION_KEY = "dictee-musicale.challenge-session.v1";
 const COMPLETED_PHRASES_KEY = "dictee-musicale.completed-phrases.v1";
 const FAVORITES_KEY = "dictee-musicale.favorites.v1";
-const REAL_MAX_NOTES = 20;
+const REAL_MAX_NOTES = DEFAULT_PHRASE_MAX_NOTES;
 const RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE = 100;
 const LEGATO_RELEASE_SECONDS = 0.035;
 const WRONG_NOTE_REPLAY_DELAY_MS = 650;
@@ -62,6 +69,7 @@ const ORIGINAL_TAIL_SECONDS = 0.25;
 const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
 const QUICK_RATING_ADVANCE_DELAY_MS = 180;
+const PHRASE_ADJUSTMENT_RELOAD_DELAY_MS = 140;
 const INPUT_BURST_QUIET_MS = 500;
 const VIEWPORT_SYNC_DELAYS_MS = [80, 240, 600];
 const MELODY_SAMPLE_INSTRUMENTS = {
@@ -119,6 +127,7 @@ const elements = {
   startReal: document.querySelector("#start-real"),
   startRandom: document.querySelector("#start-random"),
   startRating: document.querySelector("#start-rating"),
+  startReview: document.querySelector("#start-review"),
   musicianPicker: document.querySelector("#musician-picker"),
   musicianList: document.querySelector("#musician-list"),
   musicianSelectionCount: document.querySelector("#musician-selection-count"),
@@ -131,6 +140,7 @@ const elements = {
   developerOnly: document.querySelectorAll("[data-developer-only]"),
   ratingHomeSummary: document.querySelector("#rating-home-summary"),
   ratingWorkspace: document.querySelector("#rating-workspace"),
+  setPhraseEnd: document.querySelector("#set-phrase-end"),
   ratingSessionSummary: document.querySelector("#rating-session-summary"),
   ratingCoverageSummary: document.querySelector("#rating-coverage-summary"),
   undoRating: document.querySelector("#undo-rating"),
@@ -141,7 +151,7 @@ const elements = {
   kicker: document.querySelector("#exercise-kicker"),
   exerciseTitle: document.querySelector("#exercise-title"),
   piano: document.querySelector("#piano"),
-  exportRatings: document.querySelector("#export-ratings"),
+  exportData: document.querySelector("#export-data"),
   installButton: document.querySelector("#install-button"),
   iosInstallModal: document.querySelector("#ios-install-modal"),
   closeIosInstall: document.querySelector("#close-ios-install"),
@@ -158,8 +168,18 @@ const elements = {
   playOriginal: document.querySelector("#play-original"),
   transposeOriginal: document.querySelector("#transpose-original"),
   exerciseRating: document.querySelector("#exercise-rating"),
+  phraseAdjustments: document.querySelector("#phrase-adjustments"),
+  phraseLengthDecrease: document.querySelector("#phrase-length-decrease"),
+  phraseLengthIncrease: document.querySelector("#phrase-length-increase"),
+  phraseLengthOutput: document.querySelector("#phrase-length-output"),
+  shortNotesDecrease: document.querySelector("#short-notes-decrease"),
+  shortNotesIncrease: document.querySelector("#short-notes-increase"),
+  shortNotesOutput: document.querySelector("#short-notes-output"),
+  reviewNavigation: document.querySelector("#review-navigation"),
+  reviewPrevious: document.querySelector("#review-previous"),
+  reviewNext: document.querySelector("#review-next"),
+  reviewCounter: document.querySelector("#review-counter"),
   completionModal: document.querySelector("#completion-modal"),
-  completionRating: document.querySelector("#completion-rating"),
   completionOriginal: document.querySelector("#completion-original"),
   restartExercise: document.querySelector("#restart-exercise"),
   transposeExercise: document.querySelector("#transpose-exercise"),
@@ -190,6 +210,18 @@ let fixedRatingScopes = mergeRatingScopes(
   DEFAULT_RATING_SCOPES,
   localRatingScopes,
 );
+let localPhraseSettings = readJson(PHRASE_SETTINGS_KEY, {});
+if (
+  !localPhraseSettings ||
+  typeof localPhraseSettings !== "object" ||
+  Array.isArray(localPhraseSettings)
+) {
+  localPhraseSettings = {};
+}
+let phraseSettings = mergePhraseSettings(
+  DEFAULT_PHRASE_SETTINGS,
+  localPhraseSettings,
+);
 let currentMode = "challenge";
 let randomLength = 5;
 let realMaxNotes = REAL_MAX_NOTES;
@@ -201,6 +233,8 @@ let developerMode = false;
 let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 let ratingSessionHistory = [];
 let ratingSessionBaselineScopes = new Set();
+let reviewPhraseKeys = [];
+let reviewPhraseIndex = 0;
 let challengeSession = readJson(CHALLENGE_SESSION_KEY, null);
 let completedPhraseKeys = readJson(COMPLETED_PHRASES_KEY, []);
 let favoritePhraseKeys = readJson(FAVORITES_KEY, []);
@@ -222,6 +256,7 @@ let restartTimer = null;
 let completionTimer = null;
 let gameModeStartTimer = null;
 let quickRatingAdvanceTimer = null;
+let phraseAdjustmentTimer = null;
 let roundAdvanceTimer = null;
 let phraseIdCopyTimer = null;
 let viewportSyncTimers = [];
@@ -344,7 +379,7 @@ function currentRatingProtocol(selectedOnly = false) {
 }
 
 function renderProtocolHomeSummary() {
-  const summary = currentRatingProtocol(true);
+  const summary = currentRatingProtocol(false);
   const scopeCount =
     summary.tuneScopes.length + summary.performerScopes.length;
   elements.ratingHomeSummary.textContent =
@@ -370,16 +405,21 @@ function renderDeveloperMode() {
   }
   elements.developerMode.checked = developerMode;
   renderProtocolHomeSummary();
+  renderRatingControls();
+  renderPhraseControls();
 }
 
 async function setDeveloperMode(enabled) {
   developerMode = Boolean(enabled);
-  if (!developerMode && currentMode === "rating") {
+  elements.developerMode.closest("details")?.removeAttribute("open");
+  if (
+    !developerMode &&
+    (currentMode === "rating" || currentMode === "review")
+  ) {
     currentMode = "jazz";
     await leaveGameMode();
   }
   renderDeveloperMode();
-  renderRatingControls();
   saveSettings();
 }
 
@@ -397,7 +437,7 @@ function updatePerformerSelectionState() {
   const hasSelection = selectedPerformers.size > 0;
   elements.startReal.disabled = !hasSelection;
   elements.startRandom.disabled = false;
-  elements.startRating.disabled = !hasSelection;
+  elements.startRating.disabled = false;
   elements.selectionWarning.hidden = hasSelection;
   renderProtocolHomeSummary();
 }
@@ -518,26 +558,33 @@ function syncMinimumRating(value) {
 }
 
 function startMode(mode) {
-  if ((mode === "jazz" || mode === "rating") && !selectedPerformers.size) {
+  if (mode === "jazz" && !selectedPerformers.size) {
     elements.selectionWarning.hidden = false;
     elements.musicianPicker.open = true;
     return;
   }
-  if (mode === "rating" && !developerMode) return;
+  if ((mode === "rating" || mode === "review") && !developerMode) return;
   if (mode === "rating") {
     ratingSessionHistory = [];
     ratingSessionBaselineScopes = new Set(
-      currentRatingProtocol(true).scopes.map(
+      currentRatingProtocol(false).scopes.map(
         (scope) => `${scope.scope}:${scope.scopeId}`,
       ),
     );
     renderRatingSession();
+  }
+  if (mode === "review") {
+    reviewPhraseKeys = threeStarReviewCatalog().map(
+      ({ phraseKey }) => phraseKey,
+    );
+    reviewPhraseIndex = 0;
   }
   currentMode = mode;
   document.body.classList.remove(
     "challenge-mode",
     "free-mode",
     "sudden-death-mode",
+    "review-mode",
   );
   elements.challengeProgress.hidden = true;
   elements.sourceSummary.hidden = true;
@@ -555,6 +602,7 @@ function effectivePhraseRatings() {
 function challengeCatalog() {
   return jazzPhraseCatalog({
     phraseRatings: effectivePhraseRatings(),
+    phraseSettings,
     minimumRating: 3,
   });
 }
@@ -562,8 +610,22 @@ function challengeCatalog() {
 function allPhraseCatalog() {
   return jazzPhraseCatalog({
     phraseRatings: effectivePhraseRatings(),
+    phraseSettings,
     minimumRating: 0,
   });
+}
+
+function threeStarReviewCatalog() {
+  return jazzPhraseCatalog({
+    phraseRatings: effectivePhraseRatings(),
+    phraseSettings,
+    minimumRating: 3,
+  }).sort(
+    (left, right) =>
+      left.performer.localeCompare(right.performer, locale) ||
+      left.title.localeCompare(right.title, locale) ||
+      Number(left.phrase) - Number(right.phrase),
+  );
 }
 
 function catalogMap(catalog = allPhraseCatalog()) {
@@ -746,6 +808,8 @@ function renderProgressDots(total, completed, current = null) {
 
 function renderChallengeProgress() {
   elements.challengeProgress.hidden = false;
+  elements.progressDots.hidden = false;
+  elements.reviewNavigation.hidden = true;
   document.body.classList.toggle(
     "sudden-death-mode",
     challengeSession?.phase === "sudden-death",
@@ -773,6 +837,62 @@ function renderChallengeProgress() {
       Math.min(challengeSession.suddenCompleted.length, 2),
     );
   }
+}
+
+function renderReviewProgress() {
+  const total = reviewPhraseKeys.length;
+  elements.challengeProgress.hidden = false;
+  elements.progressDots.hidden = true;
+  elements.reviewNavigation.hidden = false;
+  elements.progressTitle.textContent = t("mode.review");
+  elements.progressDetail.textContent = total
+    ? t("review.progress", {
+        current: reviewPhraseIndex + 1,
+        total,
+      })
+    : t("review.empty");
+  elements.reviewCounter.textContent = total
+    ? `${reviewPhraseIndex + 1}/${total}`
+    : "0/0";
+  elements.reviewPrevious.disabled = reviewPhraseIndex <= 0;
+  elements.reviewNext.disabled =
+    !total || reviewPhraseIndex >= total - 1;
+}
+
+async function moveReviewPhrase(offset) {
+  if (currentMode !== "review" || !reviewPhraseKeys.length) return;
+  const nextIndex = clamp(
+    reviewPhraseIndex + Number(offset),
+    0,
+    reviewPhraseKeys.length - 1,
+  );
+  if (nextIndex === reviewPhraseIndex) return;
+  reviewPhraseIndex = nextIndex;
+  await startExercise({
+    targetPhraseKeyOverride: reviewPhraseKeys[reviewPhraseIndex],
+  });
+}
+
+async function refreshReviewAfterRating() {
+  if (currentMode !== "review") return;
+  const previousIndex = reviewPhraseIndex;
+  reviewPhraseKeys = threeStarReviewCatalog().map(
+    ({ phraseKey }) => phraseKey,
+  );
+  if (!reviewPhraseKeys.length) {
+    stopAllTones();
+    exercise = null;
+    renderReviewProgress();
+    renderPhraseControls();
+    renderRatingControls();
+    elements.feedback.className = "feedback success";
+    elements.feedback.textContent = t("review.empty");
+    return;
+  }
+  reviewPhraseIndex = Math.min(previousIndex, reviewPhraseKeys.length - 1);
+  await startExercise({
+    targetPhraseKeyOverride: reviewPhraseKeys[reviewPhraseIndex],
+  });
 }
 
 function showSuddenDeathTransition() {
@@ -1221,6 +1341,7 @@ function stopAllTones() {
   activeAudioSources.clear();
   setPlaybackState(false);
   setOriginalPlaybackState(false);
+  elements.setPhraseEnd.disabled = true;
 }
 
 function scheduleRoundTransition(callback) {
@@ -1241,6 +1362,13 @@ function restoreExerciseInput(message = null) {
     elements.feedback.className = "feedback";
     elements.feedback.textContent =
       message ?? t("rating.prompt");
+    return;
+  }
+  if (currentMode === "review") {
+    acceptingInput = false;
+    elements.feedback.className = "feedback";
+    elements.feedback.textContent =
+      message ?? t("review.listenAdjust");
     return;
   }
   acceptingInput = exercise.currentIndex < exercise.notes.length;
@@ -1383,8 +1511,13 @@ function playSequence({ guardInputBurst = false } = {}) {
   stopAllTones();
   guardPlaybackFromInputBurst = guardInputBurst;
   setPlaybackState(true);
+  exercise.playbackStartedAt = performance.now();
   elements.replay.disabled = false;
   if (currentMode === "rating") setQuickRatingEnabled(true);
+  elements.setPhraseEnd.disabled =
+    currentMode !== "rating" ||
+    !exercise.quickRatingFullPreview ||
+    !exercise.timings;
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = t("audio.listenCarefully");
@@ -1435,7 +1568,12 @@ function playSequence({ guardInputBurst = false } = {}) {
   playbackTimer = window.setTimeout(() => {
     playbackTimer = null;
     setPlaybackState(false);
+    elements.setPhraseEnd.disabled = true;
     if (currentMode === "rating") {
+      restoreExerciseInput();
+      return;
+    }
+    if (currentMode === "review") {
       restoreExerciseInput();
       return;
     }
@@ -1464,6 +1602,159 @@ function markReferenceKey() {
   key?.classList.add("reference-key");
 }
 
+function refreshPhraseSettingsFromLocal() {
+  phraseSettings = mergePhraseSettings(
+    DEFAULT_PHRASE_SETTINGS,
+    localPhraseSettings,
+  );
+}
+
+function currentResolvedPhraseSettings() {
+  const source = exercise?.source;
+  if (!source?.phraseKey || !Number.isFinite(source.fullPhraseNoteCount)) {
+    return null;
+  }
+  return resolvePhraseSettings(
+    phraseSettings[source.phraseKey],
+    source.fullPhraseNoteCount,
+  );
+}
+
+function phraseSettingsLocked() {
+  return Boolean(
+    currentMode === "challenge" &&
+      challengeSession?.phase === "sudden-death" &&
+      exercise?.executionStarted,
+  );
+}
+
+function renderPhraseControls() {
+  const settings = currentResolvedPhraseSettings();
+  const visible = Boolean(
+    developerMode &&
+      settings &&
+      exercise?.source?.kind === "transcription",
+  );
+  elements.phraseAdjustments.hidden = !visible;
+  if (!visible) return;
+
+  const locked = phraseSettingsLocked();
+  elements.phraseLengthOutput.value =
+    `${settings.notesMax}/${settings.fullPhraseNoteCount}`;
+  elements.shortNotesOutput.value = String(
+    settings.ignoredShortestNotes,
+  );
+  elements.phraseLengthDecrease.disabled =
+    locked || settings.notesMax <= 1;
+  elements.phraseLengthIncrease.disabled =
+    locked || settings.notesMax >= settings.fullPhraseNoteCount;
+  elements.shortNotesDecrease.disabled =
+    locked || settings.ignoredShortestNotes <= 0;
+  elements.shortNotesIncrease.disabled =
+    locked ||
+    settings.ignoredShortestNotes >= settings.notesMax - 1;
+}
+
+function saveCurrentPhraseSettings(nextSettings) {
+  const source = exercise?.source;
+  if (
+    !developerMode ||
+    !source?.phraseKey ||
+    !Number.isFinite(source.fullPhraseNoteCount) ||
+    phraseSettingsLocked()
+  ) {
+    return false;
+  }
+  const normalized = resolvePhraseSettings(
+    nextSettings,
+    source.fullPhraseNoteCount,
+  );
+  localPhraseSettings[source.phraseKey] = {
+    notesMax: normalized.notesMax,
+    ignoredShortestNotes: normalized.ignoredShortestNotes,
+    updatedAt: new Date().toISOString(),
+  };
+  refreshPhraseSettingsFromLocal();
+  writeJson(PHRASE_SETTINGS_KEY, localPhraseSettings);
+  renderPhraseControls();
+  schedulePhraseSettingsReload();
+  return true;
+}
+
+function adjustCurrentPhraseSettings(field, delta) {
+  const current = currentResolvedPhraseSettings();
+  if (!current) return;
+  const next = {
+    notesMax: current.notesMax,
+    ignoredShortestNotes: current.ignoredShortestNotes,
+  };
+  next[field] += Number(delta);
+  saveCurrentPhraseSettings(next);
+}
+
+function schedulePhraseSettingsReload() {
+  if (!exercise?.source?.phraseKey) return;
+  stopAllTones();
+  if (currentMode === "rating") setQuickRatingEnabled(false);
+  acceptingInput = false;
+  elements.setPhraseEnd.disabled = true;
+  elements.feedback.className = "feedback";
+  elements.feedback.textContent =
+    currentMode === "rating"
+      ? t("rating.adjustedPreview")
+      : t("game.getReady");
+  if (phraseAdjustmentTimer !== null) {
+    window.clearTimeout(phraseAdjustmentTimer);
+  }
+  phraseAdjustmentTimer = window.setTimeout(async () => {
+    phraseAdjustmentTimer = null;
+    await reloadCurrentPhraseWithSettings();
+  }, PHRASE_ADJUSTMENT_RELOAD_DELAY_MS);
+}
+
+async function reloadCurrentPhraseWithSettings() {
+  const phraseKey = exercise?.source?.phraseKey;
+  const transposition = exercise?.transposition ?? 0;
+  if (!phraseKey) return;
+  if (currentMode === "challenge" || currentMode === "free") {
+    await loadPublicPhrase({ phraseKey, transposition });
+    return;
+  }
+  await startExercise({
+    targetPhraseKeyOverride: phraseKey,
+    transpositionOverride: transposition,
+    quickRatingFullPreview: false,
+  });
+}
+
+function setQuickRatingPhraseEnd() {
+  if (
+    currentMode !== "rating" ||
+    !exercise?.quickRatingFullPreview ||
+    !isPlaying ||
+    !Array.isArray(exercise.timings) ||
+    !Number.isFinite(exercise.playbackStartedAt)
+  ) {
+    return;
+  }
+  const timeScale = 100 / exercise.speedPercent;
+  const phraseSeconds =
+    (performance.now() - exercise.playbackStartedAt) / 1000 / timeScale;
+  const startedNotes = exercise.timings.filter(
+    ({ offset }) => offset <= phraseSeconds + Number.EPSILON,
+  ).length;
+  const notesMax = clamp(
+    startedNotes || 1,
+    1,
+    exercise.source.fullPhraseNoteCount,
+  );
+  const current = currentResolvedPhraseSettings();
+  saveCurrentPhraseSettings({
+    notesMax,
+    ignoredShortestNotes: current?.ignoredShortestNotes ?? 0,
+  });
+}
+
 function refreshRatingsFromLocal() {
   phraseRatings = mergePhraseRatings(
     DEFAULT_PHRASE_RATINGS,
@@ -1485,7 +1776,7 @@ function renderRatingSession() {
   const sessionCount = ratingSessionHistory.length;
   const distribution = { 1: 0, 2: 0, 3: 0 };
   for (const item of ratingSessionHistory) distribution[item.rating] += 1;
-  const summary = currentRatingProtocol(true);
+  const summary = currentRatingProtocol(false);
   const newScopes = summary.scopes.filter(
     (scope) =>
       !ratingSessionBaselineScopes.has(`${scope.scope}:${scope.scopeId}`),
@@ -1557,7 +1848,6 @@ function renderStarRating(element, rating) {
 function renderRatingControls() {
   const rating = currentPhraseRating();
   renderStarRating(elements.exerciseRating, rating);
-  renderStarRating(elements.completionRating, rating);
 }
 
 function setPhraseRating(
@@ -1592,9 +1882,12 @@ function setPhraseRating(
   return true;
 }
 
-function setRatingFromButton(event) {
+async function setRatingFromButton(event) {
   const rating = Number(event.currentTarget.dataset.rating);
-  setPhraseRating(rating);
+  const changed = setPhraseRating(rating);
+  if (changed && currentMode === "review" && rating !== 3) {
+    await refreshReviewAfterRating();
+  }
 }
 
 function setQuickRating(event) {
@@ -1652,6 +1945,10 @@ function undoLastRating() {
 }
 
 async function loadPublicPhrase({ phraseKey, transposition }) {
+  if (phraseAdjustmentTimer !== null) {
+    window.clearTimeout(phraseAdjustmentTimer);
+    phraseAdjustmentTimer = null;
+  }
   hideCompletionModal();
   elements.suddenDeathModal.hidden = true;
   stopAllTones();
@@ -1664,7 +1961,7 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   updateModeSettings();
   document.body.classList.toggle("challenge-mode", isChallenge);
   document.body.classList.toggle("free-mode", isFree);
-  document.body.classList.remove("rating-mode");
+  document.body.classList.remove("rating-mode", "review-mode");
   document.body.classList.toggle(
     "sudden-death-mode",
     isChallenge && challengeSession?.phase === "sudden-death",
@@ -1677,6 +1974,7 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
       mode: "jazz",
       selectedPerformers: WJAZZD_PERFORMERS.map(({ name }) => name),
       phraseRatings: effectivePhraseRatings(),
+      phraseSettings,
       minimumRating: isChallenge ? 3 : 0,
       targetPhraseKey: phraseKey,
       transpositionOverride: transposition,
@@ -1728,6 +2026,8 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
     guessStartedAt: null,
     solvedAtLeastOnce: false,
     executionStarted: false,
+    quickRatingFullPreview: false,
+    playbackStartedAt: null,
   };
 
   elements.kicker.textContent =
@@ -1745,12 +2045,15 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   renderSource(generated.meta.source);
   elements.sourceLine.hidden = true;
   elements.originalControls.hidden = true;
+  elements.nextExercise.hidden = true;
   elements.nextExercise.disabled = true;
   elements.ratingWorkspace.hidden = true;
   elements.freeTranspose.hidden = !isFree;
   elements.challengeProgress.hidden = isFree;
   if (isChallenge) renderChallengeProgress();
   renderFavoriteButton();
+  renderRatingControls();
+  renderPhraseControls();
   buildPiano(generated.keyboard);
   markReferenceKey();
   elements.replay.disabled = enteringGameMode;
@@ -1797,40 +2100,72 @@ async function launchSuddenDeath() {
   await loadChallengeRound();
 }
 
-async function startExercise() {
+async function startExercise({
+  targetPhraseKeyOverride = null,
+  transpositionOverride = null,
+  quickRatingFullPreview = null,
+} = {}) {
+  if (phraseAdjustmentTimer !== null) {
+    window.clearTimeout(phraseAdjustmentTimer);
+    phraseAdjustmentTimer = null;
+  }
   hideCompletionModal();
+  stopAllTones();
   getAudioContext();
   const isRatingMode = currentMode === "rating";
+  const isReviewMode = currentMode === "review";
   const protocol = currentRatingProtocol(false);
-  const targetPhraseKey = isRatingMode
-    ? pickRatingPhrase({
-        phraseRatings,
-        fixedScopes: fixedRatingScopes,
-        selectedPerformers: [...selectedPerformers],
-        sessionHistory: ratingSessionHistory,
-      })
-    : null;
+  const allPerformers = WJAZZD_PERFORMERS.map(({ name }) => name);
+  const targetPhraseKey =
+    targetPhraseKeyOverride ??
+    (isRatingMode
+      ? pickRatingPhrase({
+          phraseRatings,
+          fixedScopes: fixedRatingScopes,
+          selectedPerformers: allPerformers,
+          sessionHistory: ratingSessionHistory,
+        })
+      : isReviewMode
+        ? reviewPhraseKeys[reviewPhraseIndex] ?? null
+        : null);
   if (isRatingMode && !targetPhraseKey) {
     elements.feedback.className = "feedback success";
     elements.feedback.textContent = t("rating.allCovered");
     renderRatingSession();
     return;
   }
+  if (isReviewMode && !targetPhraseKey) {
+    elements.feedback.className = "feedback success";
+    elements.feedback.textContent = t("review.empty");
+    renderReviewProgress();
+    return;
+  }
+  const useFullQuickRatingPreview =
+    isRatingMode &&
+    (quickRatingFullPreview ?? targetPhraseKeyOverride === null);
   const enteringGameMode = !document.body.classList.contains("game-mode");
   document.body.classList.toggle("rating-mode", isRatingMode);
+  document.body.classList.toggle("review-mode", isReviewMode);
   saveSettings();
   let generated;
   try {
     generated = makeSequence({
       length: randomLength,
-      maxNotes: realMaxNotes,
-      mode: isRatingMode ? "jazz" : currentMode,
-      selectedPerformers: [...selectedPerformers],
+      maxNotes: REAL_MAX_NOTES,
+      mode: isRatingMode || isReviewMode ? "jazz" : currentMode,
+      selectedPerformers:
+        isRatingMode || isReviewMode
+          ? allPerformers
+          : [...selectedPerformers],
       phraseRatings: protocol.effectiveRatings,
-      minimumRating: isRatingMode ? 0 : activeMinimumRating(),
+      phraseSettings,
+      minimumRating:
+        isRatingMode ? 0 : isReviewMode ? 3 : activeMinimumRating(),
       targetPhraseKey,
-      fullPhrase: isRatingMode,
-      transpositionOverride: isRatingMode ? 0 : null,
+      fullPhrase: useFullQuickRatingPreview,
+      transpositionOverride:
+        transpositionOverride ??
+        (isRatingMode || isReviewMode ? 0 : null),
     });
   } catch (error) {
     const message = localizeError(
@@ -1885,28 +2220,44 @@ async function startExercise() {
     replayCount: 0,
     guessStartedAt: null,
     solvedAtLeastOnce: false,
+    executionStarted: false,
+    quickRatingFullPreview: useFullQuickRatingPreview,
+    playbackStartedAt: null,
   };
 
   elements.kicker.textContent =
-    generated.meta.source.kind === "generated"
-      ? t("mode.generated")
-      : generated.meta.label;
-  elements.exerciseTitle.textContent = isRatingMode
-    ? t("rating.listenRate")
-    : t("game.listenFind");
+    isRatingMode
+      ? t("developer.quickRating")
+      : isReviewMode
+        ? t("mode.review")
+        : generated.meta.source.kind === "generated"
+          ? t("mode.generated")
+          : generated.meta.label;
+  elements.exerciseTitle.textContent =
+    isRatingMode
+      ? t("rating.listenRate")
+      : isReviewMode
+        ? t("review.listenAdjust")
+        : t("game.listenFind");
   renderSource(generated.meta.source);
   const hasOriginal = Boolean(generated.meta.source.audioFile);
-  elements.originalControls.hidden = isRatingMode || !hasOriginal;
+  elements.originalControls.hidden =
+    isRatingMode || isReviewMode || !hasOriginal;
   elements.playOriginal.disabled = !hasOriginal;
   elements.transposeOriginal.disabled = !hasOriginal;
   elements.replay.disabled = enteringGameMode;
+  elements.nextExercise.hidden = isReviewMode;
   elements.nextExercise.disabled = false;
   elements.nextExercise.textContent = t(
     isRatingMode ? "common.skip" : "common.next",
   );
   elements.ratingWorkspace.hidden = !isRatingMode;
+  elements.setPhraseEnd.disabled = true;
   setQuickRatingEnabled(false);
+  if (isReviewMode) renderReviewProgress();
+  else elements.challengeProgress.hidden = true;
   renderRatingControls();
+  renderPhraseControls();
   buildPiano(generated.keyboard);
   markReferenceKey();
   if (enteringGameMode) {
@@ -1935,7 +2286,10 @@ function renderSource(source) {
     );
   }
   elements.sourceLine.hidden =
-    !developerMode || currentMode === "challenge" || currentMode === "free";
+    !developerMode ||
+    currentMode === "challenge" ||
+    currentMode === "free" ||
+    currentMode === "review";
   const transposition =
     Number.isFinite(source.transposition)
       ? source.transposition === 0
@@ -2125,6 +2479,7 @@ function resetExerciseProgress() {
   exercise.guessStartedAt = null;
   exercise.executionStarted = false;
   elements.replay.disabled = false;
+  renderPhraseControls();
 }
 
 function restartAfterMistake() {
@@ -2174,6 +2529,7 @@ function handlePianoInput(midi, key) {
   ) {
     exercise.executionStarted = true;
     elements.replay.disabled = true;
+    renderPhraseControls();
     elements.feedback.className = "feedback";
     elements.feedback.textContent = t("playback.attemptStarted");
   }
@@ -2348,6 +2704,7 @@ function goToNextExercise() {
   if (
     developerMode &&
     currentMode !== "rating" &&
+    currentMode !== "review" &&
     exercise &&
     !exercise.solvedAtLeastOnce
   ) {
@@ -2371,8 +2728,9 @@ function csvCell(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function exportRatings() {
+function exportData() {
   const protocol = currentRatingProtocol(false);
+  const phrasesByKey = catalogMap();
   const rows = [
     [
       "protocole_version",
@@ -2388,27 +2746,43 @@ function exportRatings() {
       "couverture",
       "source_url",
       "mise_a_jour",
+      "notes_max",
+      "notes_courtes_ignorees",
+      "reglages_mise_a_jour",
     ],
   ];
-  for (const [phraseKey, stored] of Object.entries(phraseRatings).sort()) {
+  const phraseKeys = [
+    ...new Set([
+      ...Object.keys(phraseRatings),
+      ...Object.keys(phraseSettings),
+    ]),
+  ].sort();
+  for (const phraseKey of phraseKeys) {
+    const stored = phraseRatings[phraseKey];
     const entry =
       stored && typeof stored === "object" ? stored : { rating: stored };
     const rating = Number(entry.rating);
-    if (rating < 1 || rating > 3) continue;
+    const hasRating = rating >= 1 && rating <= 3;
+    const settings = phraseSettings[phraseKey] ?? null;
+    if (!hasRating && !settings) continue;
+    const catalogEntry = phrasesByKey.get(phraseKey);
     rows.push([
       RATING_PROTOCOL_VERSION,
       "phrase",
       phraseKey,
-      rating,
-      entry.performer,
-      entry.title,
-      entry.phrase,
-      entry.origin ?? "manual",
-      1,
-      1,
-      1,
-      entry.sourceUrl,
-      entry.updatedAt,
+      hasRating ? rating : null,
+      entry.performer ?? catalogEntry?.performer,
+      entry.title ?? catalogEntry?.title,
+      entry.phrase ?? catalogEntry?.phrase,
+      hasRating ? entry.origin ?? "manual" : null,
+      hasRating ? 1 : null,
+      hasRating ? 1 : null,
+      hasRating ? 1 : null,
+      entry.sourceUrl ?? catalogEntry?.sourceUrl,
+      hasRating ? entry.updatedAt : null,
+      settings?.notesMax,
+      settings?.ignoredShortestNotes,
+      settings?.updatedAt,
     ]);
   }
   for (const scope of [...protocol.scopes, ...protocol.structuralRules]) {
@@ -2426,10 +2800,13 @@ function exportRatings() {
       Number.isFinite(scope.coverage) ? scope.coverage.toFixed(4) : null,
       null,
       scope.updatedAt,
+      null,
+      null,
+      null,
     ]);
   }
   download(
-    `dictee-musicale-protocole-${new Date().toISOString().slice(0, 10)}.csv`,
+    `dictee-musicale-donnees-${new Date().toISOString().slice(0, 10)}.csv`,
     `\ufeff${rows.map((row) => row.map(csvCell).join(";")).join("\n")}`,
     "text/csv;charset=utf-8",
   );
@@ -2569,6 +2946,7 @@ function deactivateGameLayout() {
     "challenge-mode",
     "free-mode",
     "sudden-death-mode",
+    "review-mode",
   );
   elements.ratingWorkspace.hidden = true;
   updateGameModeButton();
@@ -2602,6 +2980,10 @@ async function enterGameMode() {
 async function leaveGameMode(
   destination = currentMode === "free" ? "favorites" : "home",
 ) {
+  if (phraseAdjustmentTimer !== null) {
+    window.clearTimeout(phraseAdjustmentTimer);
+    phraseAdjustmentTimer = null;
+  }
   stopAllTones();
   hideCompletionModal();
   elements.suddenDeathModal.hidden = true;
@@ -2655,6 +3037,10 @@ function setUpGameMode() {
         // Certains navigateurs déverrouillent déjà l’orientation à la sortie.
       }
       stopAllTones();
+      if (phraseAdjustmentTimer !== null) {
+        window.clearTimeout(phraseAdjustmentTimer);
+        phraseAdjustmentTimer = null;
+      }
       hideCompletionModal();
       acceptingInput = false;
       deactivateGameLayout();
@@ -2675,6 +3061,7 @@ elements.minimumRating.addEventListener("change", () =>
 elements.startReal.addEventListener("click", () => startMode("jazz"));
 elements.startRandom.addEventListener("click", () => startMode("random"));
 elements.startRating.addEventListener("click", () => startMode("rating"));
+elements.startReview.addEventListener("click", () => startMode("review"));
 elements.startChallenge.addEventListener("click", startNewChallenge);
 elements.resumeChallenge.addEventListener("click", resumeChallenge);
 elements.newChallenge.addEventListener("click", startNewChallenge);
@@ -2699,6 +3086,21 @@ elements.clearPerformers.addEventListener("click", () =>
 );
 elements.nextExercise.addEventListener("click", goToNextExercise);
 elements.replay.addEventListener("click", togglePlayback);
+elements.setPhraseEnd.addEventListener("click", setQuickRatingPhraseEnd);
+elements.phraseLengthDecrease.addEventListener("click", () =>
+  adjustCurrentPhraseSettings("notesMax", -1),
+);
+elements.phraseLengthIncrease.addEventListener("click", () =>
+  adjustCurrentPhraseSettings("notesMax", 1),
+);
+elements.shortNotesDecrease.addEventListener("click", () =>
+  adjustCurrentPhraseSettings("ignoredShortestNotes", -1),
+);
+elements.shortNotesIncrease.addEventListener("click", () =>
+  adjustCurrentPhraseSettings("ignoredShortestNotes", 1),
+);
+elements.reviewPrevious.addEventListener("click", () => moveReviewPhrase(-1));
+elements.reviewNext.addEventListener("click", () => moveReviewPhrase(1));
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
 elements.copyPhraseId.addEventListener("click", copyCurrentPhraseId);
 elements.transposeOriginal.addEventListener("change", saveSettings);
@@ -2707,7 +3109,7 @@ elements.restartExercise.addEventListener("click", restartSameExercise);
 elements.transposeExercise.addEventListener("click", transposeSameExercise);
 elements.completionNext.addEventListener("click", goToNextExercise);
 elements.completionExit.addEventListener("click", () => leaveGameMode("home"));
-elements.exportRatings.addEventListener("click", exportRatings);
+elements.exportData.addEventListener("click", exportData);
 elements.undoRating.addEventListener("click", undoLastRating);
 elements.fullscreenButton.addEventListener("click", toggleGameMode);
 elements.exitPortraitMode.addEventListener("click", () => leaveGameMode());

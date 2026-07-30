@@ -1,14 +1,16 @@
-const CACHE_NAME = "dictee-musicale-v40";
+const CACHE_NAME = "dictee-musicale-v41";
 const APP_SHELL = [
   "./index.html",
-  "./styles.css?v=40",
-  "./src/app.js?v=40",
+  "./styles.css?v=41",
+  "./src/app.js?v=41",
   "./src/i18n.js",
   "./src/audio.js",
   "./src/engine.js",
   "./src/ratings.js",
+  "./src/phrase-settings.js",
   "./src/session.js",
   "./data/default-ratings.js",
+  "./data/default-phrase-settings.js",
   "./data/wjazzd-solos.js",
   "./data/wjazzd-chords.js",
   "./audio/bass/28.mp3",

@@ -4,6 +4,10 @@ import {
   WJAZZD_SOLOS,
 } from "../data/wjazzd-solos.js";
 import { WJAZZD_CHORDS } from "../data/wjazzd-chords.js";
+import {
+  DEFAULT_PHRASE_MAX_NOTES,
+  resolvePhraseSettings,
+} from "./phrase-settings.js";
 
 export { DEFAULT_PERFORMERS, WJAZZD_PERFORMERS };
 
@@ -452,6 +456,7 @@ export function jazzCorpusSummary({
 export function jazzPhraseCatalog({
   phraseRatings = {},
   minimumRating = 3,
+  phraseSettings = {},
 } = {}) {
   return eligiblePhraseEntries(
     WJAZZD_SOLOS,
@@ -468,9 +473,51 @@ export function jazzPhraseCatalog({
       performer: solo.performer,
       title: solo.title,
       phrase: phrase[2],
-      noteCount: phrase[1] - phrase[0] + 1,
+      noteCount: resolvePhraseSettings(
+        phraseSettings[phraseRatingKey(solo.id, phrase[2])],
+        phrase[1] - phrase[0] + 1,
+      ).playedNoteCount,
+      fullPhraseNoteCount: phrase[1] - phrase[0] + 1,
       sourceUrl: solo.sourceUrl,
     }));
+}
+
+export function applyPhraseSettingsToEvents(events, stored = {}) {
+  const sourceEvents = Array.isArray(events) ? events : [];
+  if (!sourceEvents.length) {
+    return {
+      events: [],
+      ignoredIndexes: [],
+      settings: {
+        ...resolvePhraseSettings(stored, 1),
+        fullPhraseNoteCount: 0,
+        playedNoteCount: 0,
+      },
+    };
+  }
+
+  const settings = resolvePhraseSettings(stored, sourceEvents.length);
+  const truncatedEvents = sourceEvents.slice(0, settings.notesMax);
+  const ignoredIndexes = truncatedEvents
+    .map((event, index) => ({
+      index,
+      duration: Number(event?.[2]) || 0,
+    }))
+    .sort(
+      (left, right) =>
+        left.duration - right.duration || left.index - right.index,
+    )
+    .slice(0, settings.ignoredShortestNotes)
+    .map(({ index }) => index)
+    .sort((left, right) => left - right);
+  const ignored = new Set(ignoredIndexes);
+
+  return {
+    events: truncatedEvents.filter((_, index) => !ignored.has(index)),
+    truncatedEvents,
+    ignoredIndexes,
+    settings,
+  };
 }
 
 function availableMarkovEntries(entry, previousMidi) {
@@ -546,13 +593,15 @@ function randomSequence(length, random, phraseRatings, minimumRating) {
 
 function jazzSequence(
   random,
-  maxNotes = 20,
+  maxNotes = DEFAULT_PHRASE_MAX_NOTES,
   selectedPerformers,
   phraseRatings,
   minimumRating,
   targetPhraseKey = null,
   fullPhrase = false,
   transpositionOverride = null,
+  phraseSettings = {},
+  ignoredShortestNotes = 0,
 ) {
   const { performers, solos } = selectedSolos(selectedPerformers);
   const candidates = [];
@@ -578,24 +627,41 @@ function jazzSequence(
   }
 
   const selected = randomChoice(candidates, random);
-  const safeMaxNotes = fullPhrase
-    ? selected.notes.length
-    : Math.max(5, Math.min(20, Math.round(Number(maxNotes) || 20)));
-  const events = selected.events.slice(0, safeMaxNotes);
+  const selectedPhraseKey = phraseRatingKey(
+    selected.solo.id,
+    selected.phrase[2],
+  );
+  const configuredSettings = fullPhrase
+    ? {
+        notesMax: selected.notes.length,
+        ignoredShortestNotes: 0,
+      }
+    : {
+        notesMax: maxNotes,
+        ignoredShortestNotes,
+        ...(phraseSettings[selectedPhraseKey] ?? {}),
+      };
+  const adjusted = applyPhraseSettingsToEvents(
+    selected.events,
+    configuredSettings,
+  );
+  const events = adjusted.events;
   const excerpt = {
     ...selected,
     events,
     notes: events.map(([midi]) => midi),
   };
-  const wasTruncated = excerpt.events.length < selected.events.length;
+  const wasTruncated =
+    adjusted.settings.notesMax < selected.events.length;
   const transposition = Number.isFinite(transpositionOverride)
     ? Number(transpositionOverride)
     : randomJazzTransposition(random);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
+  const excerptStartOnset = adjusted.truncatedEvents[0][1];
   const playbackStart = playbackStartOnStrongBeat(
     excerpt.solo.beats ?? [],
-    firstOnset,
+    excerptStartOnset,
   );
   const timings = excerpt.events.map((event) => ({
     offset: Number((event[1] - playbackStart).toFixed(4)),
@@ -651,14 +717,16 @@ function jazzSequence(
         performer: excerpt.solo.performer,
         title: excerpt.solo.title,
         phrase: excerpt.phrase[2],
-        phraseKey: phraseRatingKey(excerpt.solo.id, excerpt.phrase[2]),
+        phraseKey: selectedPhraseKey,
         rating: phraseRating(phraseRatings, excerpt.solo, excerpt.phrase),
         ratingScope:
           phraseRatingRecord(phraseRatings, excerpt.solo, excerpt.phrase)
             ?.scope ?? null,
         noteCount: transposedNotes.length,
         fullPhraseNoteCount: selected.notes.length,
-        maxNotes: safeMaxNotes,
+        maxNotes: adjusted.settings.notesMax,
+        ignoredShortestNotes: adjusted.settings.ignoredShortestNotes,
+        ignoredNoteIndexes: adjusted.ignoredIndexes,
         truncated: wasTruncated,
         barStart: firstBar,
         barEnd: lastBar,
@@ -675,14 +743,16 @@ function jazzSequence(
 
 export function makeSequence({
   length = 5,
-  maxNotes = 20,
+  maxNotes = DEFAULT_PHRASE_MAX_NOTES,
   mode = "random",
   selectedPerformers = DEFAULT_PERFORMERS,
   phraseRatings = {},
+  phraseSettings = {},
   minimumRating = 0,
   targetPhraseKey = null,
   fullPhrase = false,
   transpositionOverride = null,
+  ignoredShortestNotes = 0,
   random = Math.random,
 } = {}) {
   const safeLength = Math.max(3, Math.min(15, Math.round(length)));
@@ -697,6 +767,8 @@ export function makeSequence({
           targetPhraseKey,
           fullPhrase,
           transpositionOverride,
+          phraseSettings,
+          ignoredShortestNotes,
         )
       : randomSequence(
           safeLength,

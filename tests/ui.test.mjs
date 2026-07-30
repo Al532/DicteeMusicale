@@ -42,13 +42,88 @@ test("l’accueil public présente directement Jazz Solo Challenge", () => {
   assert.doesNotMatch(index, /Phrases réelles[\s\S]*Phrases générées/);
 });
 
-test("les anciens outils restent confinés au mode développeur", () => {
+test("le mode développeur ajoute seulement ses trois actions à l’accueil", () => {
   assert.match(
     index,
-    /class="developer-lab developer-only" data-developer-only hidden[\s\S]*?id="start-real"[\s\S]*?id="start-random"[\s\S]*?id="start-rating"[\s\S]*?id="musician-picker"[\s\S]*?id="minimum-rating"/,
+    /class="developer-home-actions"[\s\S]*?data-developer-only[\s\S]*?hidden[\s\S]*?id="start-rating"[\s\S]*?id="start-review"[\s\S]*?id="export-data"/,
+  );
+  assert.match(
+    index,
+    /class="developer-lab" hidden[\s\S]*?id="start-real"[\s\S]*?id="start-random"[\s\S]*?id="musician-picker"[\s\S]*?id="minimum-rating"/,
   );
   assert.match(index, /id="developer-mode" type="checkbox"/);
   assert.match(app, /function renderDeveloperMode\(\)/);
+  assert.match(
+    app,
+    /elements\.developerMode\.closest\("details"\)\?\.removeAttribute\("open"\)/,
+  );
+});
+
+test("les réglages de phrase sont accessibles pendant le jeu mais pas dans le feedback final", () => {
+  assert.match(
+    index,
+    /id="phrase-adjustments"[\s\S]*?id="phrase-length-decrease"[\s\S]*?id="phrase-length-output"[\s\S]*?id="phrase-length-increase"[\s\S]*?id="short-notes-decrease"[\s\S]*?id="short-notes-output"[\s\S]*?id="short-notes-increase"/,
+  );
+  assert.match(index, /id="exercise-rating"/);
+  assert.doesNotMatch(index, /id="completion-rating"/);
+  assert.match(
+    app,
+    /function renderPhraseControls\(\)[\s\S]*?developerMode[\s\S]*?fullPhraseNoteCount[\s\S]*?phraseSettingsLocked\(\)/,
+  );
+  assert.match(
+    styles,
+    /\.developer-mode\.game-mode \.developer-game-control:not\(\[hidden\]\) \{[\s\S]*?display: flex/,
+  );
+});
+
+test("la notation rapide écoute d’abord toute la phrase puis permet de poser sa fin", () => {
+  assert.match(
+    index,
+    /id="set-phrase-end"[\s\S]*?data-i18n="rating\.setEnd">End here/,
+  );
+  assert.match(
+    app,
+    /const useFullQuickRatingPreview =[\s\S]*?isRatingMode[\s\S]*?fullPhrase: useFullQuickRatingPreview/,
+  );
+  assert.match(
+    app,
+    /function setQuickRatingPhraseEnd\(\)[\s\S]*?exercise\.playbackStartedAt[\s\S]*?exercise\.timings\.filter[\s\S]*?saveCurrentPhraseSettings/,
+  );
+  assert.match(
+    app,
+    /quickRatingFullPreview: useFullQuickRatingPreview/,
+  );
+});
+
+test("la revue parcourt les phrases 3 étoiles avec compteur et navigation", () => {
+  assert.match(
+    index,
+    /id="review-navigation"[\s\S]*?id="review-previous"[\s\S]*?id="review-counter"[\s\S]*?id="review-next"/,
+  );
+  assert.match(
+    app,
+    /function threeStarReviewCatalog\(\)[\s\S]*?minimumRating: 3/,
+  );
+  assert.match(
+    app,
+    /function renderReviewProgress\(\)[\s\S]*?reviewPhraseIndex \+ 1[\s\S]*?reviewPrevious\.disabled[\s\S]*?reviewNext\.disabled/,
+  );
+  assert.match(
+    app,
+    /function refreshReviewAfterRating\(\)[\s\S]*?threeStarReviewCatalog\(\)[\s\S]*?startExercise/,
+  );
+});
+
+test("l’export réunit étoiles, longueur et notes brèves", () => {
+  assert.match(
+    app,
+    /function exportData\(\)[\s\S]*?"notes_max"[\s\S]*?"notes_courtes_ignorees"[\s\S]*?"reglages_mise_a_jour"/,
+  );
+  assert.match(
+    app,
+    /new Set\(\[[\s\S]*?Object\.keys\(phraseRatings\)[\s\S]*?Object\.keys\(phraseSettings\)/,
+  );
+  assert.match(index, /data-i18n="developer\.exportData">Export data/);
 });
 
 test("les statistiques de progression et leur collecte ont disparu", () => {
@@ -58,15 +133,19 @@ test("les statistiques de progression et leur collecte ont disparu", () => {
   assert.doesNotMatch(index, /score|points/i);
 });
 
-test("le défi utilise uniquement le catalogue 3★ et tronque à vingt notes", () => {
-  assert.match(app, /const REAL_MAX_NOTES = 20/);
+test("le défi utilise uniquement le catalogue 3★ et les réglages propres à chaque phrase", () => {
   assert.match(
     app,
-    /function challengeCatalog\(\)[\s\S]*?jazzPhraseCatalog\(\{[\s\S]*?minimumRating: 3/,
+    /const PHRASE_SETTINGS_KEY = "dictee-musicale\.phrase-settings\.v1"/,
+  );
+  assert.match(app, /const REAL_MAX_NOTES = DEFAULT_PHRASE_MAX_NOTES/);
+  assert.match(
+    app,
+    /function challengeCatalog\(\)[\s\S]*?jazzPhraseCatalog\(\{[\s\S]*?phraseSettings,[\s\S]*?minimumRating: 3/,
   );
   assert.match(
     app,
-    /function loadPublicPhrase\([\s\S]*?maxNotes: REAL_MAX_NOTES,[\s\S]*?minimumRating: isChallenge \? 3 : 0/,
+    /function loadPublicPhrase\([\s\S]*?maxNotes: REAL_MAX_NOTES,[\s\S]*?phraseSettings,[\s\S]*?minimumRating: isChallenge \? 3 : 0/,
   );
   assert.match(session, /export const CHALLENGE_PHRASE_COUNT = 3/);
   assert.match(session, /export const TRAINING_TONES_PER_PHRASE = 3/);
@@ -183,7 +262,7 @@ test("le mode normal n’affiche que le musicien et le morceau", () => {
   );
   assert.match(
     app,
-    /elements\.sourceLine\.hidden =\s*!developerMode \|\| currentMode === "challenge" \|\| currentMode === "free"/,
+    /elements\.sourceLine\.hidden =[\s\S]*?!developerMode[\s\S]*?currentMode === "challenge"[\s\S]*?currentMode === "free"[\s\S]*?currentMode === "review"/,
   );
   assert.match(
     app,
@@ -260,6 +339,10 @@ test("la vitesse se règle sous le piano sans désaxer Réécouter", () => {
     styles,
     /\.game-context-controls \{[\s\S]*?grid-column: 3;[\s\S]*?justify-self: end/,
   );
+  assert.match(
+    styles,
+    /@media \(orientation: portrait\)[\s\S]*?\.developer-mode\.rating-mode \.game-controls \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 110px[\s\S]*?\.developer-mode\.rating-mode \.game-context-controls \{[\s\S]*?grid-column: 1 \/ -1/,
+  );
 });
 
 test("les écrans de mort subite et de réussite s’adaptent au paysage", () => {
@@ -327,14 +410,16 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
   assert.equal(frenchManifest.orientation, "any");
-  assert.match(serviceWorker, /dictee-musicale-v40/);
-  assert.match(index, /href="\.\/styles\.css\?v=40"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=40"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=40/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=40/);
+  assert.match(serviceWorker, /dictee-musicale-v41/);
+  assert.match(index, /href="\.\/styles\.css\?v=41"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=41"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=41/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=41/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
+  assert.match(serviceWorker, /\.\/src\/phrase-settings\.js/);
+  assert.match(serviceWorker, /\.\/data\/default-phrase-settings\.js/);
   assert.match(
     serviceWorker,
     /event\.request\.mode === "navigate"[\s\S]*?caches[\s\S]*?\.match\("\.\/index\.html"\)/,

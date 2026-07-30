@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=40" />
-    <script type="module" src="./src/app.js?v=40"></script>
+    <link rel="stylesheet" href="./styles.css?v=41" />
+    <script type="module" src="./src/app.js?v=41"></script>
   </head>
   <body>
     <main>
@@ -81,6 +81,21 @@
             <button class="text-button" id="new-challenge" hidden>
               <span data-i18n="home.restart">Quit and start over</span>
             </button>
+            <div
+              class="developer-home-actions"
+              data-developer-only
+              hidden
+            >
+              <button class="primary-button" id="start-rating" type="button">
+                <span data-i18n="developer.quickRating">Quick rating</span>
+              </button>
+              <button class="quiet-button" id="start-review" type="button">
+                <span data-i18n="developer.threeStarReview">Review 3-star phrases</span>
+              </button>
+              <button class="quiet-button" id="export-data" type="button">
+                <span data-i18n="developer.exportData">Export data</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -99,21 +114,17 @@
               <span data-i18n="developer.mode">Developer mode</span>
             </label>
 
-            <div class="developer-lab developer-only" data-developer-only hidden>
+            <div class="developer-lab" hidden>
               <div class="developer-heading">
                 <div>
                   <p class="eyebrow" data-i18n="developer.workshop">Workshop</p>
                   <strong data-i18n="developer.corpusRatings">Corpus and ratings</strong>
                 </div>
-                <button class="quiet-button compact" id="export-ratings" type="button">
-                  <span data-i18n="developer.exportProtocol">Export protocol</span>
-                </button>
               </div>
 
               <div class="mode-launchers">
                 <button class="quiet-button" id="start-real" data-i18n="developer.realPhrase">Real phrase</button>
                 <button class="quiet-button" id="start-random" data-i18n="developer.generatedPhrase">Generated phrase</button>
-                <button class="primary-button" id="start-rating" data-i18n="developer.quickRating">Quick rating</button>
               </div>
 
               <details class="musician-picker" id="musician-picker">
@@ -218,6 +229,23 @@
             <span id="progress-detail">Key 1 of 3</span>
           </div>
           <div class="progress-dots" id="progress-dots" aria-hidden="true"></div>
+          <div class="review-navigation" id="review-navigation" hidden>
+            <button
+              class="icon-button compact"
+              id="review-previous"
+              type="button"
+              aria-label="Previous phrase"
+              data-i18n-aria-label="review.previous"
+            >←</button>
+            <strong id="review-counter"></strong>
+            <button
+              class="icon-button compact"
+              id="review-next"
+              type="button"
+              aria-label="Next phrase"
+              data-i18n-aria-label="review.next"
+            >→</button>
+          </div>
         </div>
 
         <p class="source-summary" id="source-summary" hidden></p>
@@ -226,20 +254,32 @@
         </div>
 
         <div class="rating-workspace" id="rating-workspace" hidden>
-          <div
-            class="quick-rating"
-            aria-label="Quickly rate this phrase"
-            data-i18n-aria-label="rating.quick.aria"
-          >
-            <button type="button" data-quick-rating="1">
-              <strong>1 ★</strong><span data-i18n="rating.discard">Discard</span>
+          <div class="quick-rating-column">
+            <button
+              class="quiet-button set-phrase-end"
+              id="set-phrase-end"
+              type="button"
+              aria-label="Set the phrase end at the current playback position"
+              data-i18n-aria-label="rating.setEndAria"
+              disabled
+            >
+              <span data-i18n="rating.setEnd">End here</span>
             </button>
-            <button type="button" data-quick-rating="2">
-              <strong>2 ★</strong><span data-i18n="rating.keep">Keep</span>
-            </button>
-            <button type="button" data-quick-rating="3">
-              <strong>3 ★</strong><span data-i18n="rating.recommend">Recommend</span>
-            </button>
+            <div
+              class="quick-rating"
+              aria-label="Quickly rate this phrase"
+              data-i18n-aria-label="rating.quick.aria"
+            >
+              <button type="button" data-quick-rating="1">
+                <strong>1 ★</strong><span data-i18n="rating.discard">Discard</span>
+              </button>
+              <button type="button" data-quick-rating="2">
+                <strong>2 ★</strong><span data-i18n="rating.keep">Keep</span>
+              </button>
+              <button type="button" data-quick-rating="3">
+                <strong>3 ★</strong><span data-i18n="rating.recommend">Recommend</span>
+              </button>
+            </div>
           </div>
           <div class="rating-report">
             <p class="eyebrow" data-i18n="rating.checkpoint">Checkpoint</p>
@@ -287,6 +327,44 @@
             <span data-i18n="game.replay">Replay</span>
           </button>
           <div class="game-context-controls">
+            <div
+              class="phrase-adjustments developer-game-control"
+              id="phrase-adjustments"
+              hidden
+            >
+              <div class="phrase-stepper">
+                <span data-i18n="phrase.length">Length</span>
+                <button
+                  id="phrase-length-decrease"
+                  type="button"
+                  aria-label="Reduce phrase length"
+                  data-i18n-aria-label="phrase.lengthDecrease"
+                >−</button>
+                <output id="phrase-length-output">20/20</output>
+                <button
+                  id="phrase-length-increase"
+                  type="button"
+                  aria-label="Increase phrase length"
+                  data-i18n-aria-label="phrase.lengthIncrease"
+                >+</button>
+              </div>
+              <div class="phrase-stepper">
+                <span data-i18n="phrase.shortNotes">Short notes</span>
+                <button
+                  id="short-notes-decrease"
+                  type="button"
+                  aria-label="Restore one short note"
+                  data-i18n-aria-label="phrase.shortNotesDecrease"
+                >−</button>
+                <output id="short-notes-output">0</output>
+                <button
+                  id="short-notes-increase"
+                  type="button"
+                  aria-label="Ignore one more short note"
+                  data-i18n-aria-label="phrase.shortNotesIncrease"
+                >+</button>
+              </div>
+            </div>
             <button class="primary-button" id="free-transpose" hidden>
               <span data-i18n="free.otherKey">Another key</span>
             </button>
@@ -403,17 +481,6 @@
       <div class="modal-card completion-card">
         <p class="eyebrow" data-i18n="completion.kicker">Phrase complete</p>
         <h2 id="completion-title" data-i18n="completion.title">Well done!</h2>
-        <div
-          class="star-rating"
-          id="completion-rating"
-          aria-label="Rate this phrase"
-          data-i18n-aria-label="rating.aria"
-          hidden
-        >
-          <button type="button" data-rating="1" aria-label="Rate 1 star" data-i18n-aria-label="rating.oneStar">★</button>
-          <button type="button" data-rating="2" aria-label="Rate 2 stars" data-i18n-aria-label="rating.twoStars">★</button>
-          <button type="button" data-rating="3" aria-label="Rate 3 stars" data-i18n-aria-label="rating.threeStars">★</button>
-        </div>
         <div class="legacy-completion-actions">
           <button class="quiet-button" id="completion-original" aria-pressed="false" hidden>
             <span data-i18n="game.listenOriginal">Play original</span>

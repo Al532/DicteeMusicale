@@ -1,6 +1,6 @@
 import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
 
-export const RATING_PROTOCOL_VERSION = 3;
+export const RATING_PROTOCOL_VERSION = 4;
 export const RATING_REPORT_INTERVAL = 10;
 
 export const STRUCTURAL_EXCLUSION_RULES = Object.freeze([

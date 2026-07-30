@@ -13,6 +13,7 @@ import {
   BASS_MIN_MIDI,
   JAZZ_MARKOV_MAX_ORDER,
   JAZZ_MARKOV_MIN_CONTEXT_COUNT,
+  applyPhraseSettingsToEvents,
   bassPitchClassForChord,
   isCorrectMidi,
   jazzCorpusSummary,
@@ -406,7 +407,7 @@ test("seuls les six solos calibrés exposent un enregistrement", async () => {
   );
 });
 
-test("le mode réel reste limité à 5–20 notes", () => {
+test("vingt notes est le défaut mais chaque phrase accepte 1 note à sa longueur complète", () => {
   const options = (maxNotes) => ({
     mode: "jazz",
     selectedPerformers: ["Charlie Parker"],
@@ -414,14 +415,109 @@ test("le mode réel reste limité à 5–20 notes", () => {
     ...(maxNotes === undefined ? {} : { maxNotes }),
   });
   const defaultLimit = makeSequence(options());
-  const fiveNotes = makeSequence(options(5));
+  const oneNote = makeSequence(options(1));
   const oversizedLimit = makeSequence(options(99));
 
   assert.equal(defaultLimit.notes.length, 20);
   assert.equal(defaultLimit.meta.source.maxNotes, 20);
-  assert.deepEqual(fiveNotes.notes, defaultLimit.notes.slice(0, 5));
-  assert.deepEqual(oversizedLimit.notes, defaultLimit.notes);
-  assert.equal(fiveNotes.timings.length, fiveNotes.notes.length);
+  assert.deepEqual(oneNote.notes, defaultLimit.notes.slice(0, 1));
+  assert.equal(oneNote.meta.source.maxNotes, 1);
+  assert.equal(
+    oversizedLimit.notes.length,
+    oversizedLimit.meta.source.fullPhraseNoteCount,
+  );
+  assert.ok(oversizedLimit.notes.length > defaultLimit.notes.length);
+  assert.equal(oneNote.timings.length, oneNote.notes.length);
+});
+
+test("les notes les plus brèves sont retirées une à une avec départage chronologique", () => {
+  const adjusted = applyPhraseSettingsToEvents(
+    [
+      [60, 0, 0.2, 1],
+      [61, 0.2, 0.1, 1],
+      [62, 0.3, 0.1, 1],
+      [63, 0.4, 0.3, 1],
+      [64, 0.7, 0.05, 1],
+    ],
+    {
+      notesMax: 4,
+      ignoredShortestNotes: 2,
+    },
+  );
+
+  assert.deepEqual(adjusted.ignoredIndexes, [1, 2]);
+  assert.deepEqual(
+    adjusted.events.map(([midi, onset]) => [midi, onset]),
+    [
+      [60, 0],
+      [63, 0.4],
+    ],
+  );
+  assert.equal(adjusted.settings.playedNoteCount, 2);
+});
+
+test("la séquence jouée retire ces notes sans refermer les silences", () => {
+  const solo = WJAZZD_SOLOS.find(({ phrases }) =>
+    phrases.some(([start, end]) => end - start + 1 >= 8),
+  );
+  const phrase = solo.phrases.find(
+    ([start, end]) => end - start + 1 >= 8,
+  );
+  const phraseKey = phraseRatingKey(solo.id, phrase[2]);
+  const settings = {
+    notesMax: 8,
+    ignoredShortestNotes: 2,
+  };
+  const adjusted = applyPhraseSettingsToEvents(
+    solo.events.slice(phrase[0], phrase[1] + 1),
+    settings,
+  );
+  const result = makeSequence({
+    mode: "jazz",
+    selectedPerformers: [solo.performer],
+    targetPhraseKey: phraseKey,
+    phraseSettings: { [phraseKey]: settings },
+    transpositionOverride: 0,
+  });
+
+  assert.deepEqual(
+    result.notes,
+    adjusted.events.map(([midi]) => midi),
+  );
+  assert.deepEqual(
+    result.timings.map(({ offset, duration }) => [offset, duration]),
+    adjusted.events.map(([, onset, duration]) => [
+      Number((onset - result.meta.source.onsetStart).toFixed(4)),
+      duration,
+    ]),
+  );
+  assert.deepEqual(
+    result.meta.source.ignoredNoteIndexes,
+    adjusted.ignoredIndexes,
+  );
+});
+
+test("la longueur effective du catalogue tient compte des réglages par phrase", () => {
+  const solo = WJAZZD_SOLOS.find(({ phrases }) =>
+    phrases.some(([start, end]) => end - start + 1 >= 8),
+  );
+  const phrase = solo.phrases.find(
+    ([start, end]) => end - start + 1 >= 8,
+  );
+  const phraseKey = phraseRatingKey(solo.id, phrase[2]);
+  const catalog = jazzPhraseCatalog({
+    phraseRatings: { [phraseKey]: 3 },
+    phraseSettings: {
+      [phraseKey]: {
+        notesMax: 6,
+        ignoredShortestNotes: 2,
+      },
+    },
+  });
+  const entry = catalog.find((candidate) => candidate.phraseKey === phraseKey);
+
+  assert.equal(entry.noteCount, 4);
+  assert.equal(entry.fullPhraseNoteCount, phrase[1] - phrase[0] + 1);
 });
 
 test("le protocole peut écouter une phrase précise en entier et dans le ton original", () => {
