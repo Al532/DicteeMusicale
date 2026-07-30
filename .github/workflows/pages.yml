@@ -23,14 +23,43 @@ jobs:
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@v4
+      - name: Configurer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Installer les dépendances de test
+        run: npm ci
+      - name: Vérifier la syntaxe
+        run: npm run check
+      - name: Lancer les tests
+        run: npm test
       - name: Configurer Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Assembler le site statique
+        run: |
+          mkdir _site
+          cp -R \
+            .nojekyll \
+            index.html \
+            styles.css \
+            sw.js \
+            manifest.webmanifest \
+            manifest-fr.webmanifest \
+            icon.svg \
+            icon-180.png \
+            icon-192.png \
+            icon-512.png \
+            src \
+            data \
+            audio \
+            _site/
       - name: Préparer les fichiers
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - name: Publier
         id: deployment
         uses: actions/deploy-pages@v4

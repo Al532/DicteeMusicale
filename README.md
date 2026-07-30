@@ -14,7 +14,8 @@ seuils figés.
 
 Seules les phrases évaluées 3★ sont proposées. Chacune doit être réussie dans
 trois tonalités consécutives avant de passer à la suivante, soit neuf manches.
-Les extraits sont limités aux vingt premières notes.
+La longueur est définie phrase par phrase ; vingt notes reste la valeur par
+défaut lorsqu’aucun réglage particulier n’a été enregistré.
 
 La session se termine par une mort subite :
 
@@ -44,22 +45,23 @@ musicien et morceau. La tonalité reste volontairement masquée.
 
 ## Son et lecture
 
-La mélodie et le clavier utilisent le son synthétique. Les fondamentales de
-basse suivent les accords annotés ; un chick de charleston marque les temps 2
-et 4. La vitesse se règle directement sous le clavier pendant le jeu.
+La mélodie et le clavier publics utilisent le son synthétique. Les instruments
+échantillonnés de clarinette et de piano restent conservés mais ne sont pas
+exposés dans l’interface. Les fondamentales de basse suivent les accords
+annotés ; un chick de charleston marque les temps 2 et 4. La vitesse se règle
+directement sous le clavier pendant le jeu.
 
-Six enregistrements calibrés restent accessibles dans les outils développeur
-pour *Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,
-*Thriving on a Riff* et *Yardbird Suite*.
+Six enregistrements calibrés sont accessibles directement pendant le jeu pour
+*Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,
+*Thriving on a Riff* et *Yardbird Suite*. Un lien YouTube accompagne chaque
+extrait et ouvre l’enregistrement au début exact de la phrase.
 
 ## Mode développeur
 
-Le menu discret en bas de l’accueil permet d’activer les outils historiques :
+Le menu discret en bas de l’accueil permet d’activer les outils de maintenance :
 
-- phrases réelles ou générées ;
-- sélection des musiciens ;
-- filtre de notation ;
 - notation rapide à trois étoiles ;
+- revue et ajustement des phrases trois étoiles ;
 - export du protocole.
 
 Les rejets structurels et les inférences globales à 1★ restent gérés par le

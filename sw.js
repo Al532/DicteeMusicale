@@ -1,10 +1,11 @@
-const CACHE_NAME = "dictee-musicale-v42";
+const CACHE_NAME = "dictee-musicale-v43";
 const APP_SHELL = [
   "./index.html",
-  "./styles.css?v=42",
-  "./src/app.js?v=42",
+  "./styles.css?v=43",
+  "./src/app.js?v=43",
   "./src/i18n.js",
   "./src/audio.js",
+  "./src/recording.js",
   "./src/engine.js",
   "./src/ratings.js",
   "./src/phrase-settings.js",
@@ -42,8 +43,36 @@ const APP_SHELL = [
   "./icon-512.png",
 ];
 
+const ESSENTIAL_SHELL = new Set(APP_SHELL.slice(0, 14));
+
+async function cacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const results = await Promise.allSettled(
+    APP_SHELL.map(async (resource) => {
+      const response = await fetch(resource);
+      if (!response.ok) {
+        throw new Error(`${resource}: ${response.status}`);
+      }
+      await cache.put(resource, response);
+    }),
+  );
+  const missingEssential = results
+    .map((result, index) => ({ result, resource: APP_SHELL[index] }))
+    .filter(
+      ({ result, resource }) =>
+        result.status === "rejected" && ESSENTIAL_SHELL.has(resource),
+    );
+  if (missingEssential.length) {
+    throw new Error(
+      `Essential app shell unavailable: ${missingEssential
+        .map(({ resource }) => resource)
+        .join(", ")}`,
+    );
+  }
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(cacheAppShell());
   self.skipWaiting();
 });
 

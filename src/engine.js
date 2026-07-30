@@ -11,27 +11,8 @@ import {
 
 export { DEFAULT_PERFORMERS, WJAZZD_PERFORMERS };
 
-export const NOTE_NAMES = [
-  "Do",
-  "Do♯",
-  "Ré",
-  "Mi♭",
-  "Mi",
-  "Fa",
-  "Fa♯",
-  "Sol",
-  "La♭",
-  "La",
-  "Si♭",
-  "Si",
-];
-
-const MIN_MIDI = 48;
-const MAX_MIDI = 71;
 export const BASS_MIN_MIDI = 28;
 export const BASS_MAX_MIDI = 48;
-export const JAZZ_MARKOV_MAX_ORDER = 8;
-export const JAZZ_MARKOV_MIN_CONTEXT_COUNT = 2;
 export const JAZZ_TRANSPOSITION_TARGET_MIDI = 66;
 export const DEFAULT_JAZZ_TRANSPOSITION_RANGE = Object.freeze([-5, 6]);
 
@@ -166,16 +147,6 @@ function randomChoice(items, random) {
   return items[Math.floor(random() * items.length)];
 }
 
-function weightedChoice(entries, random) {
-  const total = entries.reduce((sum, [, count]) => sum + count, 0);
-  let draw = random() * total;
-  for (const [value, count] of entries) {
-    draw -= count;
-    if (draw < 0) return value;
-  }
-  return entries.at(-1)[0];
-}
-
 export function normalizeJazzTranspositionRange(
   range = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
 ) {
@@ -256,18 +227,6 @@ export function randomJazzTransposition(
   return randomChoice(jazzTranspositions(transpositionRange), random);
 }
 
-export function randomDifferentJazzTransposition(
-  currentTransposition,
-  random = Math.random,
-  transpositionRange = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
-) {
-  const currentPitchClass = pitchClass(currentTransposition);
-  const choices = jazzTranspositions(transpositionRange).filter(
-    (candidate) => pitchClass(candidate) !== currentPitchClass,
-  );
-  return randomChoice(choices, random);
-}
-
 export function makeJazzTranspositionCycle({
   excludeTransposition = null,
   avoidFirstTransposition = null,
@@ -345,13 +304,12 @@ export function keyboardLayoutForNotes(notes, minimumChunks = 4) {
 const KNOWN_PERFORMERS = new Set(
   WJAZZD_PERFORMERS.map(({ name }) => name),
 );
-const modelCache = new Map();
 
 export function phraseRatingKey(soloId, phraseNumber) {
   return `${soloId}:${phraseNumber}`;
 }
 
-function normalizedMinimumRating(minimumRating) {
+export function normalizedMinimumRating(minimumRating) {
   if (minimumRating === "unrated") return "unrated";
   const rating = Math.round(Number(minimumRating) || 0);
   return rating === 2 || rating === 3 ? rating : 0;
@@ -390,7 +348,7 @@ function selectedSolos(selectedPerformers) {
   };
 }
 
-function eligiblePhraseEntries(
+export function eligiblePhraseEntries(
   solos,
   phraseRatings = {},
   minimumRating = 0,
@@ -407,121 +365,6 @@ function eligiblePhraseEntries(
     }
   }
   return entries;
-}
-
-function buildJazzIntervalSequences(phraseEntries) {
-  const sequences = [];
-  for (const { solo, phrase } of phraseEntries) {
-    const [start, end] = phrase;
-    const intervals = [];
-    for (let index = start + 1; index <= end; index += 1) {
-      const previous = solo.events[index - 1]?.[0];
-      const current = solo.events[index]?.[0];
-      if (Number.isFinite(previous) && Number.isFinite(current)) {
-        intervals.push(current - previous);
-      }
-    }
-    if (intervals.length) sequences.push(intervals);
-  }
-  return sequences;
-}
-
-function addCount(map, key) {
-  map.set(key, (map.get(key) ?? 0) + 1);
-}
-
-function buildJazzMarkovModel(phraseEntries) {
-  const intervalSequences = buildJazzIntervalSequences(phraseEntries);
-  const performers = [
-    ...new Set(phraseEntries.map(({ solo }) => solo.performer)),
-  ];
-  const solos = [...new Map(
-    phraseEntries.map(({ solo }) => [solo.id, solo]),
-  ).values()];
-  const transitions = Array.from(
-    { length: JAZZ_MARKOV_MAX_ORDER + 1 },
-    () => new Map(),
-  );
-  const phraseStarts = new Map();
-  const intervalCounts = {};
-  let intervalSampleSize = 0;
-
-  for (const sequence of intervalSequences) {
-    addCount(phraseStarts, sequence[0]);
-    intervalSampleSize += sequence.length;
-    for (const interval of sequence) {
-      intervalCounts[interval] = (intervalCounts[interval] ?? 0) + 1;
-    }
-    for (let index = 0; index < sequence.length; index += 1) {
-      const maxOrder = Math.min(JAZZ_MARKOV_MAX_ORDER, index);
-      for (let order = 0; order <= maxOrder; order += 1) {
-        const key = sequence.slice(index - order, index).join(",");
-        let entry = transitions[order].get(key);
-        if (!entry) {
-          entry = { count: 0, next: new Map() };
-          transitions[order].set(key, entry);
-        }
-        entry.count += 1;
-        addCount(entry.next, sequence[index]);
-      }
-    }
-  }
-
-  return {
-    performers,
-    solos,
-    phraseEntries,
-    intervalSequences,
-    intervalCounts: Object.freeze(intervalCounts),
-    intervalSampleSize,
-    transitions,
-    phraseStarts,
-  };
-}
-
-function getJazzMarkovModel(phraseRatings = {}, minimumRating = 0) {
-  const filter = normalizedMinimumRating(minimumRating);
-  const key = filter
-    ? `${filter}:${Object.entries(phraseRatings ?? {})
-        .filter(([, stored]) => {
-          const rating = Number(
-            stored && typeof stored === "object" ? stored.rating : stored,
-          );
-          return filter === "unrated" ? rating > 0 : rating >= filter;
-        })
-        .map(([phraseKey]) => phraseKey)
-        .sort()
-        .join("\u0000")}`
-    : "all";
-  if (modelCache.has(key)) return modelCache.get(key);
-  const phraseEntries = eligiblePhraseEntries(
-    WJAZZD_SOLOS,
-    phraseRatings,
-    filter,
-  );
-  if (modelCache.size >= 4) {
-    modelCache.delete(modelCache.keys().next().value);
-  }
-  const model = buildJazzMarkovModel(phraseEntries);
-  if (!model.intervalSampleSize) {
-    throw new Error("Aucune phrase ne correspond au filtre d’étoiles.");
-  }
-  modelCache.set(key, model);
-  return model;
-}
-
-export function jazzCorpusSummary({
-  phraseRatings = {},
-  minimumRating = 0,
-} = {}) {
-  const model = getJazzMarkovModel(phraseRatings, minimumRating);
-  return {
-    performerCount: model.performers.length,
-    soloCount: model.solos.length,
-    phraseCount: model.phraseEntries.length,
-    intervalSampleSize: model.intervalSampleSize,
-    intervalCounts: model.intervalCounts,
-  };
 }
 
 export function jazzPhraseCatalog({
@@ -600,77 +443,6 @@ export function applyPhraseSettingsToEvents(events, stored = {}) {
     truncatedEvents,
     ignoredIndexes,
     settings,
-  };
-}
-
-function availableMarkovEntries(entry, previousMidi) {
-  return [...entry.next.entries()].filter(([interval]) => {
-    const candidateMidi = previousMidi + interval;
-    return candidateMidi >= MIN_MIDI && candidateMidi <= MAX_MIDI;
-  });
-}
-
-function nextMarkovInterval(history, previousMidi, random, model) {
-  if (!history.length) {
-    const startEntry = { next: model.phraseStarts };
-    const available = availableMarkovEntries(startEntry, previousMidi);
-    if (available.length) {
-      return { interval: weightedChoice(available, random), order: 0 };
-    }
-  }
-
-  const maxOrder = Math.min(JAZZ_MARKOV_MAX_ORDER, history.length);
-  for (let order = maxOrder; order >= 0; order -= 1) {
-    const key = order === 0 ? "" : history.slice(-order).join(",");
-    const entry = model.transitions[order].get(key);
-    if (!entry) continue;
-    if (order > 0 && entry.count < JAZZ_MARKOV_MIN_CONTEXT_COUNT) continue;
-    const available = availableMarkovEntries(entry, previousMidi);
-    if (available.length) {
-      return { interval: weightedChoice(available, random), order };
-    }
-  }
-
-  throw new Error("Aucune transition compatible avec le registre.");
-}
-
-function randomSequence(length, random, phraseRatings, minimumRating) {
-  const model = getJazzMarkovModel(phraseRatings, minimumRating);
-  const notes = [randomInt(53, 65, random)];
-  const intervals = [];
-  const ordersUsed = [];
-
-  while (notes.length < length) {
-    const previous = notes.at(-1);
-    const { interval, order } = nextMarkovInterval(
-      intervals,
-      previous,
-      random,
-      model,
-    );
-    intervals.push(interval);
-    ordersUsed.push(order);
-    notes.push(previous + interval);
-  }
-
-  return {
-    notes,
-    meta: {
-      label: "Phrases générées",
-      source: {
-        kind: "generated",
-        label:
-          `Générée par Markov d’ordre variable (max. ${JAZZ_MARKOV_MAX_ORDER}) ` +
-          `sur ${model.intervalSampleSize.toLocaleString("fr-FR")} intervalles ` +
-          `de ${model.performers.length} soliste${model.performers.length > 1 ? "s" : ""}`,
-        model: "variable-order-markov",
-        maxOrder: JAZZ_MARKOV_MAX_ORDER,
-        intervalSampleSize: model.intervalSampleSize,
-        performers: model.performers,
-        minimumRating: normalizedMinimumRating(minimumRating),
-        ordersUsed,
-      },
-    },
   };
 }
 
@@ -830,9 +602,7 @@ function jazzSequence(
 }
 
 export function makeSequence({
-  length = 5,
   maxNotes = DEFAULT_PHRASE_MAX_NOTES,
-  mode = "random",
   selectedPerformers = DEFAULT_PERFORMERS,
   phraseRatings = {},
   phraseSettings = {},
@@ -843,27 +613,18 @@ export function makeSequence({
   ignoredShortestNotes = 0,
   random = Math.random,
 } = {}) {
-  const safeLength = Math.max(3, Math.min(15, Math.round(length)));
-  const sequence =
-    mode === "parker" || mode === "jazz"
-      ? jazzSequence(
-          random,
-          maxNotes,
-          selectedPerformers,
-          phraseRatings,
-          minimumRating,
-          targetPhraseKey,
-          fullPhrase,
-          transpositionOverride,
-          phraseSettings,
-          ignoredShortestNotes,
-        )
-      : randomSequence(
-          safeLength,
-          random,
-          phraseRatings,
-          minimumRating,
-        );
+  const sequence = jazzSequence(
+    random,
+    maxNotes,
+    selectedPerformers,
+    phraseRatings,
+    minimumRating,
+    targetPhraseKey,
+    fullPhrase,
+    transpositionOverride,
+    phraseSettings,
+    ignoredShortestNotes,
+  );
   return {
     ...sequence,
     keyboard: keyboardLayoutForNotes(sequence.notes),

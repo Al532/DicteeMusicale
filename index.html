@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=42" />
-    <script type="module" src="./src/app.js?v=42"></script>
+    <link rel="stylesheet" href="./styles.css?v=43" />
+    <script type="module" src="./src/app.js?v=43"></script>
   </head>
   <body>
     <main>
@@ -114,60 +114,6 @@
               <span data-i18n="developer.mode">Developer mode</span>
             </label>
 
-            <div class="developer-lab" hidden>
-              <div class="developer-heading">
-                <div>
-                  <p class="eyebrow" data-i18n="developer.workshop">Workshop</p>
-                  <strong data-i18n="developer.corpusRatings">Corpus and ratings</strong>
-                </div>
-              </div>
-
-              <div class="mode-launchers">
-                <button class="quiet-button" id="start-real" data-i18n="developer.realPhrase">Real phrase</button>
-                <button class="quiet-button" id="start-random" data-i18n="developer.generatedPhrase">Generated phrase</button>
-              </div>
-
-              <details class="musician-picker" id="musician-picker">
-                <summary>
-                  <span data-i18n="developer.musiciansIncluded">Included musicians</span>
-                  <strong id="musician-selection-count"></strong>
-                </summary>
-                <div class="musician-picker-content">
-                  <div class="musician-picker-actions">
-                    <button class="quiet-button compact" id="select-default-performers" type="button">
-                      <span data-i18n="developer.classicJazz">Classic jazz</span>
-                    </button>
-                    <button class="quiet-button compact" id="select-all-performers" type="button">
-                      <span data-i18n="common.all">All</span>
-                    </button>
-                    <button class="quiet-button compact" id="clear-performers" type="button">
-                      <span data-i18n="common.none">None</span>
-                    </button>
-                  </div>
-                  <div class="musician-list" id="musician-list"></div>
-                </div>
-              </details>
-
-              <div class="developer-settings">
-                <label class="setting-field">
-                  <span><span id="game-length-label" data-i18n="developer.maxNotes">Max notes</span> <output id="game-length-output">20</output></span>
-                  <input id="game-length" type="range" min="5" max="20" value="20" />
-                </label>
-                <label class="setting-field">
-                  <span data-i18n="developer.minimumRating">Minimum rating</span>
-                  <select id="minimum-rating">
-                    <option value="0" data-i18n="developer.allPhrases">All phrases</option>
-                    <option value="unrated" data-i18n="developer.unratedPhrases">Unrated phrases</option>
-                    <option value="2" data-i18n="developer.twoStars">2 stars or more</option>
-                    <option value="3" data-i18n="developer.threeStars">3 stars only</option>
-                  </select>
-                </label>
-              </div>
-              <p id="rating-home-summary" data-i18n="developer.calculatingCoverage">Calculating coverage…</p>
-              <p class="selection-warning" id="selection-warning" hidden>
-                <span data-i18n="developer.selectMusician">Select at least one musician.</span>
-              </p>
-            </div>
           </div>
         </details>
       </section>
@@ -298,9 +244,6 @@
             <button id="copy-phrase-id" type="button" data-i18n="source.copy">Copy</button>
           </span>
           <a id="source-link" href="#" target="_blank" rel="noreferrer" data-i18n="source.source">Source</a>
-          <a id="audio-source-link" href="#" target="_blank" rel="noreferrer" hidden>
-            <span data-i18n="source.recording">Recording</span>
-          </a>
         </p>
 
         <div class="piano-shell">
@@ -382,7 +325,7 @@
               <button type="button" data-rating="2" aria-label="Rate 2 stars" data-i18n-aria-label="rating.twoStars">★</button>
               <button type="button" data-rating="3" aria-label="Rate 3 stars" data-i18n-aria-label="rating.threeStars">★</button>
             </div>
-            <div class="original-controls developer-game-control" id="original-controls" hidden>
+            <div class="original-controls" id="original-controls" hidden>
               <button class="quiet-button" id="play-original" aria-pressed="false" disabled>
                 <span data-i18n="game.listenOriginal">Play original</span>
               </button>
@@ -390,6 +333,15 @@
                 <input id="transpose-original" type="checkbox" />
                 <span data-i18n="game.transpose">Transpose</span>
               </label>
+              <a
+                class="recording-link"
+                id="audio-source-link"
+                href="#"
+                target="_blank"
+                rel="noreferrer"
+                hidden
+                data-i18n="source.youtubeRecording"
+              >YouTube at this phrase</a>
             </div>
           </div>
         </div>
@@ -467,29 +419,6 @@
           <span data-i18n="complete.new">New challenge</span>
         </button>
         <button class="text-button" id="finish-home" data-i18n="complete.home">Back to home</button>
-      </div>
-    </div>
-
-    <div
-      class="modal-layer"
-      id="completion-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="completion-title"
-      hidden
-    >
-      <div class="modal-card completion-card">
-        <p class="eyebrow" data-i18n="completion.kicker">Phrase complete</p>
-        <h2 id="completion-title" data-i18n="completion.title">Well done!</h2>
-        <div class="legacy-completion-actions">
-          <button class="quiet-button" id="completion-original" aria-pressed="false" hidden>
-            <span data-i18n="game.listenOriginal">Play original</span>
-          </button>
-          <button class="quiet-button" id="restart-exercise" data-i18n="completion.restart">Start over</button>
-          <button class="primary-button" id="transpose-exercise" data-i18n="game.transpose">Transpose</button>
-          <button class="primary-button" id="completion-next" data-i18n="common.next">Next</button>
-          <button class="text-button" id="completion-exit" data-i18n="completion.exit">Exit</button>
-        </div>
       </div>
     </div>
 

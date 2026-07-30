@@ -14,6 +14,10 @@ const session = await readFile(
 );
 const styles = await readFile(new URL("../styles.css", import.meta.url), "utf8");
 const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+const pagesWorkflow = await readFile(
+  new URL("../.github/workflows/pages.yml", import.meta.url),
+  "utf8",
+);
 const manifest = JSON.parse(
   await readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 );
@@ -51,9 +55,13 @@ test("le mode développeur ajoute seulement ses trois actions à l’accueil", (
     index,
     /class="developer-home-actions"[\s\S]*?data-developer-only[\s\S]*?hidden[\s\S]*?id="start-rating"[\s\S]*?id="start-review"[\s\S]*?id="export-data"/,
   );
-  assert.match(
+  assert.doesNotMatch(
     index,
-    /class="developer-lab" hidden[\s\S]*?id="start-real"[\s\S]*?id="start-random"[\s\S]*?id="musician-picker"[\s\S]*?id="minimum-rating"/,
+    /developer-lab|start-real|start-random|musician-picker|minimum-rating/,
+  );
+  assert.doesNotMatch(
+    app,
+    /renderPerformerOptions|let selectedPerformers|let randomLength|let minimumRating|elements\.minimumRating/,
   );
   assert.match(index, /id="developer-mode" type="checkbox"/);
   assert.match(app, /function renderDeveloperMode\(\)/);
@@ -134,6 +142,10 @@ test("les statistiques de progression et leur collecte ont disparu", () => {
   assert.doesNotMatch(index, /Statistiques|Progression|stat-(?:exercises|notes|accuracy|response)/);
   assert.doesNotMatch(index, /export-csv|export-json|reset-stats|import-json/);
   assert.doesNotMatch(app, /renderStats|summarizeRecords|STORAGE_KEY|records\.push|exportCsv|resetStats/);
+  assert.doesNotMatch(
+    app,
+    /attempts:|replayCount:|guessStartedAt:|responseMs:|startedAt:|completedAt:/,
+  );
   assert.doesNotMatch(index, /score|points/i);
 });
 
@@ -243,9 +255,9 @@ test("la fenêtre de douze tons suit la tessiture dans tous les modes", () => {
     app,
     /function reloadCurrentPhraseWithSettings\(\)[\s\S]*?retargetTranspositionState\([\s\S]*?transpositionRange/,
   );
-  assert.match(
+  assert.doesNotMatch(
     app,
-    /function transposeSameExercise\(\)[\s\S]*?drawNextTransposition\([\s\S]*?exercise\.transpositionState/,
+    /function transposeSameExercise|keyboardLayoutForNotes|voiceBassHits/,
   );
 });
 
@@ -298,7 +310,7 @@ test("chaque phrase peut être ajoutée aux favoris depuis le bilan final", () =
   );
 });
 
-test("le mode normal n’affiche que le musicien et le morceau", () => {
+test("le mode normal masque les détails internes mais expose les originaux disponibles", () => {
   assert.match(index, /id="source-summary" hidden/);
   assert.match(
     app,
@@ -309,8 +321,16 @@ test("le mode normal n’affiche que le musicien et le morceau", () => {
     /elements\.sourceLine\.hidden =[\s\S]*?!developerMode[\s\S]*?currentMode === "challenge"[\s\S]*?currentMode === "free"[\s\S]*?currentMode === "review"/,
   );
   assert.match(
+    index,
+    /class="original-controls" id="original-controls" hidden[\s\S]*?id="play-original"[\s\S]*?id="transpose-original"[\s\S]*?id="audio-source-link"[\s\S]*?source\.youtubeRecording/,
+  );
+  assert.match(
     app,
-    /function loadPublicPhrase\([\s\S]*?elements\.sourceLine\.hidden = true/,
+    /const recordingUrl = recordingUrlAtPhrase\(source\)[\s\S]*?elements\.originalControls\.hidden = !hasOriginalAudio && !recordingUrl/,
+  );
+  assert.doesNotMatch(
+    app,
+    /elements\.originalControls\.hidden =\s*isRatingMode \|\| isReviewMode/,
   );
 });
 
@@ -409,7 +429,6 @@ test("les écrans de mort subite et de réussite s’adaptent au paysage", () =>
 });
 
 test("les transitions déclenchées par la dernière note attendent la fin du geste", () => {
-  assert.match(app, /const COMPLETION_MODAL_DELAY_MS = 350/);
   assert.match(app, /const ROUND_ADVANCE_DELAY_MS = 720/);
   assert.match(
     app,
@@ -425,8 +444,13 @@ test("les transitions déclenchées par la dernière note attendent la fin du ge
   );
   assert.match(
     app,
-    /function finishExercise\(\) \{[\s\S]*?phase === "training"[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?showSuddenDeathTransition\(\)[\s\S]*?phase === "sudden-death"[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?loadChallengeRound\(\)[\s\S]*?scheduleCompletionModal\(\)/,
+    /function finishExercise\(\) \{[\s\S]*?phase === "training"[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?showSuddenDeathTransition\(\)[\s\S]*?phase === "sudden-death"[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?loadChallengeRound\(\)/,
   );
+  assert.doesNotMatch(
+    app,
+    /COMPLETION_MODAL_DELAY_MS|scheduleCompletionModal|completionModal/,
+  );
+  assert.doesNotMatch(index, /id="completion-modal"/);
 });
 
 test("le son public est uniquement synthétique", () => {
@@ -454,12 +478,13 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
   assert.equal(frenchManifest.orientation, "any");
-  assert.match(serviceWorker, /dictee-musicale-v42/);
-  assert.match(index, /href="\.\/styles\.css\?v=42"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=42"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=42/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=42/);
+  assert.match(serviceWorker, /dictee-musicale-v43/);
+  assert.match(index, /href="\.\/styles\.css\?v=43"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=43"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=43/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=43/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
+  assert.match(serviceWorker, /\.\/src\/recording\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.match(serviceWorker, /\.\/src\/phrase-settings\.js/);
@@ -473,11 +498,16 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
     /caches\.match\(event\.request\)[\s\S]*?if \(cachedResponse\) return cachedResponse;[\s\S]*?fetch\(event\.request\)/,
   );
   assert.doesNotMatch(serviceWorker, /mustRevalidate|cache: "no-store"/);
+  assert.match(
+    serviceWorker,
+    /Promise\.allSettled\([\s\S]*?ESSENTIAL_SHELL[\s\S]*?missingEssential/,
+  );
+  assert.doesNotMatch(serviceWorker, /cache\.addAll\(APP_SHELL\)/);
   assert.doesNotMatch(serviceWorker, /\.\/audio\/parker\//);
   assert.doesNotMatch(serviceWorker, /CLARINET_SAMPLES|PIANO_SAMPLES/);
   assert.match(
     app,
-    /navigator\.serviceWorker\.register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/,
+    /navigator\.serviceWorker[\s\S]*?\.register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)[\s\S]*?\.catch/,
   );
 
   await Promise.all(
@@ -488,6 +518,18 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
       assert.ok(file.size > 0);
     }),
   );
+});
+
+test("GitHub Pages ne publie qu’après les contrôles automatisés", () => {
+  assert.match(
+    pagesWorkflow,
+    /run: npm ci[\s\S]*?run: npm run check[\s\S]*?run: npm test[\s\S]*?uses: actions\/deploy-pages@v4/,
+  );
+  assert.match(
+    pagesWorkflow,
+    /mkdir _site[\s\S]*?src[\s\S]*?data[\s\S]*?audio[\s\S]*?path: _site/,
+  );
+  assert.doesNotMatch(pagesWorkflow, /path: \./);
 });
 
 test("l’installation est proposée directement sur Android et expliquée sur iOS", async () => {

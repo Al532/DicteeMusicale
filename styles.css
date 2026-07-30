@@ -85,7 +85,6 @@ button:disabled {
 
 h1,
 h2,
-h3,
 p {
   margin-top: 0;
 }
@@ -445,12 +444,6 @@ body.home-view {
   min-height: 44px;
 }
 
-.developer-settings {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .setting-field {
   display: block;
 }
@@ -462,16 +455,6 @@ body.home-view {
   color: var(--muted);
   font-size: 0.77rem;
   font-weight: 700;
-}
-
-select {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-raised);
 }
 
 input[type="range"] {
@@ -501,116 +484,6 @@ output {
 
 .developer-toggle span {
   font-size: 0.72rem;
-}
-
-.developer-lab {
-  margin-top: 16px;
-  padding: 20px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius);
-  background: rgba(21, 24, 20, 0.68);
-}
-
-.developer-heading,
-.mode-launchers,
-.musician-picker-actions {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.developer-heading {
-  justify-content: space-between;
-}
-
-.developer-heading .eyebrow {
-  margin-bottom: 3px;
-}
-
-.mode-launchers {
-  margin-top: 16px;
-  flex-wrap: wrap;
-}
-
-.musician-picker {
-  margin-top: 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.musician-picker > summary {
-  display: flex;
-  min-height: 48px;
-  padding: 0 14px;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-}
-
-.musician-picker > summary strong {
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-
-.musician-picker-content {
-  padding: 14px;
-  border-top: 1px solid var(--line);
-}
-
-.musician-picker-actions {
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.musician-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px 14px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.musician-option {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.musician-option input {
-  flex: 0 0 auto;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.musician-option span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.musician-option small {
-  margin-left: auto;
-  color: var(--faint);
-}
-
-.developer-settings {
-  margin-top: 16px;
-}
-
-#rating-home-summary,
-.selection-warning {
-  margin: 12px 0 0;
-  color: var(--muted);
-  font-size: 0.74rem;
-}
-
-.selection-warning {
-  color: var(--danger);
 }
 
 .favorites-panel {
@@ -875,17 +748,6 @@ output {
 
 .completion-card > .text-button {
   margin-top: 8px;
-}
-
-.legacy-completion-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 9px;
-}
-
-.legacy-completion-actions #completion-original,
-.legacy-completion-actions #completion-exit {
-  grid-column: 1 / -1;
 }
 
 .star-rating {
@@ -1340,8 +1202,18 @@ body.game-mode {
 }
 
 .original-controls {
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 7px;
+  flex-wrap: wrap;
+}
+
+.recording-link {
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .transpose-toggle {
@@ -1474,14 +1346,6 @@ body.game-mode {
 
   .challenge-rule {
     gap: 7px 11px;
-  }
-
-  .developer-settings {
-    grid-template-columns: 1fr;
-  }
-
-  .musician-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .phrase-stepper {

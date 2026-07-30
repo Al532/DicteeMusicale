@@ -1,16 +1,14 @@
 import {
-  DEFAULT_PERFORMERS,
   WJAZZD_PERFORMERS,
   isCorrectMidi,
   jazzTranspositionInRange,
   jazzTranspositionRangeForNotes,
   jazzPhraseCatalog,
-  keyboardLayoutForNotes,
   makeSequence,
   pitchClass,
-  voiceBassHits,
 } from "./engine.js";
 import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
+import { recordingUrlAtPhrase } from "./recording.js";
 import {
   advanceTraining,
   beginSuddenDeath,
@@ -60,16 +58,10 @@ const CHALLENGE_SESSION_KEY = "dictee-musicale.challenge-session.v1";
 const COMPLETED_PHRASES_KEY = "dictee-musicale.completed-phrases.v1";
 const FAVORITES_KEY = "dictee-musicale.favorites.v1";
 const REAL_MAX_NOTES = DEFAULT_PHRASE_MAX_NOTES;
-const RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE = 100;
-const LEGATO_RELEASE_SECONDS = 0.035;
+const ALL_PERFORMER_NAMES = WJAZZD_PERFORMERS.map(({ name }) => name);
 const WRONG_NOTE_REPLAY_DELAY_MS = 650;
 const ROUND_ADVANCE_DELAY_MS = 720;
-const RANDOM_SLIDER_MIN = 25;
-const RANDOM_SLIDER_MAX = 100;
-const RANDOM_PLAYBACK_MIN_PERCENT = 50;
-const RANDOM_PLAYBACK_MAX_PERCENT = 640;
 const ORIGINAL_TAIL_SECONDS = 0.25;
-const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
 const QUICK_RATING_ADVANCE_DELAY_MS = 180;
 const PHRASE_ADJUSTMENT_RELOAD_DELAY_MS = 140;
@@ -121,27 +113,13 @@ const elements = {
   completedPhrases: document.querySelector("#completed-phrases"),
   finishNewChallenge: document.querySelector("#finish-new-challenge"),
   finishHome: document.querySelector("#finish-home"),
-  gameLength: document.querySelector("#game-length"),
-  gameLengthLabel: document.querySelector("#game-length-label"),
-  gameLengthOutput: document.querySelector("#game-length-output"),
   gameSpeed: document.querySelector("#game-speed"),
   gameSpeedOutput: document.querySelector("#game-speed-output"),
   gameSpeedSetting: document.querySelector("#game-speed-setting"),
-  startReal: document.querySelector("#start-real"),
-  startRandom: document.querySelector("#start-random"),
   startRating: document.querySelector("#start-rating"),
   startReview: document.querySelector("#start-review"),
-  musicianPicker: document.querySelector("#musician-picker"),
-  musicianList: document.querySelector("#musician-list"),
-  musicianSelectionCount: document.querySelector("#musician-selection-count"),
-  selectionWarning: document.querySelector("#selection-warning"),
-  selectDefaultPerformers: document.querySelector("#select-default-performers"),
-  selectAllPerformers: document.querySelector("#select-all-performers"),
-  clearPerformers: document.querySelector("#clear-performers"),
-  minimumRating: document.querySelector("#minimum-rating"),
   developerMode: document.querySelector("#developer-mode"),
   developerOnly: document.querySelectorAll("[data-developer-only]"),
-  ratingHomeSummary: document.querySelector("#rating-home-summary"),
   ratingWorkspace: document.querySelector("#rating-workspace"),
   setPhraseEnd: document.querySelector("#set-phrase-end"),
   ratingSessionSummary: document.querySelector("#rating-session-summary"),
@@ -182,12 +160,6 @@ const elements = {
   reviewPrevious: document.querySelector("#review-previous"),
   reviewNext: document.querySelector("#review-next"),
   reviewCounter: document.querySelector("#review-counter"),
-  completionModal: document.querySelector("#completion-modal"),
-  completionOriginal: document.querySelector("#completion-original"),
-  restartExercise: document.querySelector("#restart-exercise"),
-  transposeExercise: document.querySelector("#transpose-exercise"),
-  completionNext: document.querySelector("#completion-next"),
-  completionExit: document.querySelector("#completion-exit"),
 };
 
 let audioContext;
@@ -226,16 +198,12 @@ let phraseSettings = mergePhraseSettings(
   localPhraseSettings,
 );
 let currentMode = "challenge";
-let randomLength = 5;
-let realMaxNotes = REAL_MAX_NOTES;
 let realSpeedPercent = 100;
-let randomPlaybackSpeedPercent = 88;
 let melodySound = "synthetic";
-let minimumRating = 0;
 let developerMode = false;
-let selectedPerformers = new Set(DEFAULT_PERFORMERS);
 let ratingSessionHistory = [];
 let ratingSessionBaselineScopes = new Set();
+let ratingProtocolCache = null;
 let reviewPhraseKeys = [];
 let reviewPhraseIndex = 0;
 let challengeSession = readJson(CHALLENGE_SESSION_KEY, null);
@@ -256,7 +224,6 @@ const bassSampleBuffers = new Map();
 const bassSampleLoads = new Map();
 let playbackTimer = null;
 let restartTimer = null;
-let completionTimer = null;
 let gameModeStartTimer = null;
 let quickRatingAdvanceTimer = null;
 let phraseAdjustmentTimer = null;
@@ -279,126 +246,64 @@ function readJson(key, fallback) {
 }
 
 function writeJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeStoredValue(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Le stockage peut être indisponible en navigation privée ou saturé.
+  }
 }
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function randomSliderToPlaybackPercent(value) {
-  const ratio =
-    (Number(value) - RANDOM_SLIDER_MIN) /
-    (RANDOM_SLIDER_MAX - RANDOM_SLIDER_MIN);
-  return (
-    RANDOM_PLAYBACK_MIN_PERCENT +
-    ratio * (RANDOM_PLAYBACK_MAX_PERCENT - RANDOM_PLAYBACK_MIN_PERCENT)
-  );
-}
-
-function randomPlaybackToSliderPercent(value) {
-  const ratio =
-    (Number(value) - RANDOM_PLAYBACK_MIN_PERCENT) /
-    (RANDOM_PLAYBACK_MAX_PERCENT - RANDOM_PLAYBACK_MIN_PERCENT);
-  return RANDOM_SLIDER_MIN + ratio * (RANDOM_SLIDER_MAX - RANDOM_SLIDER_MIN);
-}
-
 function loadSettings() {
   const settings = readJson(SETTINGS_KEY, {});
   currentMode = "challenge";
   developerMode = Boolean(settings.developerMode);
-  randomLength = clamp(
-    Math.round(settings.randomLength ?? settings.length ?? 5),
-    3,
-    15,
-  );
-  realMaxNotes = clamp(
-    Math.round(settings.realMaxNotes ?? settings.parkerMaxNotes ?? REAL_MAX_NOTES),
-    5,
-    REAL_MAX_NOTES,
-  );
-  randomPlaybackSpeedPercent = clamp(
-    Number(
-      settings.randomPlaybackPercent ??
-        settings.randomSpeedPercent ??
-        settings.randomTempo ??
-        settings.tempo ??
-        88,
-    ),
-    RANDOM_PLAYBACK_MIN_PERCENT,
-    RANDOM_PLAYBACK_MAX_PERCENT,
-  );
   realSpeedPercent = clamp(
     Number(settings.realSpeed ?? settings.parkerSpeed ?? 100),
     25,
     100,
   );
   melodySound = "synthetic";
-  minimumRating =
-    settings.minimumRating === "unrated"
-      ? "unrated"
-      : [2, 3].includes(Number(settings.minimumRating))
-        ? Number(settings.minimumRating)
-        : 0;
-  const knownPerformers = new Set(
-    WJAZZD_PERFORMERS.map(({ name }) => name),
-  );
-  const savedPerformers = Array.isArray(settings.selectedPerformers)
-    ? settings.selectedPerformers.filter((name) => knownPerformers.has(name))
-    : DEFAULT_PERFORMERS;
-  selectedPerformers = new Set(savedPerformers);
-  elements.minimumRating.value = String(minimumRating);
   elements.developerMode.checked = developerMode;
   elements.transposeOriginal.checked = Boolean(settings.transposeOriginal);
   renderDeveloperMode();
-  updateModeSettings();
-  renderPerformerOptions();
-  updatePerformerSelectionState();
+  renderSpeedSetting();
+  saveSettings();
 }
 
 function saveSettings() {
   writeJson(SETTINGS_KEY, {
-    randomLength,
-    realMaxNotes,
-    randomPlaybackPercent: randomPlaybackSpeedPercent,
     realSpeed: realSpeedPercent,
-    minimumRating,
     developerMode,
-    selectedPerformers: [...selectedPerformers],
     transposeOriginal: elements.transposeOriginal.checked,
   });
 }
 
-function activeMinimumRating() {
-  return developerMode ? minimumRating : 3;
-}
-
-function currentRatingProtocol(selectedOnly = false) {
-  return ratingProtocolSummary({
+function currentRatingProtocol() {
+  if (
+    ratingProtocolCache?.phraseRatings === phraseRatings &&
+    ratingProtocolCache?.fixedRatingScopes === fixedRatingScopes
+  ) {
+    return ratingProtocolCache.summary;
+  }
+  const summary = ratingProtocolSummary({
     phraseRatings,
     fixedScopes: fixedRatingScopes,
-    selectedPerformers: selectedOnly ? [...selectedPerformers] : null,
   });
-}
-
-function renderProtocolHomeSummary() {
-  const summary = currentRatingProtocol(false);
-  const scopeCount =
-    summary.tuneScopes.length + summary.performerScopes.length;
-  elements.ratingHomeSummary.textContent =
-    `${t("protocol.direct", { count: summary.explicit })} · ` +
-    t("protocol.covered", {
-      covered: summary.covered,
-      total: summary.total,
-    }) +
-    (summary.structuralExcluded
-      ? ` · ${t("protocol.structuralExcluded", {
-          count: summary.structuralExcluded,
-        })}`
-      : "") +
-    (scopeCount
-      ? ` · ${t("protocol.globalDecisions", { count: scopeCount })}`
-      : "");
+  ratingProtocolCache = { phraseRatings, fixedRatingScopes, summary };
+  return summary;
 }
 
 function renderDeveloperMode() {
@@ -407,7 +312,6 @@ function renderDeveloperMode() {
     element.hidden = !developerMode;
   }
   elements.developerMode.checked = developerMode;
-  renderProtocolHomeSummary();
   renderRatingControls();
   renderPhraseControls();
 }
@@ -419,158 +323,34 @@ async function setDeveloperMode(enabled) {
     !developerMode &&
     (currentMode === "rating" || currentMode === "review")
   ) {
-    currentMode = "jazz";
+    currentMode = "challenge";
     await leaveGameMode();
   }
   renderDeveloperMode();
   saveSettings();
 }
 
-function updatePerformerSelectionState() {
-  const selectedSoloCount = WJAZZD_PERFORMERS.reduce(
-    (sum, { name, soloCount }) =>
-      sum + (selectedPerformers.has(name) ? soloCount : 0),
-    0,
-  );
-  elements.musicianSelectionCount.textContent = t("performers.selected", {
-    selected: selectedPerformers.size,
-    total: WJAZZD_PERFORMERS.length,
-    solos: selectedSoloCount,
-  });
-  const hasSelection = selectedPerformers.size > 0;
-  elements.startReal.disabled = !hasSelection;
-  elements.startRandom.disabled = false;
-  elements.startRating.disabled = false;
-  elements.selectionWarning.hidden = hasSelection;
-  renderProtocolHomeSummary();
-}
-
-function updatePerformerCheckboxes() {
-  for (const input of elements.musicianList.querySelectorAll(
-    'input[type="checkbox"]',
-  )) {
-    input.checked = selectedPerformers.has(input.value);
-  }
-}
-
-function setPerformerSelection(names) {
-  selectedPerformers = new Set(names);
-  updatePerformerCheckboxes();
-  updatePerformerSelectionState();
-  saveSettings();
-}
-
-function renderPerformerOptions() {
-  const performers = [...WJAZZD_PERFORMERS].sort((left, right) =>
-    left.name.localeCompare(right.name, locale),
-  );
-  const fragment = document.createDocumentFragment();
-  for (const { name, soloCount } of performers) {
-    const label = document.createElement("label");
-    label.className = "musician-option";
-    label.title = t("performers.optionTitle", { name, solos: soloCount });
-
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.value = name;
-    input.checked = selectedPerformers.has(name);
-    input.addEventListener("change", () => {
-      if (input.checked) selectedPerformers.add(name);
-      else selectedPerformers.delete(name);
-      updatePerformerSelectionState();
-      saveSettings();
-    });
-
-    const musicianName = document.createElement("span");
-    musicianName.textContent = name;
-    const count = document.createElement("small");
-    count.textContent = String(soloCount);
-    label.append(input, musicianName, count);
-    fragment.append(label);
-  }
-  elements.musicianList.replaceChildren(fragment);
-}
-
-function updateSettingLabels() {
-  elements.gameLengthOutput.value = elements.gameLength.value;
+function renderSpeedSetting() {
+  elements.gameSpeedSetting.hidden = false;
+  elements.gameSpeed.min = "25";
+  elements.gameSpeed.max = "100";
+  elements.gameSpeed.step = "5";
+  elements.gameSpeed.value = String(realSpeedPercent);
   elements.gameSpeedOutput.value = `${Math.round(elements.gameSpeed.value)} %`;
 }
 
-function updateModeSettings() {
-  const isReal = currentMode !== "random";
-  elements.gameSpeedSetting.hidden = false;
-  elements.gameLengthLabel.textContent = t(
-    isReal ? "developer.maxNotes" : "developer.notes",
-  );
-  elements.gameLength.min = isReal ? "5" : "3";
-  elements.gameLength.max = isReal ? String(REAL_MAX_NOTES) : "15";
-  elements.gameLength.value = isReal ? realMaxNotes : randomLength;
-  if (isReal) {
-    elements.gameSpeed.min = "25";
-    elements.gameSpeed.max = "100";
-    elements.gameSpeed.step = "5";
-    elements.gameSpeed.value = realSpeedPercent;
-  } else {
-    elements.gameSpeed.min = String(RANDOM_SLIDER_MIN);
-    elements.gameSpeed.max = String(RANDOM_SLIDER_MAX);
-    elements.gameSpeed.step = "1";
-    elements.gameSpeed.value = randomPlaybackToSliderPercent(
-      randomPlaybackSpeedPercent,
-    );
-  }
-  updateSettingLabels();
-}
-
-function syncLength(value) {
-  const numericValue = Number(value);
-  if (currentMode !== "random") realMaxNotes = numericValue;
-  else randomLength = numericValue;
-  elements.gameLength.value = value;
-  updateSettingLabels();
-  saveSettings();
-}
-
-function syncRealSpeed(value) {
-  realSpeedPercent = Number(value);
-  elements.gameSpeed.value = value;
-  updateSettingLabels();
-  saveSettings();
-}
-
-function syncRandomSpeed(value) {
-  randomPlaybackSpeedPercent = randomSliderToPlaybackPercent(value);
-  elements.gameSpeed.value = value;
-  updateSettingLabels();
-  saveSettings();
-}
-
 function syncGameSpeed(value) {
-  if (currentMode !== "random") syncRealSpeed(value);
-  else syncRandomSpeed(value);
-}
-
-function syncMinimumRating(value) {
-  minimumRating =
-    value === "unrated"
-      ? "unrated"
-      : [2, 3].includes(Number(value))
-        ? Number(value)
-        : 0;
-  elements.minimumRating.value = String(minimumRating);
+  realSpeedPercent = clamp(Number(value), 25, 100);
+  renderSpeedSetting();
   saveSettings();
 }
 
 function startMode(mode) {
-  if (mode === "jazz" && !selectedPerformers.size) {
-    elements.selectionWarning.hidden = false;
-    elements.musicianPicker.open = true;
-    return;
-  }
-  if ((mode === "rating" || mode === "review") && !developerMode) return;
+  if (!developerMode || !["rating", "review"].includes(mode)) return;
   if (mode === "rating") {
     ratingSessionHistory = [];
     ratingSessionBaselineScopes = new Set(
-      currentRatingProtocol(false).scopes.map(
+      currentRatingProtocol().scopes.map(
         (scope) => `${scope.scope}:${scope.scopeId}`,
       ),
     );
@@ -593,13 +373,12 @@ function startMode(mode) {
   elements.sourceSummary.hidden = true;
   elements.favoriteToggle.hidden = true;
   elements.freeTranspose.hidden = true;
-  updateModeSettings();
   saveSettings();
   startExercise();
 }
 
 function effectivePhraseRatings() {
-  return currentRatingProtocol(false).effectiveRatings;
+  return currentRatingProtocol().effectiveRatings;
 }
 
 function challengeCatalog() {
@@ -637,7 +416,7 @@ function catalogMap(catalog = allPhraseCatalog()) {
 
 function persistChallengeSession() {
   if (challengeSession?.phase === "complete" || !challengeSession) {
-    localStorage.removeItem(CHALLENGE_SESSION_KEY);
+    removeStoredValue(CHALLENGE_SESSION_KEY);
     return;
   }
   writeJson(CHALLENGE_SESSION_KEY, challengeSession);
@@ -652,7 +431,7 @@ function normalizePersistedChallenge() {
     )
   ) {
     challengeSession = null;
-    localStorage.removeItem(CHALLENGE_SESSION_KEY);
+    removeStoredValue(CHALLENGE_SESSION_KEY);
   }
   return catalog;
 }
@@ -1298,10 +1077,6 @@ function setOriginalPlaybackState(playing) {
     playing ? "audio.stop" : "audio.listenOriginal",
   );
   elements.playOriginal.setAttribute("aria-pressed", String(playing));
-  elements.completionOriginal.textContent = t(
-    playing ? "audio.stop" : "audio.listenOriginal",
-  );
-  elements.completionOriginal.setAttribute("aria-pressed", String(playing));
 }
 
 function stopAllTones() {
@@ -1369,7 +1144,6 @@ function restoreExerciseInput(message = null) {
   }
   acceptingInput = exercise.currentIndex < exercise.notes.length;
   if (!acceptingInput) return;
-  exercise.guessStartedAt = performance.now();
   elements.feedback.className = "feedback";
   if (message) {
     elements.feedback.textContent = message;
@@ -1407,7 +1181,7 @@ function loadOriginalAudio(path) {
   return decodedAudioBuffers.get(path);
 }
 
-async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
+async function playOriginalExcerpt() {
   const sourceMeta = exercise?.source;
   if (!sourceMeta?.audioFile) return;
 
@@ -1431,7 +1205,7 @@ async function playOriginalExcerpt({ forceOriginalPitch = false } = {}) {
       phraseEnd + ORIGINAL_TAIL_SECONDS,
     );
     let clip = sliceAudioBuffer(context, recording, clipStart, clipEnd);
-    const semitones = !forceOriginalPitch && elements.transposeOriginal.checked
+    const semitones = elements.transposeOriginal.checked
       ? sourceMeta.transposition
       : 0;
 
@@ -1487,14 +1261,6 @@ function toggleOriginalPlayback() {
   playOriginalExcerpt();
 }
 
-function toggleCompletionOriginal() {
-  if (isOriginalPlaying) {
-    stopAllTones();
-    return;
-  }
-  playOriginalExcerpt({ forceOriginalPitch: true });
-}
-
 function flashPlayedKey(midi, delayMs, durationMs) {
   const key = elements.piano.querySelector(`[data-midi="${midi}"]`);
   if (!key) return;
@@ -1517,49 +1283,30 @@ function playSequence({ guardInputBurst = false } = {}) {
   acceptingInput = false;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = t("audio.listenCarefully");
-  let playbackDuration;
-  if (exercise.timings) {
-    exercise.speedPercent = realSpeedPercent;
-    const timeScale = 100 / exercise.speedPercent;
-    exercise.notes.forEach((midi, index) => {
-      const timing = exercise.timings[index];
-      const startSeconds = timing.offset * timeScale;
-      const durationSeconds = timing.duration * timeScale;
-      playTone(midi, startSeconds, durationSeconds, index === 0);
-      if (index === 0) {
-        flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
-      }
-    });
-    for (const chick of exercise.chicks ?? []) {
-      playChick(chick.offset * timeScale);
+  exercise.speedPercent = realSpeedPercent;
+  const timeScale = 100 / exercise.speedPercent;
+  exercise.notes.forEach((midi, index) => {
+    const timing = exercise.timings[index];
+    const startSeconds = timing.offset * timeScale;
+    const durationSeconds = timing.duration * timeScale;
+    playTone(midi, startSeconds, durationSeconds, index === 0);
+    if (index === 0) {
+      flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
     }
-    for (const bassHit of exercise.bassHits ?? []) {
-      playBass(
-        bassHit.midi,
-        bassHit.offset * timeScale,
-        bassHit.duration * timeScale,
-      );
-    }
-    const lastTiming = exercise.timings.at(-1);
-    playbackDuration = (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
-  } else {
-    exercise.speedPercent = Number(elements.gameSpeed.value);
-    exercise.playbackRatePercent = randomPlaybackSpeedPercent;
-    const notesPerMinute =
-      RANDOM_SPEED_REFERENCE_NOTES_PER_MINUTE *
-      (exercise.playbackRatePercent / 100);
-    const noteIntervalMs = 60_000 / notesPerMinute;
-    const toneDuration = noteIntervalMs / 1000 + LEGATO_RELEASE_SECONDS;
-    exercise.notes.forEach((midi, index) => {
-      const delayMs = index * noteIntervalMs;
-      playTone(midi, delayMs / 1000, toneDuration, index === 0);
-      if (index === 0) {
-        flashPlayedKey(midi, delayMs, toneDuration * 1000);
-      }
-    });
-    playbackDuration =
-      exercise.notes.length * noteIntervalMs + LEGATO_RELEASE_SECONDS * 1000;
+  });
+  for (const chick of exercise.chicks ?? []) {
+    playChick(chick.offset * timeScale);
   }
+  for (const bassHit of exercise.bassHits ?? []) {
+    playBass(
+      bassHit.midi,
+      bassHit.offset * timeScale,
+      bassHit.duration * timeScale,
+    );
+  }
+  const lastTiming = exercise.timings.at(-1);
+  const playbackDuration =
+    (lastTiming.offset + lastTiming.duration) * timeScale * 1000;
 
   playbackTimer = window.setTimeout(() => {
     playbackTimer = null;
@@ -1574,7 +1321,6 @@ function playSequence({ guardInputBurst = false } = {}) {
       return;
     }
     acceptingInput = exercise.currentIndex < exercise.notes.length;
-    exercise.guessStartedAt = performance.now();
     if (
       currentMode === "challenge" &&
       challengeSession?.phase === "sudden-death"
@@ -1802,6 +1548,7 @@ function refreshRatingsFromLocal() {
     DEFAULT_RATING_SCOPES,
     localRatingScopes,
   );
+  ratingProtocolCache = null;
 }
 
 function setQuickRatingEnabled(enabled) {
@@ -1814,7 +1561,7 @@ function renderRatingSession() {
   const sessionCount = ratingSessionHistory.length;
   const distribution = { 1: 0, 2: 0, 3: 0 };
   for (const item of ratingSessionHistory) distribution[item.rating] += 1;
-  const summary = currentRatingProtocol(false);
+  const summary = currentRatingProtocol();
   const newScopes = summary.scopes.filter(
     (scope) =>
       !ratingSessionBaselineScopes.has(`${scope.scope}:${scope.scopeId}`),
@@ -1848,7 +1595,6 @@ function renderRatingSession() {
         })}`
       : "");
   elements.undoRating.disabled = !sessionCount;
-  renderProtocolHomeSummary();
 }
 
 function currentPhraseRating() {
@@ -1890,14 +1636,12 @@ function renderRatingControls() {
 
 function setPhraseRating(
   rating,
-  { automatic = false, origin = automatic ? "automatic" : "manual" } = {},
+  { origin = "manual" } = {},
 ) {
   if (!developerMode) return false;
   const source = exercise?.source;
   if (!source?.phraseKey) return false;
   const safeRating = clamp(Math.round(Number(rating) || 0), 1, 3);
-  const existingRating = currentPhraseRating();
-  if (automatic && existingRating >= safeRating) return false;
   localPhraseRatings[source.phraseKey] = {
     rating: safeRating,
     updatedAt: new Date().toISOString(),
@@ -1987,7 +1731,6 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
     window.clearTimeout(phraseAdjustmentTimer);
     phraseAdjustmentTimer = null;
   }
-  hideCompletionModal();
   elements.suddenDeathModal.hidden = true;
   stopAllTones();
   getAudioContext();
@@ -1996,7 +1739,7 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
     !document.body.classList.contains("game-mode");
   const isChallenge = currentMode === "challenge";
   const isFree = currentMode === "free";
-  updateModeSettings();
+  renderSpeedSetting();
   document.body.classList.toggle("challenge-mode", isChallenge);
   document.body.classList.toggle("free-mode", isFree);
   document.body.classList.remove("rating-mode", "review-mode");
@@ -2009,8 +1752,7 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   try {
     generated = makeSequence({
       maxNotes: REAL_MAX_NOTES,
-      mode: "jazz",
-      selectedPerformers: WJAZZD_PERFORMERS.map(({ name }) => name),
+      selectedPerformers: ALL_PERFORMER_NAMES,
       phraseRatings: effectivePhraseRatings(),
       phraseSettings,
       minimumRating: isChallenge ? 3 : 0,
@@ -2040,30 +1782,14 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   }
 
   exercise = {
-    id: crypto.randomUUID(),
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    mode: currentMode,
-    label: generated.meta.label,
     source: generated.meta.source,
-    tempo: null,
     speedPercent: realSpeedPercent,
-    playbackRatePercent: null,
-    originalTempo: generated.meta.originalTempo ?? null,
     notes: generated.notes,
-    originalNotes: generated.notes.map(
-      (midi) => midi - generated.meta.source.transposition,
-    ),
     transposition: generated.meta.source.transposition,
-    timings: generated.timings ?? null,
+    timings: generated.timings,
     chicks: generated.chicks ?? null,
     bassHits: generated.bassHits ?? null,
-    keyboard: generated.keyboard,
     currentIndex: 0,
-    attempts: [],
-    replayCount: 0,
-    guessStartedAt: null,
-    solvedAtLeastOnce: false,
     executionStarted: false,
     quickRatingFullPreview: false,
     playbackStartedAt: null,
@@ -2082,8 +1808,6 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
         ? t("game.firstTry")
         : t("game.listenFind");
   renderSource(generated.meta.source);
-  elements.sourceLine.hidden = true;
-  elements.originalControls.hidden = true;
   elements.nextExercise.hidden = true;
   elements.nextExercise.disabled = true;
   elements.ratingWorkspace.hidden = true;
@@ -2149,20 +1873,19 @@ async function startExercise({
     window.clearTimeout(phraseAdjustmentTimer);
     phraseAdjustmentTimer = null;
   }
-  hideCompletionModal();
   stopAllTones();
   getAudioContext();
   const isRatingMode = currentMode === "rating";
   const isReviewMode = currentMode === "review";
-  const protocol = currentRatingProtocol(false);
-  const allPerformers = WJAZZD_PERFORMERS.map(({ name }) => name);
+  if (!isRatingMode && !isReviewMode) return;
+  const protocol = currentRatingProtocol();
   const targetPhraseKey =
     targetPhraseKeyOverride ??
     (isRatingMode
       ? pickRatingPhrase({
           phraseRatings,
           fixedScopes: fixedRatingScopes,
-          selectedPerformers: allPerformers,
+          selectedPerformers: ALL_PERFORMER_NAMES,
           sessionHistory: ratingSessionHistory,
         })
       : isReviewMode
@@ -2190,35 +1913,24 @@ async function startExercise({
   let generated;
   try {
     generated = makeSequence({
-      length: randomLength,
       maxNotes: REAL_MAX_NOTES,
-      mode: isRatingMode || isReviewMode ? "jazz" : currentMode,
-      selectedPerformers:
-        isRatingMode || isReviewMode
-          ? allPerformers
-          : [...selectedPerformers],
+      selectedPerformers: ALL_PERFORMER_NAMES,
       phraseRatings: protocol.effectiveRatings,
       phraseSettings,
-      minimumRating:
-        isRatingMode ? 0 : isReviewMode ? 3 : activeMinimumRating(),
+      minimumRating: isRatingMode ? 0 : 3,
       targetPhraseKey,
       fullPhrase: useFullQuickRatingPreview,
       transpositionOverride:
-        transpositionOverride ??
-        (isRatingMode || isReviewMode ? 0 : null),
+        transpositionOverride ?? 0,
     });
   } catch (error) {
     const message = localizeError(
       error instanceof Error ? error.message : t("phrase.noneAvailable"),
     );
-    elements.selectionWarning.textContent = message;
-    elements.selectionWarning.hidden = false;
     elements.feedback.className = "feedback error";
     elements.feedback.textContent = message;
     return;
   }
-  elements.selectionWarning.textContent = t("selection.real");
-  elements.selectionWarning.hidden = true;
   if (enteringGameMode) await enterGameMode();
   try {
     await preloadMelodySamples(keyboardMidiNotes(generated.keyboard));
@@ -2247,31 +1959,15 @@ async function startExercise({
         initialTransposition: generatedTransposition,
       });
   exercise = {
-    id: crypto.randomUUID(),
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    mode: currentMode,
-    label: generated.meta.label,
     source: generated.meta.source,
-    tempo: null,
-    speedPercent: generated.timings
-      ? realSpeedPercent
-      : Number(elements.gameSpeed.value),
-    playbackRatePercent: generated.timings ? null : randomPlaybackSpeedPercent,
-    originalTempo: generated.meta.originalTempo ?? null,
+    speedPercent: realSpeedPercent,
     notes: generated.notes,
-    originalNotes,
     transposition: generatedTransposition,
     transpositionState,
-    timings: generated.timings ?? null,
+    timings: generated.timings,
     chicks: generated.chicks ?? null,
     bassHits: generated.bassHits ?? null,
-    keyboard: generated.keyboard,
     currentIndex: 0,
-    attempts: [],
-    replayCount: 0,
-    guessStartedAt: null,
-    solvedAtLeastOnce: false,
     executionStarted: false,
     quickRatingFullPreview: useFullQuickRatingPreview,
     playbackStartedAt: null,
@@ -2280,23 +1976,12 @@ async function startExercise({
   elements.kicker.textContent =
     isRatingMode
       ? t("developer.quickRating")
-      : isReviewMode
-        ? t("mode.review")
-        : generated.meta.source.kind === "generated"
-          ? t("mode.generated")
-          : generated.meta.label;
+      : t("mode.review");
   elements.exerciseTitle.textContent =
     isRatingMode
       ? t("rating.listenRate")
-      : isReviewMode
-        ? t("review.listenAdjust")
-        : t("game.listenFind");
+      : t("review.listenAdjust");
   renderSource(generated.meta.source);
-  const hasOriginal = Boolean(generated.meta.source.audioFile);
-  elements.originalControls.hidden =
-    isRatingMode || isReviewMode || !hasOriginal;
-  elements.playOriginal.disabled = !hasOriginal;
-  elements.transposeOriginal.disabled = !hasOriginal;
   elements.replay.disabled = enteringGameMode;
   elements.nextExercise.hidden = isReviewMode;
   elements.nextExercise.disabled = false;
@@ -2380,10 +2065,15 @@ function renderSource(source) {
     elements.sourceLink.hidden = true;
     elements.sourceLink.removeAttribute("href");
   }
-  if (source.audioSourceUrl) {
+  const hasOriginalAudio = Boolean(source.audioFile);
+  const recordingUrl = recordingUrlAtPhrase(source);
+  elements.playOriginal.disabled = !hasOriginalAudio;
+  elements.transposeOriginal.disabled = !hasOriginalAudio;
+  elements.originalControls.hidden = !hasOriginalAudio && !recordingUrl;
+  if (recordingUrl) {
     elements.audioSourceLink.hidden = false;
-    elements.audioSourceLink.href = source.audioSourceUrl;
-    elements.audioSourceLink.textContent = t("source.recordingLink");
+    elements.audioSourceLink.href = recordingUrl;
+    elements.audioSourceLink.textContent = t("source.youtubeRecording");
   } else {
     elements.audioSourceLink.hidden = true;
     elements.audioSourceLink.removeAttribute("href");
@@ -2425,77 +2115,6 @@ async function copyCurrentPhraseId() {
   }, 1_500);
 }
 
-function hideCompletionModal() {
-  if (completionTimer !== null) {
-    window.clearTimeout(completionTimer);
-    completionTimer = null;
-  }
-  elements.completionModal.hidden = true;
-}
-
-function showCompletionModal() {
-  elements.completionOriginal.hidden = !exercise?.source?.audioFile;
-  renderRatingControls();
-  elements.completionModal.hidden = false;
-  window.requestAnimationFrame(() => elements.completionNext.focus());
-}
-
-function scheduleCompletionModal() {
-  completionTimer = window.setTimeout(() => {
-    completionTimer = null;
-    showCompletionModal();
-  }, COMPLETION_MODAL_DELAY_MS);
-}
-
-function prepareRepeatedExercise() {
-  exercise.id = crypto.randomUUID();
-  exercise.startedAt = new Date().toISOString();
-  exercise.completedAt = null;
-  exercise.attempts = [];
-  exercise.replayCount = 0;
-  exercise.executionStarted = false;
-}
-
-function restartSameExercise() {
-  if (!exercise) return;
-  hideCompletionModal();
-  stopAllTones();
-  prepareRepeatedExercise();
-  resetExerciseProgress();
-  playSequence();
-}
-
-async function transposeSameExercise() {
-  if (!exercise) return;
-  hideCompletionModal();
-  stopAllTones();
-  setPhraseRating(3, { automatic: true });
-  const transposition = drawNextTransposition(
-    exercise.transpositionState,
-  );
-  exercise.transposition = transposition;
-  exercise.notes = exercise.originalNotes.map((midi) => midi + transposition);
-  exercise.bassHits = voiceBassHits(exercise.bassHits ?? [], transposition);
-  exercise.source = { ...exercise.source, transposition };
-  exercise.keyboard = keyboardLayoutForNotes(exercise.notes);
-  prepareRepeatedExercise();
-  resetExerciseProgress();
-  renderSource(exercise.source);
-  buildPiano(exercise.keyboard);
-  markReferenceKey();
-  try {
-    await preloadMelodySamples(keyboardMidiNotes(exercise.keyboard));
-  } catch {
-    // Un oscillateur de secours garde la dictée jouable en cas d’échec réseau.
-  }
-  try {
-    await preloadBassSamples(exercise.bassHits);
-  } catch {
-    // La mélodie reste prioritaire si le chargement d’une basse échoue.
-  }
-  playSequence();
-}
-
 function togglePlayback() {
   if (!exercise) return;
   if (
@@ -2513,10 +2132,6 @@ function togglePlayback() {
     restoreExerciseInput(t("playback.stopped"));
     return;
   }
-  if (exercise.completedAt) {
-    prepareRepeatedExercise();
-  }
-  exercise.replayCount += 1;
   resetExerciseProgress();
   playSequence();
 }
@@ -2525,7 +2140,6 @@ function resetExerciseProgress() {
   if (!exercise) return;
   acceptingInput = false;
   exercise.currentIndex = 0;
-  exercise.guessStartedAt = null;
   exercise.executionStarted = false;
   elements.replay.disabled = false;
   renderPhraseControls();
@@ -2584,35 +2198,7 @@ function handlePianoInput(midi, key) {
   }
 
   const target = exercise.notes[exercise.currentIndex];
-  let attempt = exercise.attempts.find((item) => item.position === exercise.currentIndex);
-  if (!attempt) {
-    const previousMidi =
-      exercise.currentIndex > 0 ? exercise.notes[exercise.currentIndex - 1] : null;
-    attempt = {
-      position: exercise.currentIndex,
-      targetMidi: target,
-      targetPitchClass: pitchClass(target),
-      previousMidi,
-      interval: previousMidi === null ? null : target - previousMidi,
-      guesses: [],
-      responseMs: null,
-    };
-    exercise.attempts.push(attempt);
-  }
-
   const isCorrect = isCorrectMidi(target, midi);
-  const wasAlreadySolved = attempt.guesses.some((guess) =>
-    isCorrectMidi(target, guess.midi),
-  );
-  if (!isCorrect || !wasAlreadySolved) {
-    attempt.guesses.push({
-      midi,
-      pitchClass: pitchClass(midi),
-      correct: isCorrect,
-      at: new Date().toISOString(),
-    });
-  }
-
   if (!isCorrect) {
     key.classList.add("wrong-key");
     window.setTimeout(() => key.classList.remove("wrong-key"), 260);
@@ -2627,9 +2213,6 @@ function handlePianoInput(midi, key) {
     return;
   }
 
-  if (attempt.responseMs === null) {
-    attempt.responseMs = Math.round(performance.now() - exercise.guessStartedAt);
-  }
   key.classList.add("correct-key");
   window.setTimeout(() => key.classList.remove("correct-key"), 280);
   exercise.currentIndex += 1;
@@ -2639,7 +2222,6 @@ function handlePianoInput(midi, key) {
     return;
   }
 
-  exercise.guessStartedAt = performance.now();
   elements.feedback.className = "feedback success";
   elements.feedback.textContent =
     currentMode === "challenge" &&
@@ -2697,7 +2279,7 @@ function completeChallenge() {
   ];
   writeJson(COMPLETED_PHRASES_KEY, completedPhraseKeys);
   challengeSession = null;
-  localStorage.removeItem(CHALLENGE_SESSION_KEY);
+  removeStoredValue(CHALLENGE_SESSION_KEY);
   renderCompletedChallenge(lastCompletedChallengePhrases);
   scheduleRoundTransition(() => {
     elements.challengeCompleteModal.hidden = false;
@@ -2707,8 +2289,6 @@ function completeChallenge() {
 
 function finishExercise() {
   acceptingInput = false;
-  exercise.completedAt = new Date().toISOString();
-  exercise.solvedAtLeastOnce = true;
   elements.feedback.className = "feedback success";
   if (currentMode === "challenge" && challengeSession?.phase === "training") {
     elements.feedback.textContent = t("finish.toneValidated");
@@ -2742,23 +2322,10 @@ function finishExercise() {
   if (currentMode === "free") {
     elements.feedback.textContent = t("finish.free");
     elements.replay.disabled = false;
-    return;
   }
-
-  elements.feedback.textContent = t("finish.phrase");
-  scheduleCompletionModal();
 }
 
 function goToNextExercise() {
-  if (
-    developerMode &&
-    currentMode !== "rating" &&
-    currentMode !== "review" &&
-    exercise &&
-    !exercise.solvedAtLeastOnce
-  ) {
-    setPhraseRating(1, { automatic: true });
-  }
   startExercise();
 }
 
@@ -2778,7 +2345,7 @@ function csvCell(value) {
 }
 
 function exportData() {
-  const protocol = currentRatingProtocol(false);
+  const protocol = currentRatingProtocol();
   const phrasesByKey = catalogMap();
   const rows = [
     [
@@ -2863,7 +2430,11 @@ function exportData() {
 
 function registerOfflineSupport() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+    navigator.serviceWorker
+      .register("./sw.js", { updateViaCache: "none" })
+      .catch(() => {
+        // L’application reste utilisable en ligne si l’enregistrement échoue.
+      });
   }
 }
 
@@ -3034,7 +2605,6 @@ async function leaveGameMode(
     phraseAdjustmentTimer = null;
   }
   stopAllTones();
-  hideCompletionModal();
   elements.suddenDeathModal.hidden = true;
   elements.challengeCompleteModal.hidden = true;
   acceptingInput = false;
@@ -3090,7 +2660,6 @@ function setUpGameMode() {
         window.clearTimeout(phraseAdjustmentTimer);
         phraseAdjustmentTimer = null;
       }
-      hideCompletionModal();
       acceptingInput = false;
       deactivateGameLayout();
       exercise = null;
@@ -3100,15 +2669,7 @@ function setUpGameMode() {
   });
 }
 
-elements.gameLength.addEventListener("input", () =>
-  syncLength(elements.gameLength.value),
-);
 elements.gameSpeed.addEventListener("input", () => syncGameSpeed(elements.gameSpeed.value));
-elements.minimumRating.addEventListener("change", () =>
-  syncMinimumRating(elements.minimumRating.value),
-);
-elements.startReal.addEventListener("click", () => startMode("jazz"));
-elements.startRandom.addEventListener("click", () => startMode("random"));
 elements.startRating.addEventListener("click", () => startMode("rating"));
 elements.startReview.addEventListener("click", () => startMode("review"));
 elements.startChallenge.addEventListener("click", startNewChallenge);
@@ -3123,15 +2684,6 @@ elements.finishNewChallenge.addEventListener("click", startNewChallenge);
 elements.finishHome.addEventListener("click", () => leaveGameMode("home"));
 elements.developerMode.addEventListener("change", () =>
   setDeveloperMode(elements.developerMode.checked),
-);
-elements.selectDefaultPerformers.addEventListener("click", () =>
-  setPerformerSelection(DEFAULT_PERFORMERS),
-);
-elements.selectAllPerformers.addEventListener("click", () =>
-  setPerformerSelection(WJAZZD_PERFORMERS.map(({ name }) => name)),
-);
-elements.clearPerformers.addEventListener("click", () =>
-  setPerformerSelection([]),
 );
 elements.nextExercise.addEventListener("click", goToNextExercise);
 elements.replay.addEventListener("click", togglePlayback);
@@ -3153,11 +2705,6 @@ elements.reviewNext.addEventListener("click", () => moveReviewPhrase(1));
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
 elements.copyPhraseId.addEventListener("click", copyCurrentPhraseId);
 elements.transposeOriginal.addEventListener("change", saveSettings);
-elements.completionOriginal.addEventListener("click", toggleCompletionOriginal);
-elements.restartExercise.addEventListener("click", restartSameExercise);
-elements.transposeExercise.addEventListener("click", transposeSameExercise);
-elements.completionNext.addEventListener("click", goToNextExercise);
-elements.completionExit.addEventListener("click", () => leaveGameMode("home"));
 elements.exportData.addEventListener("click", exportData);
 elements.undoRating.addEventListener("click", undoLastRating);
 elements.fullscreenButton.addEventListener("click", toggleGameMode);

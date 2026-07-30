@@ -11,12 +11,9 @@ import { WJAZZD_CHORDS } from "../data/wjazzd-chords.js";
 import {
   BASS_MAX_MIDI,
   BASS_MIN_MIDI,
-  JAZZ_MARKOV_MAX_ORDER,
-  JAZZ_MARKOV_MIN_CONTEXT_COUNT,
   applyPhraseSettingsToEvents,
   bassPitchClassForChord,
   isCorrectMidi,
-  jazzCorpusSummary,
   jazzPhraseCatalog,
   jazzTranspositionInRange,
   jazzTranspositionRangeForNotes,
@@ -27,10 +24,15 @@ import {
   phraseRatingKey,
   pitchClass,
   playbackStartOnStrongBeat,
-  randomDifferentJazzTransposition,
   randomJazzTransposition,
   voiceBassHits,
 } from "../src/engine.js";
+import {
+  JAZZ_MARKOV_MAX_ORDER,
+  JAZZ_MARKOV_MIN_CONTEXT_COUNT,
+  jazzCorpusSummary,
+  makeGeneratedSequence,
+} from "../src/markov.js";
 
 function seededRandom(seed = 1) {
   let state = seed >>> 0;
@@ -162,18 +164,6 @@ test("un tirage respecte les fenêtres graves et aiguës", () => {
   );
 });
 
-test("une nouvelle transposition choisit uniformément l’un des 11 autres tons", () => {
-  const shifts = Array.from({ length: 11 }, (_, bucket) =>
-    randomDifferentJazzTransposition(0, () => (bucket + 0.25) / 11),
-  );
-  assert.deepEqual(
-    [...new Set(shifts.map((shift) => pitchClass(shift)))].sort(
-      (a, b) => a - b,
-    ),
-    Array.from({ length: 11 }, (_, index) => index + 1),
-  );
-});
-
 test("les transpositions suivent des cycles complets sans répétition", () => {
   const transpositionRange = [0, 11];
   const initialTransposition = 4;
@@ -263,10 +253,8 @@ test("le modèle Markov utilise tout le corpus malgré la sélection des musicie
   assert.equal(corpus.performerCount, 78);
   assert.equal(corpus.soloCount, 456);
   assert.equal(corpus.phraseCount, 11_082);
-  const generated = makeSequence({
+  const generated = makeGeneratedSequence({
     length: 10,
-    mode: "random",
-    selectedPerformers: ["Charlie Parker"],
     random: seededRandom(501),
   });
   assert.equal(generated.meta.source.performers.length, 78);
@@ -314,7 +302,6 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
   assert.equal(unrated.phraseCount, complete.phraseCount - 2);
 
   const real = makeSequence({
-    mode: "jazz",
     selectedPerformers: ["Charlie Parker"],
     phraseRatings,
     minimumRating: 3,
@@ -324,7 +311,6 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
   assert.equal(real.meta.source.rating, 3);
 
   const unratedReal = makeSequence({
-    mode: "jazz",
     selectedPerformers: ["Charlie Parker"],
     phraseRatings,
     minimumRating: "unrated",
@@ -333,8 +319,7 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
   assert.notEqual(unratedReal.meta.source.phraseKey, parkerKey);
   assert.equal(unratedReal.meta.source.rating, 0);
 
-  const unratedGenerated = makeSequence({
-    mode: "random",
+  const unratedGenerated = makeGeneratedSequence({
     phraseRatings,
     minimumRating: "unrated",
     random: seededRandom(43),
@@ -344,7 +329,6 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
   assert.throws(
     () =>
       makeSequence({
-        mode: "jazz",
         selectedPerformers: ["John Coltrane"],
         phraseRatings,
         minimumRating: 3,
@@ -355,10 +339,8 @@ test("le filtre d’étoiles restreint les phrases réelles et le corpus génér
 
 test("le Markov conserve un ordre variable borné à huit", () => {
   const results = Array.from({ length: 80 }, (_, index) =>
-    makeSequence({
+    makeGeneratedSequence({
       length: 10,
-      mode: "random",
-      selectedPerformers: DEFAULT_PERFORMERS,
       random: seededRandom(index + 600),
     }),
   );
@@ -382,7 +364,6 @@ test("le Markov conserve un ordre variable borné à huit", () => {
 test("les phrases réelles respectent strictement la sélection", () => {
   for (const performer of ["John Coltrane", "Louis Armstrong", "Chet Baker"]) {
     const result = makeSequence({
-      mode: "jazz",
       selectedPerformers: [performer],
       random: seededRandom(performer.length),
     });
@@ -406,16 +387,13 @@ test("la sélection vide est refusée seulement pour les phrases réelles", () =
   assert.throws(
     () =>
       makeSequence({
-        mode: "jazz",
         selectedPerformers: [],
         random: seededRandom(),
       }),
     /Sélectionne au moins un musicien/,
   );
   assert.equal(
-    makeSequence({
-      mode: "random",
-      selectedPerformers: [],
+    makeGeneratedSequence({
       random: seededRandom(),
     }).meta.source.performers.length,
     78,
@@ -447,7 +425,6 @@ test("seuls les six solos calibrés exposent un enregistrement", async () => {
 
 test("vingt notes est le défaut mais chaque phrase accepte 1 note à sa longueur complète", () => {
   const options = (maxNotes) => ({
-    mode: "jazz",
     selectedPerformers: ["Charlie Parker"],
     random: seededRandom(42),
     ...(maxNotes === undefined ? {} : { maxNotes }),
@@ -520,7 +497,6 @@ test("la séquence jouée retire ces notes sans refermer les silences", () => {
     settings,
   );
   const result = makeSequence({
-    mode: "jazz",
     selectedPerformers: [solo.performer],
     targetPhraseKey: phraseKey,
     phraseSettings: { [phraseKey]: settings },
@@ -591,7 +567,6 @@ test("le protocole peut écouter une phrase précise en entier et dans le ton or
   );
   const phraseKey = phraseRatingKey(solo.id, phrase[2]);
   const result = makeSequence({
-    mode: "jazz",
     selectedPerformers: [solo.performer],
     targetPhraseKey: phraseKey,
     fullPhrase: true,
@@ -608,7 +583,6 @@ test("le protocole peut écouter une phrase précise en entier et dans le ton or
 test("les rythmes, transpositions, accords et chicks annotés sont conservés", () => {
   const results = Array.from({ length: 48 }, (_, index) =>
     makeSequence({
-      mode: "jazz",
       selectedPerformers: DEFAULT_PERFORMERS,
       random: seededRandom(index + 900),
     }),
@@ -697,19 +671,15 @@ test("les 21 samples chromatiques de basse sont présents", async () => {
 
 test("la longueur générée est bornée", () => {
   assert.equal(
-    makeSequence({
+    makeGeneratedSequence({
       length: 1,
-      mode: "random",
-      selectedPerformers: ["Charlie Parker"],
       random: seededRandom(),
     }).notes.length,
     3,
   );
   assert.equal(
-    makeSequence({
+    makeGeneratedSequence({
       length: 99,
-      mode: "random",
-      selectedPerformers: ["Charlie Parker"],
       random: seededRandom(),
     }).notes.length,
     15,
