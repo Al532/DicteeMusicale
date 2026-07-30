@@ -502,11 +502,12 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
   assert.equal(frenchManifest.orientation, "any");
-  assert.match(serviceWorker, /dictee-musicale-v44/);
-  assert.match(index, /href="\.\/styles\.css\?v=44"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=44"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=44/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=44/);
+  assert.match(serviceWorker, /dictee-musicale-v45/);
+  assert.match(index, /href="\.\/styles\.css\?v=45"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=45"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=45/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=45/);
+  assert.match(serviceWorker, /\.\/src\/embedded-browser\.js/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/src\/recording\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);

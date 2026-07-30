@@ -26,10 +26,80 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=44" />
-    <script type="module" src="./src/app.js?v=44"></script>
+    <link rel="stylesheet" href="./styles.css?v=45" />
+    <script type="module" src="./src/app.js?v=45"></script>
   </head>
   <body>
+    <div
+      class="embedded-browser-guard"
+      id="embedded-browser-guard"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="embedded-browser-title"
+      aria-describedby="embedded-browser-body"
+      hidden
+    >
+      <div class="embedded-browser-card">
+        <span class="embedded-browser-icon" aria-hidden="true">↗</span>
+        <p class="eyebrow" data-i18n="embedded.kicker">
+          Full browser required
+        </p>
+        <h1 id="embedded-browser-title" data-i18n="embedded.title">
+          Open in Safari or Chrome
+        </h1>
+        <p id="embedded-browser-body" data-i18n="embedded.body">
+          This app needs a full browser for audio to work correctly. It is
+          blocked inside Reddit, Messenger and other embedded browsers.
+        </p>
+
+        <div
+          class="embedded-browser-actions"
+          id="embedded-browser-android-action"
+          hidden
+        >
+          <a
+            class="primary-button wide-button embedded-browser-open"
+            id="open-in-chrome"
+            href="#"
+            data-i18n="embedded.openChrome"
+          >Open in Chrome</a>
+        </div>
+
+        <p
+          class="embedded-browser-help"
+          id="embedded-browser-ios-help"
+          data-i18n="embedded.iosHelp"
+          hidden
+        >
+          In the app menu, choose “Open in Safari”. If that option is missing,
+          copy the link below and paste it into Safari.
+        </p>
+        <p
+          class="embedded-browser-help"
+          id="embedded-browser-generic-help"
+          data-i18n="embedded.genericHelp"
+          hidden
+        >
+          Open the app menu and choose “Open in browser”, or copy the link
+          below.
+        </p>
+
+        <button
+          class="quiet-button wide-button"
+          id="copy-external-link"
+          type="button"
+        >
+          <span data-i18n="embedded.copyLink">Copy link</span>
+        </button>
+        <p
+          class="embedded-browser-copy-status"
+          id="copy-external-link-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </div>
+    </div>
+
     <main>
       <section class="home-panel" id="home-panel" aria-labelledby="home-title">
         <button

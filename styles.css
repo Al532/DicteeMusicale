@@ -54,6 +54,86 @@ body {
     var(--bg);
 }
 
+body.embedded-browser-blocked {
+  overflow: hidden;
+}
+
+.embedded-browser-guard {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(20px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-left));
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(216, 229, 109, 0.15), transparent 26rem),
+    radial-gradient(circle at 0% 100%, rgba(232, 180, 107, 0.09), transparent 24rem),
+    var(--bg);
+}
+
+.embedded-browser-card {
+  width: min(100%, 520px);
+  margin: auto;
+  padding: clamp(28px, 7vw, 48px);
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-large);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.embedded-browser-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 20px;
+  place-items: center;
+  color: var(--accent-ink);
+  border-radius: 50%;
+  background: var(--accent);
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.embedded-browser-card h1 {
+  margin-bottom: 18px;
+  font-size: clamp(2.35rem, 10vw, 3.7rem);
+  line-height: 0.96;
+}
+
+.embedded-browser-card > p:not(.eyebrow, .embedded-browser-copy-status) {
+  margin-bottom: 22px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.embedded-browser-actions {
+  margin-bottom: 12px;
+}
+
+.embedded-browser-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.embedded-browser-help {
+  font-size: 0.88rem;
+}
+
+.embedded-browser-copy-status {
+  min-height: 1.3em;
+  margin: 10px 0 -10px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 button,
 input,
 select {

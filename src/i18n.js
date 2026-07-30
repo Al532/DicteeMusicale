@@ -28,6 +28,18 @@ const messages = {
     "home.freeMode": "Free mode",
     "home.favorites": "My favorite phrases",
     "home.restart": "Quit and start over",
+    "embedded.kicker": "Full browser required",
+    "embedded.title": "Open in Safari or Chrome",
+    "embedded.body":
+      "This app needs a full browser for audio to work correctly. It is blocked inside Reddit, Messenger and other embedded browsers.",
+    "embedded.openChrome": "Open in Chrome",
+    "embedded.iosHelp":
+      "In the app menu, choose “Open in Safari”. If that option is missing, copy the link below and paste it into Safari.",
+    "embedded.genericHelp":
+      "Open the app menu and choose “Open in browser”, or copy the link below.",
+    "embedded.copyLink": "Copy link",
+    "embedded.copied": "Link copied",
+    "embedded.copyFailed": "Unable to copy the link",
     "developer.tools": "Developer tools",
     "developer.mode": "Developer mode",
     "developer.exportData": "Export data",
@@ -256,6 +268,18 @@ const messages = {
     "home.freeMode": "Mode libre",
     "home.favorites": "Mes phrases favorites",
     "home.restart": "Abandonner et recommencer",
+    "embedded.kicker": "Navigateur complet requis",
+    "embedded.title": "Ouvre dans Safari ou Chrome",
+    "embedded.body":
+      "Cette app a besoin d’un navigateur complet pour que l’audio fonctionne correctement. Elle est bloquée dans Reddit, Messenger et les autres navigateurs intégrés.",
+    "embedded.openChrome": "Ouvrir dans Chrome",
+    "embedded.iosHelp":
+      "Dans le menu de l’app, choisis « Ouvrir dans Safari ». Si cette option n’apparaît pas, copie le lien ci-dessous et colle-le dans Safari.",
+    "embedded.genericHelp":
+      "Ouvre le menu de l’app et choisis « Ouvrir dans le navigateur », ou copie le lien ci-dessous.",
+    "embedded.copyLink": "Copier le lien",
+    "embedded.copied": "Lien copié",
+    "embedded.copyFailed": "Impossible de copier le lien",
     "developer.tools": "Outils développeur",
     "developer.mode": "Mode développeur",
     "developer.exportData": "Exporter les données",

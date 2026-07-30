@@ -46,6 +46,7 @@ import {
   sourceLabel,
   t,
 } from "./i18n.js";
+import { activateEmbeddedBrowserGuard } from "./embedded-browser.js";
 import {
   DEFAULT_PHRASE_RATINGS,
   DEFAULT_RATING_SCOPES,
@@ -53,6 +54,10 @@ import {
 import { DEFAULT_PHRASE_SETTINGS } from "../data/default-phrase-settings.js";
 
 applyDocumentTranslations();
+activateEmbeddedBrowserGuard({
+  copiedMessage: t("embedded.copied"),
+  copyFailedMessage: t("embedded.copyFailed"),
+});
 
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RATINGS_KEY = "dictee-musicale.ratings.v1";
