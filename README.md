@@ -51,10 +51,21 @@ exposés dans l’interface. Les fondamentales de basse suivent les accords
 annotés ; un chick de charleston marque les temps 2 et 4. La vitesse se règle
 directement sous le clavier pendant le jeu.
 
-Six enregistrements calibrés sont accessibles directement pendant le jeu pour
-*Billie’s Bounce*, *Donna Lee*, *Ornithology*, *Scrapple from the Apple*,
-*Thriving on a Riff* et *Yardbird Suite*. Un lien YouTube accompagne chaque
-extrait et ouvre l’enregistrement au début exact de la phrase.
+Lorsqu’une synchronisation [JazzTube](https://mir.audiolabs.uni-erlangen.de/jazztube/)
+existe, l’enregistrement s’ouvre au début exact de la phrase dans un lecteur
+YouTube intégré, sans quitter l’application.
+Le lecteur permet aussi de choisir une autre version référencée et d’ouvrir
+YouTube directement. Les extraits locaux des six solos de Charlie Parker
+restent prioritaires et disponibles hors ligne.
+
+JazzTube référence actuellement 329 des 456 solos du corpus. Pour les autres,
+l’application propose une recherche YouTube ciblée par musicien, morceau et
+date, sans prétendre fournir un minutage qui n’a pas été vérifié. Les
+correspondances peuvent être régénérées avec :
+
+```bash
+npm run recordings:generate
+```
 
 ## Mode développeur
 

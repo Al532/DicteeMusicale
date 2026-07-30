@@ -8,7 +8,11 @@ import {
   pitchClass,
 } from "./engine.js";
 import { pitchShiftAudioBuffer, sliceAudioBuffer } from "./audio.js";
-import { recordingUrlAtPhrase } from "./recording.js";
+import {
+  recordingSearchUrl,
+  recordingUrlAtPhrase,
+  recordingsAtPhrase,
+} from "./recording.js";
 import {
   advanceTraining,
   beginSuddenDeath,
@@ -147,7 +151,21 @@ const elements = {
   audioSourceLink: document.querySelector("#audio-source-link"),
   originalControls: document.querySelector("#original-controls"),
   playOriginal: document.querySelector("#play-original"),
+  transposeOriginalControl: document.querySelector(
+    "#transpose-original-control",
+  ),
   transposeOriginal: document.querySelector("#transpose-original"),
+  recordingModal: document.querySelector("#recording-modal"),
+  recordingTitle: document.querySelector("#recording-title"),
+  recordingPlayer: document.querySelector("#recording-player"),
+  closeRecording: document.querySelector("#close-recording"),
+  recordingVersionControl: document.querySelector(
+    "#recording-version-control",
+  ),
+  recordingVersion: document.querySelector("#recording-version"),
+  recordingExternalLink: document.querySelector(
+    "#recording-external-link",
+  ),
   exerciseRating: document.querySelector("#exercise-rating"),
   phraseAdjustments: document.querySelector("#phrase-adjustments"),
   phraseLengthDecrease: document.querySelector("#phrase-length-decrease"),
@@ -234,6 +252,8 @@ let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
 let originalPlaybackToken = 0;
+let recordingReturnFocus = null;
+let activeRecordingChoices = [];
 let guardPlaybackFromInputBurst = false;
 let lastPianoInputAt = Number.NEGATIVE_INFINITY;
 
@@ -1252,13 +1272,73 @@ async function playOriginalExcerpt() {
 }
 
 function toggleOriginalPlayback() {
-  if (!exercise?.source?.audioFile) return;
+  const source = exercise?.source;
+  if (!source) return;
   if (isOriginalPlaying) {
-    stopAllTones();
-    restoreExerciseInput(t("audio.originalStopped"));
+    if (!elements.recordingModal.hidden) {
+      closeRecordingPlayer();
+    } else {
+      stopAllTones();
+      restoreExerciseInput(t("audio.originalStopped"));
+    }
     return;
   }
-  playOriginalExcerpt();
+  if (source.audioFile) {
+    playOriginalExcerpt();
+    return;
+  }
+  openRecordingPlayer();
+}
+
+function showRecordingChoice(index) {
+  const choice = activeRecordingChoices[index];
+  if (!choice) return;
+  elements.recordingVersion.value = String(index);
+  elements.recordingPlayer.src = choice.embedUrl;
+  elements.recordingExternalLink.href = choice.watchUrl;
+}
+
+function openRecordingPlayer() {
+  const source = exercise?.source;
+  const choices = recordingsAtPhrase(source);
+  if (!choices.length) return;
+
+  stopAllTones();
+  acceptingInput = false;
+  setOriginalPlaybackState(true);
+  recordingReturnFocus = document.activeElement;
+  activeRecordingChoices = choices;
+  elements.recordingTitle.textContent =
+    `${source.performer} — ${source.title}`;
+  elements.recordingVersion.replaceChildren(
+    ...choices.map((_, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = t("recording.versionNumber", {
+        current: index + 1,
+        total: choices.length,
+      });
+      return option;
+    }),
+  );
+  elements.recordingVersionControl.hidden = choices.length <= 1;
+  elements.recordingModal.hidden = false;
+  showRecordingChoice(0);
+  elements.closeRecording.focus();
+}
+
+function closeRecordingPlayer({
+  restoreFocus = true,
+  restoreInput = true,
+} = {}) {
+  if (elements.recordingModal.hidden) return;
+  elements.recordingPlayer.removeAttribute("src");
+  elements.recordingModal.hidden = true;
+  activeRecordingChoices = [];
+  setOriginalPlaybackState(false);
+  if (restoreInput) restoreExerciseInput();
+  if (restoreFocus) recordingReturnFocus?.focus?.();
+  recordingReturnFocus = null;
 }
 
 function flashPlayedKey(midi, delayMs, durationMs) {
@@ -2066,14 +2146,25 @@ function renderSource(source) {
     elements.sourceLink.removeAttribute("href");
   }
   const hasOriginalAudio = Boolean(source.audioFile);
+  const recordingChoices = recordingsAtPhrase(source);
   const recordingUrl = recordingUrlAtPhrase(source);
-  elements.playOriginal.disabled = !hasOriginalAudio;
+  const searchUrl = recordingUrl ? null : recordingSearchUrl(source);
+  const canPlayOriginal =
+    hasOriginalAudio || recordingChoices.length > 0;
+  elements.playOriginal.hidden = !canPlayOriginal;
+  elements.playOriginal.disabled = !canPlayOriginal;
+  elements.transposeOriginalControl.hidden = !hasOriginalAudio;
   elements.transposeOriginal.disabled = !hasOriginalAudio;
-  elements.originalControls.hidden = !hasOriginalAudio && !recordingUrl;
+  elements.originalControls.hidden =
+    !canPlayOriginal && !recordingUrl && !searchUrl;
   if (recordingUrl) {
     elements.audioSourceLink.hidden = false;
     elements.audioSourceLink.href = recordingUrl;
     elements.audioSourceLink.textContent = t("source.youtubeRecording");
+  } else if (searchUrl) {
+    elements.audioSourceLink.hidden = false;
+    elements.audioSourceLink.href = searchUrl;
+    elements.audioSourceLink.textContent = t("source.youtubeSearch");
   } else {
     elements.audioSourceLink.hidden = true;
     elements.audioSourceLink.removeAttribute("href");
@@ -2558,6 +2649,10 @@ function activateGameLayout() {
 }
 
 function deactivateGameLayout() {
+  closeRecordingPlayer({
+    restoreFocus: false,
+    restoreInput: false,
+  });
   clearViewportSyncTimers();
   document.documentElement.style.removeProperty("--game-viewport-height");
   document.body.classList.remove(
@@ -2703,6 +2798,15 @@ elements.shortNotesIncrease.addEventListener("click", () =>
 elements.reviewPrevious.addEventListener("click", () => moveReviewPhrase(-1));
 elements.reviewNext.addEventListener("click", () => moveReviewPhrase(1));
 elements.playOriginal.addEventListener("click", toggleOriginalPlayback);
+elements.closeRecording.addEventListener("click", () =>
+  closeRecordingPlayer(),
+);
+elements.recordingVersion.addEventListener("change", () =>
+  showRecordingChoice(Number(elements.recordingVersion.value)),
+);
+elements.recordingModal.addEventListener("click", (event) => {
+  if (event.target === elements.recordingModal) closeRecordingPlayer();
+});
 elements.copyPhraseId.addEventListener("click", copyCurrentPhraseId);
 elements.transposeOriginal.addEventListener("change", saveSettings);
 elements.exportData.addEventListener("click", exportData);
@@ -2716,6 +2820,11 @@ for (const button of elements.quickRatingButtons) {
   button.addEventListener("click", setQuickRating);
 }
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !elements.recordingModal.hidden) {
+    event.preventDefault();
+    closeRecordingPlayer();
+    return;
+  }
   if (currentMode !== "rating" || !document.body.classList.contains("game-mode")) {
     return;
   }

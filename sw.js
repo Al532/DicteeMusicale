@@ -1,8 +1,8 @@
-const CACHE_NAME = "dictee-musicale-v43";
+const CACHE_NAME = "dictee-musicale-v44";
 const APP_SHELL = [
   "./index.html",
-  "./styles.css?v=43",
-  "./src/app.js?v=43",
+  "./styles.css?v=44",
+  "./src/app.js?v=44",
   "./src/i18n.js",
   "./src/audio.js",
   "./src/recording.js",
@@ -12,6 +12,7 @@ const APP_SHELL = [
   "./src/session.js",
   "./data/default-ratings.js",
   "./data/default-phrase-settings.js",
+  "./data/wjazztube-recordings.js",
   "./data/wjazzd-solos.js",
   "./data/wjazzd-chords.js",
   "./audio/bass/28.mp3",
@@ -43,7 +44,7 @@ const APP_SHELL = [
   "./icon-512.png",
 ];
 
-const ESSENTIAL_SHELL = new Set(APP_SHELL.slice(0, 14));
+const ESSENTIAL_SHELL = new Set(APP_SHELL.slice(0, 15));
 
 async function cacheAppShell() {
   const cache = await caches.open(CACHE_NAME);

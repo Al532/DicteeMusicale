@@ -322,11 +322,35 @@ test("le mode normal masque les détails internes mais expose les originaux disp
   );
   assert.match(
     index,
-    /class="original-controls" id="original-controls" hidden[\s\S]*?id="play-original"[\s\S]*?id="transpose-original"[\s\S]*?id="audio-source-link"[\s\S]*?source\.youtubeRecording/,
+    /class="original-controls" id="original-controls" hidden[\s\S]*?id="play-original"[\s\S]*?id="transpose-original-control"[\s\S]*?id="transpose-original"[\s\S]*?id="audio-source-link"[\s\S]*?source\.youtubeRecording/,
   );
   assert.match(
     app,
-    /const recordingUrl = recordingUrlAtPhrase\(source\)[\s\S]*?elements\.originalControls\.hidden = !hasOriginalAudio && !recordingUrl/,
+    /const recordingChoices = recordingsAtPhrase\(source\)[\s\S]*?const recordingUrl = recordingUrlAtPhrase\(source\)[\s\S]*?const searchUrl = recordingUrl \? null : recordingSearchUrl\(source\)/,
+  );
+  assert.match(
+    app,
+    /elements\.originalControls\.hidden =[\s\S]*?!canPlayOriginal && !recordingUrl && !searchUrl/,
+  );
+  assert.match(
+    index,
+    /id="recording-modal"[\s\S]*?id="recording-player"[\s\S]*?id="recording-external-link"[\s\S]*?youtube/i,
+  );
+  assert.match(
+    app,
+    /function showRecordingChoice\(index\)[\s\S]*?elements\.recordingPlayer\.src = choice\.embedUrl/,
+  );
+  assert.match(
+    app,
+    /function openRecordingPlayer\(\)[\s\S]*?recordingsAtPhrase\(source\)[\s\S]*?elements\.recordingModal\.hidden = false[\s\S]*?showRecordingChoice\(0\)/,
+  );
+  assert.match(
+    app,
+    /function closeRecordingPlayer\([\s\S]*?recordingPlayer\.removeAttribute\("src"\)/,
+  );
+  assert.match(
+    styles,
+    /\.recording-frame \{[\s\S]*?aspect-ratio: 16 \/ 9/,
   );
   assert.doesNotMatch(
     app,
@@ -478,17 +502,18 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
   assert.equal(frenchManifest.orientation, "any");
-  assert.match(serviceWorker, /dictee-musicale-v43/);
-  assert.match(index, /href="\.\/styles\.css\?v=43"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=43"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=43/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=43/);
+  assert.match(serviceWorker, /dictee-musicale-v44/);
+  assert.match(index, /href="\.\/styles\.css\?v=44"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=44"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=44/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=44/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/src\/recording\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
   assert.match(serviceWorker, /\.\/src\/phrase-settings\.js/);
   assert.match(serviceWorker, /\.\/data\/default-phrase-settings\.js/);
+  assert.match(serviceWorker, /\.\/data\/wjazztube-recordings\.js/);
   assert.match(
     serviceWorker,
     /event\.request\.mode === "navigate"[\s\S]*?caches[\s\S]*?\.match\("\.\/index\.html"\)/,

@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=43" />
-    <script type="module" src="./src/app.js?v=43"></script>
+    <link rel="stylesheet" href="./styles.css?v=44" />
+    <script type="module" src="./src/app.js?v=44"></script>
   </head>
   <body>
     <main>
@@ -329,7 +329,7 @@
               <button class="quiet-button" id="play-original" aria-pressed="false" disabled>
                 <span data-i18n="game.listenOriginal">Play original</span>
               </button>
-              <label class="transpose-toggle">
+              <label class="transpose-toggle" id="transpose-original-control">
                 <input id="transpose-original" type="checkbox" />
                 <span data-i18n="game.transpose">Transpose</span>
               </label>
@@ -374,6 +374,55 @@
         <button class="primary-button wide-button" id="close-ios-install" type="button">
           <span data-i18n="ios.done">Got it</span>
         </button>
+      </div>
+    </div>
+
+    <div
+      class="modal-layer recording-modal"
+      id="recording-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="recording-title"
+      hidden
+    >
+      <div class="modal-card recording-card">
+        <header class="recording-header">
+          <div>
+            <p class="eyebrow" data-i18n="recording.kicker">Original recording</p>
+            <h2 id="recording-title"></h2>
+          </div>
+          <button
+            class="icon-button compact"
+            id="close-recording"
+            type="button"
+            aria-label="Close recording"
+            data-i18n-aria-label="recording.close"
+          >×</button>
+        </header>
+        <div class="recording-frame">
+          <iframe
+            id="recording-player"
+            title="Original recording"
+            data-i18n-title="recording.player"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+          ></iframe>
+        </div>
+        <footer class="recording-footer">
+          <label id="recording-version-control" hidden>
+            <span data-i18n="recording.version">Version</span>
+            <select id="recording-version"></select>
+          </label>
+          <a
+            class="recording-link"
+            id="recording-external-link"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="recording.openYoutube"
+          >Open in YouTube</a>
+        </footer>
       </div>
     </div>
 
