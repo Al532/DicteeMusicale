@@ -1221,6 +1221,16 @@ function stopAllTones() {
   setOriginalPlaybackState(false);
 }
 
+function scheduleRoundTransition(callback) {
+  if (roundAdvanceTimer !== null) {
+    window.clearTimeout(roundAdvanceTimer);
+  }
+  roundAdvanceTimer = window.setTimeout(async () => {
+    roundAdvanceTimer = null;
+    await callback();
+  }, ROUND_ADVANCE_DELAY_MS);
+}
+
 function restoreExerciseInput(message = null) {
   if (!exercise) return;
   if (currentMode === "rating") {
@@ -2132,10 +2142,9 @@ function failSuddenDeath() {
   elements.feedback.textContent = t("playback.suddenFailed");
   resolveSuddenDeath(challengeSession, false);
   persistChallengeSession();
-  roundAdvanceTimer = window.setTimeout(async () => {
-    roundAdvanceTimer = null;
+  scheduleRoundTransition(async () => {
     await loadChallengeRound();
-  }, ROUND_ADVANCE_DELAY_MS);
+  });
 }
 
 function handlePianoInput(midi, key) {
@@ -2283,8 +2292,10 @@ function completeChallenge() {
   challengeSession = null;
   localStorage.removeItem(CHALLENGE_SESSION_KEY);
   renderCompletedChallenge(lastCompletedChallengePhrases);
-  elements.challengeCompleteModal.hidden = false;
-  window.requestAnimationFrame(() => elements.finishNewChallenge.focus());
+  scheduleRoundTransition(() => {
+    elements.challengeCompleteModal.hidden = false;
+    window.requestAnimationFrame(() => elements.finishNewChallenge.focus());
+  });
 }
 
 function finishExercise() {
@@ -2296,14 +2307,13 @@ function finishExercise() {
     elements.feedback.textContent = t("finish.toneValidated");
     advanceTraining(challengeSession);
     persistChallengeSession();
-    roundAdvanceTimer = window.setTimeout(async () => {
-      roundAdvanceTimer = null;
+    scheduleRoundTransition(async () => {
       if (challengeSession.phase === "transition") {
         showSuddenDeathTransition();
       } else {
         await loadChallengeRound();
       }
-    }, ROUND_ADVANCE_DELAY_MS);
+    });
     return;
   }
   if (
@@ -2317,10 +2327,9 @@ function finishExercise() {
       return;
     }
     persistChallengeSession();
-    roundAdvanceTimer = window.setTimeout(async () => {
-      roundAdvanceTimer = null;
+    scheduleRoundTransition(async () => {
       await loadChallengeRound();
-    }, ROUND_ADVANCE_DELAY_MS);
+    });
     return;
   }
   if (currentMode === "free") {

@@ -255,6 +255,27 @@ test("les écrans de mort subite et de réussite s’adaptent au paysage", () =>
   );
 });
 
+test("les transitions déclenchées par la dernière note attendent la fin du geste", () => {
+  assert.match(app, /const COMPLETION_MODAL_DELAY_MS = 350/);
+  assert.match(app, /const ROUND_ADVANCE_DELAY_MS = 720/);
+  assert.match(
+    app,
+    /function scheduleRoundTransition\(callback\) \{[\s\S]*?window\.setTimeout\([\s\S]*?await callback\(\);[\s\S]*?ROUND_ADVANCE_DELAY_MS/,
+  );
+  assert.match(
+    app,
+    /function completeChallenge\(\) \{[\s\S]*?scheduleRoundTransition\(\(\) => \{[\s\S]*?challengeCompleteModal\.hidden = false/,
+  );
+  assert.match(
+    app,
+    /function failSuddenDeath\(\) \{[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?loadChallengeRound\(\)/,
+  );
+  assert.match(
+    app,
+    /function finishExercise\(\) \{[\s\S]*?phase === "training"[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?showSuddenDeathTransition\(\)[\s\S]*?phase === "sudden-death"[\s\S]*?scheduleRoundTransition\(async \(\) => \{[\s\S]*?loadChallengeRound\(\)[\s\S]*?scheduleCompletionModal\(\)/,
+  );
+});
+
 test("le son public est uniquement synthétique", () => {
   assert.doesNotMatch(index, /id="melody-sound"|Clarinette|Piano<\/option>/);
   assert.match(app, /let melodySound = "synthetic"/);
@@ -277,11 +298,11 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(manifest.lang, "en");
   assert.equal(frenchManifest.lang, "fr");
   assert.equal(frenchManifest.name, manifest.name);
-  assert.match(serviceWorker, /dictee-musicale-v37/);
-  assert.match(index, /href="\.\/styles\.css\?v=37"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=37"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=37/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=37/);
+  assert.match(serviceWorker, /dictee-musicale-v38/);
+  assert.match(index, /href="\.\/styles\.css\?v=38"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=38"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=38/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=38/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
