@@ -191,17 +191,20 @@ test("le mode normal n’affiche que le musicien et le morceau", () => {
   );
 });
 
-test("l’accueil et le jeu occupent le paysage, le portrait demande une rotation", () => {
+test("l’accueil accepte le portrait et seul le jeu avec piano demande une rotation", () => {
   assert.match(
     styles,
-    /html:has\(body\.home-view\),[\s\S]*?body\.home-view \{[\s\S]*?overflow: hidden/,
+    /@media \(orientation: portrait\)[\s\S]*?\.home-panel \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/,
   );
   assert.match(
     styles,
     /\.home-panel \{[\s\S]*?grid-template-columns:[\s\S]*?min-height: 100dvh/,
   );
   assert.match(app, /function showHome\(\) \{[\s\S]*?classList\.add\("home-view"\)/);
-  assert.match(styles, /\.game-mode main \{[\s\S]*?height: 100dvh/);
+  assert.match(
+    styles,
+    /\.game-mode main \{[\s\S]*?height: var\(--game-viewport-height, 100dvh\)/,
+  );
   assert.match(
     styles,
     /\.game-mode \.exercise-panel \{[\s\S]*?grid-template-rows:[\s\S]*?minmax\(110px, 1fr\)/,
@@ -209,10 +212,33 @@ test("l’accueil et le jeu occupent le paysage, le portrait demande une rotatio
   assert.match(styles, /\.piano \{[\s\S]*?width: 100%;[\s\S]*?height: 100%/);
   assert.match(
     styles,
-    /@media \(orientation: portrait\)[\s\S]*?\.home-view \.rotate-overlay,[\s\S]*?\.game-mode:not\(\.rating-mode\) \.rotate-overlay/,
+    /@media \(orientation: portrait\)[\s\S]*?\.game-mode:not\(\.rating-mode\) \.rotate-overlay/,
+  );
+  assert.doesNotMatch(
+    styles,
+    /@media \(orientation: portrait\)[\s\S]*?\.home-view \.rotate-overlay/,
   );
   assert.match(app, /function buildPiano\(layout\)/);
   assert.match(app, /--white-key-count/);
+});
+
+test("la hauteur du jeu suit le viewport visible pendant les rotations", () => {
+  assert.match(
+    app,
+    /function syncGameViewportHeight\(\) \{[\s\S]*?window\.visualViewport\?\.height \?\? window\.innerHeight[\s\S]*?--game-viewport-height/,
+  );
+  assert.match(
+    app,
+    /function scheduleGameViewportSync\(\) \{[\s\S]*?VIEWPORT_SYNC_DELAYS_MS\.map/,
+  );
+  assert.match(
+    app,
+    /window\.addEventListener\("orientationchange", scheduleGameViewportSync\)/,
+  );
+  assert.match(
+    app,
+    /window\.visualViewport\?\.addEventListener\([\s\S]*?"resize",[\s\S]*?scheduleGameViewportSync/,
+  );
 });
 
 test("la vitesse se règle sous le piano sans désaxer Réécouter", () => {
@@ -251,7 +277,7 @@ test("les écrans de mort subite et de réussite s’adaptent au paysage", () =>
   );
   assert.match(
     styles,
-    /#sudden-death-modal \.modal-card,[\s\S]*?#challenge-complete-modal \.modal-card \{[\s\S]*?max-height: calc\(100dvh - 20px\);[\s\S]*?overflow-y: auto/,
+    /#sudden-death-modal \.modal-card,[\s\S]*?#challenge-complete-modal \.modal-card \{[\s\S]*?max-height: calc\(var\(--game-viewport-height, 100dvh\) - 20px\);[\s\S]*?overflow-y: auto/,
   );
 });
 
@@ -293,16 +319,17 @@ test("le son public est uniquement synthétique", () => {
 
 test("la PWA embarque le nouveau moteur de session hors connexion", async () => {
   assert.equal(manifest.display, "fullscreen");
-  assert.equal(manifest.orientation, "landscape");
+  assert.equal(manifest.orientation, "any");
   assert.equal(manifest.name, "Jazz Solo Challenge");
   assert.equal(manifest.lang, "en");
   assert.equal(frenchManifest.lang, "fr");
   assert.equal(frenchManifest.name, manifest.name);
-  assert.match(serviceWorker, /dictee-musicale-v38/);
-  assert.match(index, /href="\.\/styles\.css\?v=38"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=38"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=38/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=38/);
+  assert.equal(frenchManifest.orientation, "any");
+  assert.match(serviceWorker, /dictee-musicale-v39/);
+  assert.match(index, /href="\.\/styles\.css\?v=39"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=39"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=39/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=39/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);

@@ -63,6 +63,7 @@ const COMPLETION_MODAL_DELAY_MS = 350;
 const GAME_MODE_START_DELAY_MS = 900;
 const QUICK_RATING_ADVANCE_DELAY_MS = 180;
 const INPUT_BURST_QUIET_MS = 500;
+const VIEWPORT_SYNC_DELAYS_MS = [80, 240, 600];
 const MELODY_SAMPLE_INSTRUMENTS = {
   clarinet: {
     labelKey: "instrument.clarinet",
@@ -223,6 +224,7 @@ let gameModeStartTimer = null;
 let quickRatingAdvanceTimer = null;
 let roundAdvanceTimer = null;
 let phraseIdCopyTimer = null;
+let viewportSyncTimers = [];
 let chickBuffer = null;
 let isPlaying = false;
 let isOriginalPlaying = false;
@@ -2527,13 +2529,40 @@ function updateGameModeButton() {
   elements.fullscreenButton.setAttribute("aria-pressed", String(active));
 }
 
+function clearViewportSyncTimers() {
+  for (const timer of viewportSyncTimers) window.clearTimeout(timer);
+  viewportSyncTimers = [];
+}
+
+function syncGameViewportHeight() {
+  if (!document.body.classList.contains("game-mode")) return;
+  const viewportHeight =
+    window.visualViewport?.height ?? window.innerHeight;
+  if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return;
+  document.documentElement.style.setProperty(
+    "--game-viewport-height",
+    `${Math.floor(viewportHeight)}px`,
+  );
+}
+
+function scheduleGameViewportSync() {
+  clearViewportSyncTimers();
+  syncGameViewportHeight();
+  viewportSyncTimers = VIEWPORT_SYNC_DELAYS_MS.map((delay) =>
+    window.setTimeout(syncGameViewportHeight, delay),
+  );
+}
+
 function activateGameLayout() {
   document.body.classList.remove("home-view");
   document.body.classList.add("game-mode");
+  scheduleGameViewportSync();
   updateGameModeButton();
 }
 
 function deactivateGameLayout() {
+  clearViewportSyncTimers();
+  document.documentElement.style.removeProperty("--game-viewport-height");
   document.body.classList.remove(
     "game-mode",
     "rating-mode",
@@ -2567,6 +2596,7 @@ async function enterGameMode() {
       // iOS et certains navigateurs imposent une rotation manuelle.
     }
   }
+  scheduleGameViewportSync();
 }
 
 async function leaveGameMode(
@@ -2608,10 +2638,22 @@ function toggleGameMode() {
 function setUpGameMode() {
   updateGameModeButton();
 
+  window.addEventListener("resize", scheduleGameViewportSync);
+  window.addEventListener("orientationchange", scheduleGameViewportSync);
+  window.visualViewport?.addEventListener(
+    "resize",
+    scheduleGameViewportSync,
+  );
+
   document.addEventListener("fullscreenchange", () => {
     if (document.fullscreenElement) {
       activateGameLayout();
     } else {
+      try {
+        screen.orientation?.unlock?.();
+      } catch {
+        // Certains navigateurs déverrouillent déjà l’orientation à la sortie.
+      }
       stopAllTones();
       hideCompletionModal();
       acceptingInput = false;
