@@ -272,8 +272,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-125:27": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T08:53:47.925Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:54:22.065Z",
     "soloId": "wjazzd-v2.1-125",
     "performer": "Dexter Gordon",
     "title": "Stanley the Steamer",
@@ -419,6 +419,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "title": "Destination K.C.",
     "phrase": "9",
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo128.html",
+    "origin": "embedded"
+  },
+  "wjazzd-v2.1-12:1": {
+    "rating": 1,
+    "updatedAt": "2026-07-30T13:10:45.541Z",
+    "soloId": "wjazzd-v2.1-12",
+    "performer": "Benny Carter",
+    "title": "Long Ago and Far Away",
+    "phrase": "1",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo12.html",
     "origin": "embedded"
   },
   "wjazzd-v2.1-131:1": {
@@ -1172,8 +1182,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-174:18": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T19:37:17.712Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:58:37.702Z",
     "soloId": "wjazzd-v2.1-174",
     "performer": "Gerry Mulligan",
     "title": "Scrapple from the Apple",
@@ -1292,8 +1302,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-175:3": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T19:34:46.485Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:01:50.275Z",
     "soloId": "wjazzd-v2.1-175",
     "performer": "Gerry Mulligan",
     "title": "The Red Door",
@@ -1462,8 +1472,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-177:12": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T21:20:46.389Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:05:40.296Z",
     "soloId": "wjazzd-v2.1-177",
     "performer": "Gerry Mulligan",
     "title": "Walking Shoes",
@@ -1822,8 +1832,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-18:3": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T17:03:45.451Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:15:13.724Z",
     "soloId": "wjazzd-v2.1-18",
     "performer": "Benny Goodman",
     "title": "Tiger Rag",
@@ -1892,8 +1902,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-19:10": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T20:28:18.826Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:16:17.957Z",
     "soloId": "wjazzd-v2.1-19",
     "performer": "Benny Goodman",
     "title": "Tiger Rag",
@@ -1979,6 +1989,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "title": "The Sidewinder",
     "phrase": "17",
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo203.html",
+    "origin": "embedded"
+  },
+  "wjazzd-v2.1-205:19": {
+    "rating": 1,
+    "updatedAt": "2026-07-30T13:11:09.895Z",
+    "soloId": "wjazzd-v2.1-205",
+    "performer": "Joe Henderson",
+    "title": "U.M.M.G.",
+    "phrase": "19",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo205.html",
     "origin": "embedded"
   },
   "wjazzd-v2.1-20:1": {
@@ -2361,6 +2381,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo242.html",
     "origin": "embedded"
   },
+  "wjazzd-v2.1-242:9": {
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:12:45.240Z",
+    "soloId": "wjazzd-v2.1-242",
+    "performer": "Johnny Hodges",
+    "title": "Early Morning Rock",
+    "phrase": "9",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo242.html",
+    "origin": "embedded"
+  },
   "wjazzd-v2.1-243:9": {
     "rating": 1,
     "updatedAt": "2026-07-29T01:15:46.790Z",
@@ -2608,6 +2638,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "performer": "Kenny Wheeler",
     "title": "Double Vision",
     "phrase": "1",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo258.html",
+    "origin": "embedded"
+  },
+  "wjazzd-v2.1-258:20": {
+    "rating": 1,
+    "updatedAt": "2026-07-30T13:11:53.819Z",
+    "soloId": "wjazzd-v2.1-258",
+    "performer": "Kenny Wheeler",
+    "title": "Double Vision",
+    "phrase": "20",
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo258.html",
     "origin": "embedded"
   },
@@ -3042,8 +3082,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-280:1": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T21:32:49.182Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:10:06.486Z",
     "soloId": "wjazzd-v2.1-280",
     "performer": "Lester Young",
     "title": "D.B. Blues",
@@ -3092,8 +3132,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-280:7": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T08:59:44.105Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:10:17.636Z",
     "soloId": "wjazzd-v2.1-280",
     "performer": "Lester Young",
     "title": "D.B. Blues",
@@ -3439,6 +3479,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "title": "Runnin' Wild",
     "phrase": "8",
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo289.html",
+    "origin": "embedded"
+  },
+  "wjazzd-v2.1-28:1": {
+    "rating": 3,
+    "updatedAt": "2026-07-30T13:11:31.056Z",
+    "soloId": "wjazzd-v2.1-28",
+    "performer": "Bix Beiderbecke",
+    "title": "Riverboat Shuffle",
+    "phrase": "1",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo28.html",
     "origin": "embedded"
   },
   "wjazzd-v2.1-290:2": {
@@ -4291,6 +4341,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo335.html",
     "origin": "embedded"
   },
+  "wjazzd-v2.1-336:23": {
+    "rating": 1,
+    "updatedAt": "2026-07-30T13:12:50.156Z",
+    "soloId": "wjazzd-v2.1-336",
+    "performer": "Ornette Coleman",
+    "title": "Bird Food",
+    "phrase": "23",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo336.html",
+    "origin": "embedded"
+  },
   "wjazzd-v2.1-339:13": {
     "rating": 1,
     "updatedAt": "2026-07-28T23:25:41.586Z",
@@ -4782,8 +4842,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-349:9": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T18:11:30.387Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:18:08.393Z",
     "soloId": "wjazzd-v2.1-349",
     "performer": "Paul Desmond",
     "title": "Blue Rondo a la Turk",
@@ -5312,8 +5372,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-366:5": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T23:05:30.779Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:20:38.666Z",
     "soloId": "wjazzd-v2.1-366",
     "performer": "Rex Stewart",
     "title": "Perdido",
@@ -5382,8 +5442,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-372:4": {
-    "rating": 3,
-    "updatedAt": "2026-07-29T00:36:16.484Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:20:49.706Z",
     "soloId": "wjazzd-v2.1-372",
     "performer": "Roy Eldridge",
     "title": "Undecided",
@@ -5492,8 +5552,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-387:12": {
-    "rating": 3,
-    "updatedAt": "2026-07-28T23:00:37.960Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T14:21:50.473Z",
     "soloId": "wjazzd-v2.1-387",
     "performer": "Sonny Rollins",
     "title": "Tenor Madness",
@@ -6542,8 +6602,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-55:8": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T09:22:04.059Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:18:46.136Z",
     "soloId": "wjazzd-v2.1-55",
     "performer": "Charlie Parker",
     "title": "Donna Lee",
@@ -6841,6 +6901,16 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo70.html",
     "origin": "embedded"
   },
+  "wjazzd-v2.1-70:9": {
+    "rating": 1,
+    "updatedAt": "2026-07-30T13:12:33.438Z",
+    "soloId": "wjazzd-v2.1-70",
+    "performer": "Chet Baker",
+    "title": "I Fall in Love Too Easily",
+    "phrase": "9",
+    "sourceUrl": "https://jazzomat.hfm-weimar.de/dbformat/synopsis/solo70.html",
+    "origin": "embedded"
+  },
   "wjazzd-v2.1-71:11": {
     "rating": 1,
     "updatedAt": "2026-07-30T09:07:41.244Z",
@@ -6912,8 +6982,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-72:5": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T09:10:26.271Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:25:52.721Z",
     "soloId": "wjazzd-v2.1-72",
     "performer": "Chet Baker",
     "title": "Let's Get Lost",
@@ -6982,8 +7052,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-73:7": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T09:02:30.703Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:28:12.731Z",
     "soloId": "wjazzd-v2.1-73",
     "performer": "Chet Baker",
     "title": "Long Ago and Far Away",
@@ -7092,8 +7162,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-77:15": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T09:09:11.096Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:48:15.134Z",
     "soloId": "wjazzd-v2.1-77",
     "performer": "Chet Baker",
     "title": "You'd Be So Nice to Come Home to",
@@ -7322,8 +7392,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-92:12": {
-    "rating": 3,
-    "updatedAt": "2026-07-30T09:08:38.155Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T13:50:33.249Z",
     "soloId": "wjazzd-v2.1-92",
     "performer": "Clifford Brown",
     "title": "Jordu",
@@ -7563,4 +7633,17 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
   }
 });
 
-export const DEFAULT_RATING_SCOPES = Object.freeze([]);
+export const DEFAULT_RATING_SCOPES = Object.freeze([
+  {
+    "scope": "tune",
+    "scopeId": "Benny Goodman::Tiger Rag",
+    "rating": 1,
+    "performer": "Benny Goodman",
+    "title": "Tiger Rag",
+    "origin": "inferred",
+    "sampleSize": 8,
+    "agreement": 0.75,
+    "coverage": 0.5,
+    "updatedAt": "2026-07-30T13:16:17.957Z"
+  }
+]);

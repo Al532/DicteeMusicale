@@ -15,8 +15,8 @@ import {
   structuralPhraseExclusion,
 } from "../src/ratings.js";
 
-test("les 756 notes exportées sont intégrées en dur", () => {
-  assert.equal(Object.keys(DEFAULT_PHRASE_RATINGS).length, 756);
+test("les 763 notes exportées sont intégrées en dur", () => {
+  assert.equal(Object.keys(DEFAULT_PHRASE_RATINGS).length, 763);
   assert.deepEqual(
     Object.values(DEFAULT_PHRASE_RATINGS).reduce(
       (counts, { rating }) => ({
@@ -25,7 +25,7 @@ test("les 756 notes exportées sont intégrées en dur", () => {
       }),
       { 1: 0, 2: 0, 3: 0 },
     ),
-    { 1: 328, 2: 201, 3: 227 },
+    { 1: 333, 2: 219, 3: 211 },
   );
 });
 
@@ -35,11 +35,11 @@ test("le protocole couvre les notes et les exclusions structurelles", () => {
     fixedScopes: DEFAULT_RATING_SCOPES,
   });
   assert.equal(summary.total, 11_082);
-  assert.equal(summary.explicit, 756);
+  assert.equal(summary.explicit, 763);
   assert.equal(summary.structuralExcluded, 3_416);
-  assert.equal(summary.covered, 4_172);
-  assert.equal(summary.remaining, 6_910);
-  assert.deepEqual(summary.distribution, { 1: 3_744, 2: 201, 3: 227 });
+  assert.equal(summary.covered, 4_185);
+  assert.equal(summary.remaining, 6_897);
+  assert.deepEqual(summary.distribution, { 1: 3_755, 2: 219, 3: 211 });
   assert.deepEqual(
     summary.structuralRules.map(({ scopeId, sampleSize }) => ({
       scopeId,
@@ -51,9 +51,22 @@ test("le protocole couvre les notes et les exclusions structurelles", () => {
       { scopeId: "dense-burst-v1", sampleSize: 338 },
     ],
   );
-  assert.equal(summary.tuneScopes.length, 0);
+  assert.deepEqual(
+    summary.tuneScopes.map(({ scopeId, rating, sampleSize }) => ({
+      scopeId,
+      rating,
+      sampleSize,
+    })),
+    [
+      {
+        scopeId: "Benny Goodman::Tiger Rag",
+        rating: 1,
+        sampleSize: 8,
+      },
+    ],
+  );
   assert.equal(summary.performerScopes.length, 0);
-  assert.equal(DEFAULT_RATING_SCOPES.length, 0);
+  assert.equal(DEFAULT_RATING_SCOPES.length, 1);
 });
 
 test("les exclusions structurelles cèdent toujours devant une note directe", () => {
@@ -128,7 +141,10 @@ test("les décisions globales sont limitées à 1 étoile", () => {
   const summary = ratingProtocolSummary({
     phraseRatings: DEFAULT_PHRASE_RATINGS,
   });
-  assert.equal(summary.tuneScopes.length, 0);
+  assert.deepEqual(
+    summary.tuneScopes.map(({ scopeId, rating }) => ({ scopeId, rating })),
+    [{ scopeId: "Benny Goodman::Tiger Rag", rating: 1 }],
+  );
   assert.equal(summary.effectiveRatings[unratedPhrase.phraseKey], undefined);
 
   const rejected = effectivePhraseRatings(DEFAULT_PHRASE_RATINGS, [
