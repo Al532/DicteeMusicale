@@ -1,0 +1,58 @@
+# Mesures de démarrage
+
+Les mesures comparent `main` au commit
+`56fc8664253a44018aa4d24e4622c7753c10cd3b` avec la version découpée du
+corpus. Elles sont reproductibles avec :
+
+```sh
+npm run measure:startup
+```
+
+Le script mesure cinq processus Node neufs avec JSDOM et ramasse la mémoire
+avant et après l’exécution réelle de `src/app.js`. La mesure ci-dessous a été
+effectuée avec Node.js v24.14.0. Le script calcule aussi le graphe d’imports
+statiques et ses tailles brute, gzip et Brotli. Ces valeurs sont un proxy
+stable pour comparer les versions ; elles ne prétendent pas représenter le
+temps d’un téléphone ou le transfert HTTP exact d’un CDN.
+
+## Résultats
+
+| Mesure médiane | Avant | Après | Évolution |
+|---|---:|---:|---:|
+| Modules JavaScript initiaux | 14 | 22 | modules plus petits et spécialisés |
+| JavaScript initial brut | 7 502 525 o | 849 794 o | −88,7 % |
+| JavaScript initial gzip | 2 574 806 o | 146 808 o | −94,3 % |
+| JavaScript initial Brotli | 1 785 694 o | 118 559 o | −93,4 % |
+| Interface initiale brute | 7 556 639 o | 903 908 o | −88,0 % |
+| Interface initiale gzip | 2 586 205 o | 158 207 o | −93,9 % |
+| Interface initiale Brotli | 1 795 336 o | 128 201 o | −92,9 % |
+| Import/analyse et initialisation jusqu’à l’interface utilisable (JSDOM) | 241,39 ms | 82,38 ms | −65,9 % |
+| Hausse du tas JavaScript | 60 904 872 o | 5 456 904 o | −91,0 % |
+| Hausse RSS | 124 383 232 o | 10 616 832 o | −91,5 % |
+
+L’index compact pèse 327 163 octets bruts, 57 426 octets avec le même
+`gzipSync` que le script de mesure, et 45 593 octets Brotli. Le premier bloc
+détaillé pèse 164 068 octets bruts et 60 493 octets gzip. Les 57 blocs
+représentent ensemble 7 017 299 octets bruts et 2 545 858 octets gzip : la
+découpe n’augmente donc que faiblement le coût total, mais retire ces données
+du démarrage.
+
+## Interprétation
+
+Le graphe initial contient l’index, mais ni `data/wjazzd-solos.js` ni
+`data/wjazzd-chords.js`. L’application n’importe ni n’analyse aucun bloc
+détaillé sur son chemin critique ; le bloc utile est demandé lorsqu’une phrase
+est choisie. Les anciens monolithes restent uniquement comme source de
+génération et comme référence de parité dans les tests.
+
+Le service worker installe d’abord le cœur de l’interface et l’index. Son
+installation continue ensuite en arrière-plan, sans bloquer la page déjà
+affichée, avec les 57 blocs, les basses et les six originaux Parker. Cette
+préparation hors ligne représente 19 388 732 octets de blocs, manifeste et
+médias locaux, auxquels s’ajoute le cœur de l’interface. Elle est distincte du
+chemin critique mesuré ci-dessus.
+
+Le worker n’active la nouvelle version qu’après réussite complète : une coupure
+réseau conserve donc l’ancien worker au lieu d’annoncer silencieusement un mode
+hors ligne incomplet. En exécution, tout bloc sélectionné suit aussi une
+stratégie cache-first et est donc mis en cache à la demande.

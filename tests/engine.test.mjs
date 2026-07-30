@@ -19,7 +19,7 @@ import {
   jazzTranspositionRangeForNotes,
   keyboardLayoutForNotes,
   makeJazzTranspositionCycle,
-  makeSequence,
+  makeSequence as makeDetailedSequence,
   normalizePerformerSelection,
   phraseRatingKey,
   pitchClass,
@@ -33,6 +33,18 @@ import {
   jazzCorpusSummary,
   makeGeneratedSequence,
 } from "../src/markov.js";
+
+const TEST_CORPUS = {
+  chords: WJAZZD_CHORDS,
+  solos: WJAZZD_SOLOS,
+};
+
+function makeSequence(options = {}) {
+  return makeDetailedSequence({
+    ...options,
+    corpus: TEST_CORPUS,
+  });
+}
 
 function seededRandom(seed = 1) {
   let state = seed >>> 0;

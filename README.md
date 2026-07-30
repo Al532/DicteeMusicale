@@ -91,7 +91,14 @@ Pour reconstruire les données après téléchargement de `wjazzd.db` :
 
 ```bash
 python scripts/generate_wjazzd_data.py /chemin/vers/wjazzd.db data/wjazzd-solos.js
+npm run corpus:generate
 ```
+
+La seconde commande régénère l’index compact et les 57 blocs chargés à la
+demande par le runtime, puis préchauffés en arrière-plan par le service worker
+pour garantir le corpus hors ligne. Les mesures reproductibles de démarrage
+sont disponibles avec `npm run measure:startup` et documentées dans
+[`docs/startup-performance.md`](docs/startup-performance.md).
 
 Pour intégrer le dernier export du protocole :
 

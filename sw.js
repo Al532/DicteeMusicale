@@ -1,42 +1,35 @@
-const CACHE_NAME = "dictee-musicale-v45";
-const APP_SHELL = [
+const CACHE_PREFIX = "dictee-musicale-";
+const SHELL_CACHE = `${CACHE_PREFIX}shell-v46`;
+const CORPUS_CACHE = `${CACHE_PREFIX}corpus-0bebff94`;
+const CORPUS_MANIFEST = "./data/wjazzd-blocks/manifest.json";
+const CORPUS_BLOCK_PATH = "/data/wjazzd-blocks/block-";
+
+const CORE_SHELL = [
   "./index.html",
-  "./styles.css?v=45",
-  "./src/app.js?v=45",
-  "./src/embedded-browser.js",
-  "./src/i18n.js",
+  "./styles.css?v=46",
+  "./src/app.js?v=46",
+  "./src/app-dom.js",
+  "./src/app-renderer.js",
+  "./src/app-shell.js",
   "./src/audio.js",
-  "./src/recording.js",
+  "./src/audio-runtime.js",
+  "./src/corpus-loader.js",
+  "./src/embedded-browser.js",
   "./src/engine.js",
-  "./src/ratings.js",
+  "./src/exercise.js",
+  "./src/i18n.js",
+  "./src/original-player.js",
+  "./src/persistence.js",
   "./src/phrase-settings.js",
+  "./src/ratings.js",
+  "./src/rating-workflow.js",
+  "./src/recording.js",
   "./src/session.js",
-  "./data/default-ratings.js",
   "./data/default-phrase-settings.js",
+  "./data/default-ratings.js",
+  "./data/wjazzd-index.js",
   "./data/wjazztube-recordings.js",
-  "./data/wjazzd-solos.js",
-  "./data/wjazzd-chords.js",
-  "./audio/bass/28.mp3",
-  "./audio/bass/29.mp3",
-  "./audio/bass/30.mp3",
-  "./audio/bass/31.mp3",
-  "./audio/bass/32.mp3",
-  "./audio/bass/33.mp3",
-  "./audio/bass/34.mp3",
-  "./audio/bass/35.mp3",
-  "./audio/bass/36.mp3",
-  "./audio/bass/37.mp3",
-  "./audio/bass/38.mp3",
-  "./audio/bass/39.mp3",
-  "./audio/bass/40.mp3",
-  "./audio/bass/41.mp3",
-  "./audio/bass/42.mp3",
-  "./audio/bass/43.mp3",
-  "./audio/bass/44.mp3",
-  "./audio/bass/45.mp3",
-  "./audio/bass/46.mp3",
-  "./audio/bass/47.mp3",
-  "./audio/bass/48.mp3",
+  "./data/wjazzd-blocks/manifest.json",
   "./manifest.webmanifest",
   "./manifest-fr.webmanifest",
   "./icon.svg",
@@ -45,49 +38,120 @@ const APP_SHELL = [
   "./icon-512.png",
 ];
 
-const ESSENTIAL_SHELL = new Set(APP_SHELL.slice(0, 15));
+const OFFLINE_MEDIA = [
+  ...Array.from(
+    { length: 21 },
+    (_, index) => `./audio/bass/${index + 28}.mp3`,
+  ),
+  "./audio/parker/billies-bounce.mp3",
+  "./audio/parker/donna-lee.mp3",
+  "./audio/parker/ornithology.mp3",
+  "./audio/parker/scrapple-from-the-apple.mp3",
+  "./audio/parker/thriving-on-a-riff.mp3",
+  "./audio/parker/yardbird-suite.mp3",
+];
 
-async function cacheAppShell() {
-  const cache = await caches.open(CACHE_NAME);
-  const results = await Promise.allSettled(
-    APP_SHELL.map(async (resource) => {
-      const response = await fetch(resource);
-      if (!response.ok) {
-        throw new Error(`${resource}: ${response.status}`);
-      }
-      await cache.put(resource, response);
-    }),
-  );
-  const missingEssential = results
-    .map((result, index) => ({ result, resource: APP_SHELL[index] }))
-    .filter(
-      ({ result, resource }) =>
-        result.status === "rejected" && ESSENTIAL_SHELL.has(resource),
-    );
-  if (missingEssential.length) {
-    throw new Error(
-      `Essential app shell unavailable: ${missingEssential
-        .map(({ resource }) => resource)
-        .join(", ")}`,
-    );
+async function fetchAndCache(cache, resource) {
+  const response = await fetch(resource, { cache: "reload" });
+  if (!response.ok) {
+    throw new Error(`${resource}: ${response.status}`);
   }
+  await cache.put(resource, response);
+}
+
+async function cacheWithConcurrency(
+  cache,
+  resources,
+  concurrency = 4,
+) {
+  let nextResource = 0;
+  async function worker() {
+    while (nextResource < resources.length) {
+      const resource = resources[nextResource];
+      nextResource += 1;
+      await fetchAndCache(cache, resource);
+    }
+  }
+  await Promise.all(
+    Array.from(
+      { length: Math.min(concurrency, resources.length) },
+      () => worker(),
+    ),
+  );
+}
+
+async function readCorpusManifest() {
+  const shell = await caches.open(SHELL_CACHE);
+  const cached = await shell.match(CORPUS_MANIFEST);
+  const response = cached ?? await fetch(CORPUS_MANIFEST);
+  if (!response?.ok) {
+    throw new Error("Corpus manifest unavailable");
+  }
+  const manifest = await response.json();
+  if (
+    !manifest ||
+    !Array.isArray(manifest.blocks) ||
+    !manifest.blocks.length
+  ) {
+    throw new Error("Corpus manifest invalid");
+  }
+  return manifest;
+}
+
+async function corpusBlockResources() {
+  const manifest = await readCorpusManifest();
+  const manifestUrl = new URL(CORPUS_MANIFEST, self.location.href);
+  return manifest.blocks.map(({ url }) =>
+    new URL(url, manifestUrl).toString(),
+  );
+}
+
+async function installOfflineApplication() {
+  const shell = await caches.open(SHELL_CACHE);
+  await cacheWithConcurrency(shell, CORE_SHELL, 6);
+
+  const corpus = await caches.open(CORPUS_CACHE);
+  const blockResources = await corpusBlockResources();
+  await cacheWithConcurrency(corpus, blockResources, 4);
+  await cacheWithConcurrency(shell, OFFLINE_MEDIA, 4);
+
+  await self.skipWaiting();
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(cacheAppShell());
-  self.skipWaiting();
+  event.waitUntil(installOfflineApplication());
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
-      ),
+    (async () => {
+      const currentCaches = new Set([SHELL_CACHE, CORPUS_CACHE]);
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter(
+            (key) =>
+              key.startsWith(CACHE_PREFIX) &&
+              !currentCaches.has(key),
+          )
+          .map((key) => caches.delete(key)),
+      );
+      await self.clients.claim();
+    })(),
   );
-  self.clients.claim();
 });
+
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok && response.status === 200) {
+    await cache.put(request, response.clone());
+  }
+  return response;
+}
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
@@ -97,26 +161,17 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       caches
-        .match("./index.html")
-        .then((cachedShell) => cachedShell ?? fetch(event.request)),
+        .open(SHELL_CACHE)
+        .then(async (cache) =>
+          (await cache.match("./index.html")) ??
+          fetch(event.request),
+        ),
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(async (cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      const networkResponse = await fetch(event.request);
-      if (networkResponse.ok && networkResponse.status === 200) {
-        const copy = networkResponse.clone();
-        event.waitUntil(
-          caches
-            .open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, copy)),
-        );
-      }
-      return networkResponse;
-    }),
-  );
+  const cacheName = requestUrl.pathname.includes(CORPUS_BLOCK_PATH)
+    ? CORPUS_CACHE
+    : SHELL_CACHE;
+  event.respondWith(cacheFirst(event.request, cacheName));
 });

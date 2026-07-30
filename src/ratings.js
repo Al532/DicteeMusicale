@@ -1,4 +1,7 @@
-import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
+import {
+  WJAZZD_PERFORMERS,
+  phraseIndexEntries,
+} from "./corpus-loader.js";
 
 export const RATING_PROTOCOL_VERSION = 4;
 export const RATING_REPORT_INTERVAL = 10;
@@ -78,17 +81,17 @@ export function mergePhraseRatings(...sources) {
 }
 
 function phraseEntries(selectedPerformers = null) {
-  const selected = selectedPerformers
-    ? new Set(selectedPerformers)
-    : null;
-  return WJAZZD_SOLOS.flatMap((solo) => {
-    if (selected && !selected.has(solo.performer)) return [];
-    return solo.phrases.map((phrase) => ({
-      solo,
-      phrase,
-      phraseKey: `${solo.id}:${phrase[2]}`,
-    }));
-  });
+  return [...phraseIndexEntries(selectedPerformers)].map((entry) => ({
+    solo: {
+      id: entry.soloId,
+      performer: entry.performer,
+      title: entry.title,
+      sourceUrl: entry.sourceUrl,
+    },
+    phrase: [null, null, entry.phrase],
+    phraseKey: entry.phraseKey,
+    structuralExclusion: entry.structuralExclusion,
+  }));
 }
 
 function maximumRapidRun(events, maximumInterOnsetSeconds) {
@@ -155,6 +158,22 @@ export function structuralPhraseExclusion(solo, phrase) {
     };
   }
   return null;
+}
+
+function indexedStructuralExclusion(entry) {
+  const indexed = entry?.structuralExclusion;
+  if (!indexed?.id) return null;
+  const rule = STRUCTURAL_EXCLUSION_RULES.find(
+    ({ id }) => id === indexed.id,
+  );
+  return rule
+    ? {
+        ...rule,
+        noteCount: indexed.noteCount,
+        rapidRunNotes: indexed.rapidRunNotes ?? null,
+        rapidWindowNotes: indexed.rapidWindowNotes ?? null,
+      }
+    : null;
 }
 
 export function tuneRatingScopeId(performer, title) {
@@ -278,7 +297,7 @@ export function deriveRatingScopes(phraseRatings, fixedScopes = []) {
     });
   }
 
-  for (const performer of new Set(WJAZZD_SOLOS.map((solo) => solo.performer))) {
+  for (const performer of WJAZZD_PERFORMERS.map(({ name }) => name)) {
     if (fixedKeys.has(`performer:${performer}`)) continue;
     const entries = phraseEntries([performer]);
     const ratedTunes = new Set(
@@ -324,7 +343,8 @@ export function effectivePhraseRatings(phraseRatings, ratingScopes = []) {
     else performerScopes.set(scope.scopeId, scope);
   }
 
-  for (const { solo, phrase, phraseKey } of phraseEntries()) {
+  for (const entry of phraseEntries()) {
+    const { solo, phrase, phraseKey } = entry;
     if (ratingValue(merged[phraseKey])) {
       merged[phraseKey] = {
         ...merged[phraseKey],
@@ -333,7 +353,7 @@ export function effectivePhraseRatings(phraseRatings, ratingScopes = []) {
       };
       continue;
     }
-    const exclusion = structuralPhraseExclusion(solo, phrase);
+    const exclusion = indexedStructuralExclusion(entry);
     if (exclusion) {
       merged[phraseKey] = {
         rating: 1,

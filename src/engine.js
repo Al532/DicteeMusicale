@@ -1,9 +1,9 @@
 import {
   DEFAULT_PERFORMERS,
   WJAZZD_PERFORMERS,
-  WJAZZD_SOLOS,
-} from "../data/wjazzd-solos.js";
-import { WJAZZD_CHORDS } from "../data/wjazzd-chords.js";
+  loadPhraseCorpus,
+  phraseIndexEntries,
+} from "./corpus-loader.js";
 import {
   DEFAULT_PHRASE_MAX_NOTES,
   resolvePhraseSettings,
@@ -336,16 +336,12 @@ export function normalizePerformerSelection(
     .filter((name) => requested.has(name) && KNOWN_PERFORMERS.has(name));
 }
 
-function selectedSolos(selectedPerformers) {
+function selectedPerformersOrThrow(selectedPerformers) {
   const performers = normalizePerformerSelection(selectedPerformers);
   if (!performers.length) {
     throw new Error("Sélectionne au moins un musicien.");
   }
-  const selected = new Set(performers);
-  return {
-    performers,
-    solos: WJAZZD_SOLOS.filter((solo) => selected.has(solo.performer)),
-  };
+  return performers;
 }
 
 export function eligiblePhraseEntries(
@@ -368,38 +364,44 @@ export function eligiblePhraseEntries(
 }
 
 export function jazzPhraseCatalog({
+  catalogOverrides = {},
   phraseRatings = {},
   minimumRating = 3,
   phraseSettings = {},
 } = {}) {
-  return eligiblePhraseEntries(
-    WJAZZD_SOLOS,
-    phraseRatings,
-    minimumRating,
-  )
-    .filter(({ solo, phrase }) => {
-      const [start, end] = phrase;
-      return solo.events.slice(start, end + 1).length >= 2;
-    })
-    .map(({ solo, phrase }) => {
-      const phraseKey = phraseRatingKey(solo.id, phrase[2]);
-      const events = solo.events.slice(phrase[0], phrase[1] + 1);
-      const adjusted = applyPhraseSettingsToEvents(
-        events,
-        phraseSettings[phraseKey],
+  const filter = normalizedMinimumRating(minimumRating);
+  return [...phraseIndexEntries()]
+    .filter((entry) => {
+      const rating = Number(
+        phraseRatings?.[entry.phraseKey]?.rating ??
+          phraseRatings?.[entry.phraseKey] ??
+          0,
       );
+      return (
+        entry.fullPhraseNoteCount >= 2 &&
+        !(filter === "unrated" ? rating > 0 : filter && rating < filter)
+      );
+    })
+    .map((entry) => {
+      const settings = resolvePhraseSettings(
+        phraseSettings[entry.phraseKey],
+        entry.fullPhraseNoteCount,
+      );
+      const override = catalogOverrides[entry.phraseKey];
       return {
-        phraseKey,
-        soloId: solo.id,
-        performer: solo.performer,
-        title: solo.title,
-        phrase: phrase[2],
-        noteCount: adjusted.events.length,
-        fullPhraseNoteCount: events.length,
-        transpositionRange: jazzTranspositionRangeForNotes(
-          adjusted.events.map(([midi]) => midi),
-        ),
-        sourceUrl: solo.sourceUrl,
+        phraseKey: entry.phraseKey,
+        soloId: entry.soloId,
+        performer: entry.performer,
+        title: entry.title,
+        phrase: entry.phrase,
+        noteCount:
+          Number(override?.noteCount) ||
+          settings.playedNoteCount,
+        fullPhraseNoteCount: entry.fullPhraseNoteCount,
+        transpositionRange:
+          override?.transpositionRange ??
+          entry.transpositionRange,
+        sourceUrl: entry.sourceUrl,
       };
     });
 }
@@ -446,6 +448,39 @@ export function applyPhraseSettingsToEvents(events, stored = {}) {
   };
 }
 
+export async function loadPhraseCatalogEntry(
+  phraseKey,
+  {
+    fetch: fetchImplementation = globalThis.fetch,
+    phraseSettings = {},
+  } = {},
+) {
+  const loaded = await loadPhraseCorpus(phraseKey, {
+    fetch: fetchImplementation,
+  });
+  const events = loaded.solo.events.slice(
+    loaded.phrase[0],
+    loaded.phrase[1] + 1,
+  );
+  const adjusted = applyPhraseSettingsToEvents(
+    events,
+    phraseSettings[phraseKey],
+  );
+  return {
+    phraseKey,
+    soloId: loaded.solo.id,
+    performer: loaded.solo.performer,
+    title: loaded.solo.title,
+    phrase: loaded.phrase[2],
+    noteCount: adjusted.events.length,
+    fullPhraseNoteCount: events.length,
+    transpositionRange: jazzTranspositionRangeForNotes(
+      adjusted.events.map(([midi]) => midi),
+    ),
+    sourceUrl: loaded.solo.sourceUrl,
+  };
+}
+
 function jazzSequence(
   random,
   maxNotes = DEFAULT_PHRASE_MAX_NOTES,
@@ -457,8 +492,19 @@ function jazzSequence(
   transpositionOverride = null,
   phraseSettings = {},
   ignoredShortestNotes = 0,
+  corpus = null,
+  preselected = null,
 ) {
-  const { performers, solos } = selectedSolos(selectedPerformers);
+  const performers = selectedPerformersOrThrow(selectedPerformers);
+  const selected = new Set(performers);
+  const solos = Array.isArray(corpus?.solos)
+    ? corpus.solos.filter((solo) => selected.has(solo.performer))
+    : [];
+  if (!corpus || !Array.isArray(corpus.solos)) {
+    throw new Error(
+      "Les données détaillées de la phrase doivent être chargées.",
+    );
+  }
   const candidates = [];
   for (const { solo, phrase } of eligiblePhraseEntries(
     solos,
@@ -481,14 +527,16 @@ function jazzSequence(
     throw new Error("Aucune phrase ne correspond aux filtres choisis.");
   }
 
-  const selected = randomChoice(candidates, random);
+  const selectedPhrase =
+    preselected ??
+    randomChoice(candidates, random);
   const selectedPhraseKey = phraseRatingKey(
-    selected.solo.id,
-    selected.phrase[2],
+    selectedPhrase.solo.id,
+    selectedPhrase.phrase[2],
   );
   const configuredSettings = fullPhrase
     ? {
-        notesMax: selected.notes.length,
+        notesMax: selectedPhrase.notes.length,
         ignoredShortestNotes: 0,
       }
     : {
@@ -497,17 +545,17 @@ function jazzSequence(
         ...(phraseSettings[selectedPhraseKey] ?? {}),
       };
   const adjusted = applyPhraseSettingsToEvents(
-    selected.events,
+    selectedPhrase.events,
     configuredSettings,
   );
   const events = adjusted.events;
   const excerpt = {
-    ...selected,
+    ...selectedPhrase,
     events,
     notes: events.map(([midi]) => midi),
   };
   const wasTruncated =
-    adjusted.settings.notesMax < selected.events.length;
+    adjusted.settings.notesMax < selectedPhrase.events.length;
   const transpositionRange = jazzTranspositionRangeForNotes(excerpt.notes);
   const transposition = Number.isFinite(transpositionOverride)
     ? jazzTranspositionInRange(
@@ -540,7 +588,7 @@ function jazzSequence(
       beat,
     }));
   const bassHits = bassHitsForExcerpt(
-    WJAZZD_CHORDS[excerpt.solo.id],
+    corpus.chords?.[excerpt.solo.id],
     playbackStart,
     playbackEnd,
     transposition,
@@ -582,7 +630,7 @@ function jazzSequence(
           phraseRatingRecord(phraseRatings, excerpt.solo, excerpt.phrase)
             ?.scope ?? null,
         noteCount: transposedNotes.length,
-        fullPhraseNoteCount: selected.notes.length,
+        fullPhraseNoteCount: selectedPhrase.notes.length,
         maxNotes: adjusted.settings.notesMax,
         ignoredShortestNotes: adjusted.settings.ignoredShortestNotes,
         ignoredNoteIndexes: adjusted.ignoredIndexes,
@@ -602,6 +650,7 @@ function jazzSequence(
 }
 
 export function makeSequence({
+  corpus = null,
   maxNotes = DEFAULT_PHRASE_MAX_NOTES,
   selectedPerformers = DEFAULT_PERFORMERS,
   phraseRatings = {},
@@ -624,6 +673,92 @@ export function makeSequence({
     transpositionOverride,
     phraseSettings,
     ignoredShortestNotes,
+    corpus,
+  );
+  return {
+    ...sequence,
+    keyboard: keyboardLayoutForNotes(sequence.notes),
+  };
+}
+
+function indexedPhraseCandidates({
+  minimumRating,
+  phraseRatings,
+  selectedPerformers,
+  targetPhraseKey,
+}) {
+  const performers = selectedPerformersOrThrow(selectedPerformers);
+  const selected = new Set(performers);
+  const filter = normalizedMinimumRating(minimumRating);
+  const candidates = [...phraseIndexEntries(performers)].filter((entry) => {
+    if (
+      !selected.has(entry.performer) ||
+      entry.fullPhraseNoteCount < 2 ||
+      (targetPhraseKey && entry.phraseKey !== targetPhraseKey)
+    ) {
+      return false;
+    }
+    const stored = phraseRatings?.[entry.phraseKey];
+    const rating = Number(
+      stored && typeof stored === "object" ? stored.rating : stored,
+    ) || 0;
+    return !(filter === "unrated" ? rating > 0 : filter && rating < filter);
+  });
+  return { candidates, performers };
+}
+
+export async function loadSequence({
+  fetch: fetchImplementation = globalThis.fetch,
+  maxNotes = DEFAULT_PHRASE_MAX_NOTES,
+  selectedPerformers = DEFAULT_PERFORMERS,
+  phraseRatings = {},
+  phraseSettings = {},
+  minimumRating = 0,
+  targetPhraseKey = null,
+  fullPhrase = false,
+  transpositionOverride = null,
+  ignoredShortestNotes = 0,
+  random = Math.random,
+} = {}) {
+  const { candidates, performers } = indexedPhraseCandidates({
+    minimumRating,
+    phraseRatings,
+    selectedPerformers,
+    targetPhraseKey,
+  });
+  if (!candidates.length) {
+    throw new Error("Aucune phrase ne correspond aux filtres choisis.");
+  }
+  const selectedIndex = randomChoice(candidates, random);
+  const loaded = await loadPhraseCorpus(selectedIndex.phraseKey, {
+    fetch: fetchImplementation,
+  });
+  const events = loaded.solo.events.slice(
+    loaded.phrase[0],
+    loaded.phrase[1] + 1,
+  );
+  const preselected = {
+    solo: loaded.solo,
+    phrase: loaded.phrase,
+    events,
+    notes: events.map(([midi]) => midi),
+  };
+  const sequence = jazzSequence(
+    random,
+    maxNotes,
+    performers,
+    phraseRatings,
+    minimumRating,
+    selectedIndex.phraseKey,
+    fullPhrase,
+    transpositionOverride,
+    phraseSettings,
+    ignoredShortestNotes,
+    {
+      solos: [loaded.solo],
+      chords: { [loaded.solo.id]: loaded.chords },
+    },
+    preselected,
   );
   return {
     ...sequence,
