@@ -1,8 +1,8 @@
-const CACHE_NAME = "dictee-musicale-v41";
+const CACHE_NAME = "dictee-musicale-v42";
 const APP_SHELL = [
   "./index.html",
-  "./styles.css?v=41",
-  "./src/app.js?v=41",
+  "./styles.css?v=42",
+  "./src/app.js?v=42",
   "./src/i18n.js",
   "./src/audio.js",
   "./src/engine.js",

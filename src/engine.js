@@ -32,6 +32,8 @@ export const BASS_MIN_MIDI = 28;
 export const BASS_MAX_MIDI = 48;
 export const JAZZ_MARKOV_MAX_ORDER = 8;
 export const JAZZ_MARKOV_MIN_CONTEXT_COUNT = 2;
+export const JAZZ_TRANSPOSITION_TARGET_MIDI = 66;
+export const DEFAULT_JAZZ_TRANSPOSITION_RANGE = Object.freeze([-5, 6]);
 
 export function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
@@ -174,41 +176,110 @@ function weightedChoice(entries, random) {
   return entries.at(-1)[0];
 }
 
-export function randomJazzTransposition(random = Math.random) {
-  const pitchClassShift = randomInt(0, 11, random);
-  if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
-  return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
+export function normalizeJazzTranspositionRange(
+  range = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
+) {
+  const minimum = Number(
+    Array.isArray(range) ? range[0] : range?.minimum,
+  );
+  const maximum = Number(
+    Array.isArray(range) ? range[1] : range?.maximum,
+  );
+  if (
+    Number.isInteger(minimum) &&
+    Number.isInteger(maximum) &&
+    maximum - minimum === 11 &&
+    minimum <= 0 &&
+    maximum >= 0
+  ) {
+    return [minimum, maximum];
+  }
+  return [...DEFAULT_JAZZ_TRANSPOSITION_RANGE];
+}
+
+export function jazzTranspositionRangeForNotes(
+  notes,
+  targetMidi = JAZZ_TRANSPOSITION_TARGET_MIDI,
+) {
+  const midiNotes = (Array.isArray(notes) ? notes : [])
+    .map(Number)
+    .filter(Number.isFinite);
+  if (!midiNotes.length) {
+    return [...DEFAULT_JAZZ_TRANSPOSITION_RANGE];
+  }
+  const phraseCenter =
+    (Math.min(...midiNotes) + Math.max(...midiNotes)) / 2;
+  const centralTarget = Number.isFinite(Number(targetMidi))
+    ? Number(targetMidi)
+    : JAZZ_TRANSPOSITION_TARGET_MIDI;
+  const windowCenterOffset = 5.5;
+  const minimum = Math.max(
+    -11,
+    Math.min(
+      0,
+      Math.round(
+        centralTarget - phraseCenter - windowCenterOffset,
+      ),
+    ),
+  );
+  return [minimum, minimum + 11];
+}
+
+export function jazzTranspositionInRange(
+  transposition,
+  range = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
+) {
+  const [minimum, maximum] = normalizeJazzTranspositionRange(range);
+  const targetPitchClass = pitchClass(
+    Number.isFinite(Number(transposition))
+      ? Math.round(Number(transposition))
+      : 0,
+  );
+  for (let candidate = minimum; candidate <= maximum; candidate += 1) {
+    if (pitchClass(candidate) === targetPitchClass) return candidate;
+  }
+  return 0;
+}
+
+function jazzTranspositions(range) {
+  const [minimum, maximum] = normalizeJazzTranspositionRange(range);
+  return Array.from(
+    { length: maximum - minimum + 1 },
+    (_, index) => minimum + index,
+  );
+}
+
+export function randomJazzTransposition(
+  random = Math.random,
+  transpositionRange = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
+) {
+  return randomChoice(jazzTranspositions(transpositionRange), random);
 }
 
 export function randomDifferentJazzTransposition(
   currentTransposition,
   random = Math.random,
+  transpositionRange = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
 ) {
   const currentPitchClass = pitchClass(currentTransposition);
-  const choices = Array.from({ length: 12 }, (_, index) => index).filter(
-    (candidate) => candidate !== currentPitchClass,
+  const choices = jazzTranspositions(transpositionRange).filter(
+    (candidate) => pitchClass(candidate) !== currentPitchClass,
   );
-  const pitchClassShift = randomChoice(choices, random);
-  if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
-  return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
-}
-
-function signedJazzTransposition(pitchClassShift, random) {
-  if (pitchClassShift === 6) return random() < 0.5 ? -6 : 6;
-  return pitchClassShift > 6 ? pitchClassShift - 12 : pitchClassShift;
+  return randomChoice(choices, random);
 }
 
 export function makeJazzTranspositionCycle({
   excludeTransposition = null,
   avoidFirstTransposition = null,
+  transpositionRange = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
   random = Math.random,
 } = {}) {
   const excludedPitchClass = Number.isFinite(excludeTransposition)
     ? pitchClass(excludeTransposition)
     : null;
-  const cycle = Array.from({ length: 12 }, (_, index) => index)
-    .filter((candidate) => candidate !== excludedPitchClass)
-    .map((candidate) => signedJazzTransposition(candidate, random));
+  const cycle = jazzTranspositions(transpositionRange).filter(
+    (candidate) => pitchClass(candidate) !== excludedPitchClass,
+  );
 
   for (let index = cycle.length - 1; index > 0; index -= 1) {
     const swapIndex = randomInt(0, index, random);
@@ -467,19 +538,27 @@ export function jazzPhraseCatalog({
       const [start, end] = phrase;
       return solo.events.slice(start, end + 1).length >= 2;
     })
-    .map(({ solo, phrase }) => ({
-      phraseKey: phraseRatingKey(solo.id, phrase[2]),
-      soloId: solo.id,
-      performer: solo.performer,
-      title: solo.title,
-      phrase: phrase[2],
-      noteCount: resolvePhraseSettings(
-        phraseSettings[phraseRatingKey(solo.id, phrase[2])],
-        phrase[1] - phrase[0] + 1,
-      ).playedNoteCount,
-      fullPhraseNoteCount: phrase[1] - phrase[0] + 1,
-      sourceUrl: solo.sourceUrl,
-    }));
+    .map(({ solo, phrase }) => {
+      const phraseKey = phraseRatingKey(solo.id, phrase[2]);
+      const events = solo.events.slice(phrase[0], phrase[1] + 1);
+      const adjusted = applyPhraseSettingsToEvents(
+        events,
+        phraseSettings[phraseKey],
+      );
+      return {
+        phraseKey,
+        soloId: solo.id,
+        performer: solo.performer,
+        title: solo.title,
+        phrase: phrase[2],
+        noteCount: adjusted.events.length,
+        fullPhraseNoteCount: events.length,
+        transpositionRange: jazzTranspositionRangeForNotes(
+          adjusted.events.map(([midi]) => midi),
+        ),
+        sourceUrl: solo.sourceUrl,
+      };
+    });
 }
 
 export function applyPhraseSettingsToEvents(events, stored = {}) {
@@ -498,22 +577,26 @@ export function applyPhraseSettingsToEvents(events, stored = {}) {
 
   const settings = resolvePhraseSettings(stored, sourceEvents.length);
   const truncatedEvents = sourceEvents.slice(0, settings.notesMax);
-  const ignoredIndexes = truncatedEvents
-    .map((event, index) => ({
-      index,
-      duration: Number(event?.[2]) || 0,
-    }))
-    .sort(
-      (left, right) =>
-        left.duration - right.duration || left.index - right.index,
-    )
-    .slice(0, settings.ignoredShortestNotes)
-    .map(({ index }) => index)
-    .sort((left, right) => left - right);
+  const ignoredIndexes = settings.ignoredShortestNotes
+    ? truncatedEvents
+        .map((event, index) => ({
+          index,
+          duration: Number(event?.[2]) || 0,
+        }))
+        .sort(
+          (left, right) =>
+            left.duration - right.duration || left.index - right.index,
+        )
+        .slice(0, settings.ignoredShortestNotes)
+        .map(({ index }) => index)
+        .sort((left, right) => left - right)
+    : [];
   const ignored = new Set(ignoredIndexes);
 
   return {
-    events: truncatedEvents.filter((_, index) => !ignored.has(index)),
+    events: ignored.size
+      ? truncatedEvents.filter((_, index) => !ignored.has(index))
+      : truncatedEvents,
     truncatedEvents,
     ignoredIndexes,
     settings,
@@ -653,9 +736,13 @@ function jazzSequence(
   };
   const wasTruncated =
     adjusted.settings.notesMax < selected.events.length;
+  const transpositionRange = jazzTranspositionRangeForNotes(excerpt.notes);
   const transposition = Number.isFinite(transpositionOverride)
-    ? Number(transpositionOverride)
-    : randomJazzTransposition(random);
+    ? jazzTranspositionInRange(
+        Number(transpositionOverride),
+        transpositionRange,
+      )
+    : randomJazzTransposition(random, transpositionRange);
   const transposedNotes = excerpt.notes.map((note) => note + transposition);
   const firstOnset = excerpt.events[0][1];
   const excerptStartOnset = adjusted.truncatedEvents[0][1];
@@ -736,6 +823,7 @@ function jazzSequence(
         originalTempo: excerpt.solo.originalTempo,
         performers,
         transposition,
+        transpositionRange,
       },
     },
   };

@@ -4,6 +4,10 @@ import { readFile, stat } from "node:fs/promises";
 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
+const engine = await readFile(
+  new URL("../src/engine.js", import.meta.url),
+  "utf8",
+);
 const session = await readFile(
   new URL("../src/session.js", import.meta.url),
   "utf8",
@@ -203,6 +207,46 @@ test("les cycles de tonalités sont indépendants et persistent avec la session"
   assert.match(app, /function persistChallengeSession\(\)/);
   assert.match(app, /function resumeChallenge\(\)/);
   assert.match(app, /isResumableChallengeSession/);
+});
+
+test("la fenêtre de douze tons suit la tessiture dans tous les modes", () => {
+  assert.match(
+    engine,
+    /JAZZ_TRANSPOSITION_TARGET_MIDI = 66[\s\S]*?DEFAULT_JAZZ_TRANSPOSITION_RANGE = Object\.freeze\(\[-5, 6\]\)/,
+  );
+  assert.match(
+    engine,
+    /function jazzTranspositionRangeForNotes\([\s\S]*?phraseCenter[\s\S]*?windowCenterOffset = 5\.5[\s\S]*?return \[minimum, minimum \+ 11\]/,
+  );
+  assert.match(
+    engine,
+    /function jazzPhraseCatalog\([\s\S]*?applyPhraseSettingsToEvents[\s\S]*?transpositionRange: jazzTranspositionRangeForNotes/,
+  );
+  assert.match(
+    engine,
+    /const transpositionRange = jazzTranspositionRangeForNotes\(excerpt\.notes\)[\s\S]*?randomJazzTransposition\(random, transpositionRange\)/,
+  );
+  assert.match(session, /export const CHALLENGE_SCHEMA_VERSION = 2/);
+  assert.match(
+    session,
+    /function createPhraseState\(phrase\)[\s\S]*?createTranspositionState\(phrase\.transpositionRange\)/,
+  );
+  assert.match(
+    app,
+    /function startFreePhrase\(phraseKey\)[\s\S]*?createTranspositionState\([\s\S]*?catalogMap\(\)\.get\(phraseKey\)\?\.transpositionRange/,
+  );
+  assert.match(
+    app,
+    /const transpositionRange =[\s\S]*?generated\.meta\.source\.transpositionRange[\s\S]*?jazzTranspositionRangeForNotes\(originalNotes\)[\s\S]*?createTranspositionState\(transpositionRange/,
+  );
+  assert.match(
+    app,
+    /function reloadCurrentPhraseWithSettings\(\)[\s\S]*?retargetTranspositionState\([\s\S]*?transpositionRange/,
+  );
+  assert.match(
+    app,
+    /function transposeSameExercise\(\)[\s\S]*?drawNextTransposition\([\s\S]*?exercise\.transpositionState/,
+  );
 });
 
 test("chaque session progresse d’une phrase courte à une moyenne puis une longue", () => {
@@ -410,11 +454,11 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
   assert.equal(frenchManifest.orientation, "any");
-  assert.match(serviceWorker, /dictee-musicale-v41/);
-  assert.match(index, /href="\.\/styles\.css\?v=41"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=41"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=41/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=41/);
+  assert.match(serviceWorker, /dictee-musicale-v42/);
+  assert.match(index, /href="\.\/styles\.css\?v=42"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=42"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=42/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=42/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);

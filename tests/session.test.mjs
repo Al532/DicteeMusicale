@@ -3,13 +3,16 @@ import assert from "node:assert/strict";
 
 import { pitchClass } from "../src/engine.js";
 import {
+  CHALLENGE_SCHEMA_VERSION,
   advanceTraining,
   beginSuddenDeath,
   createChallengeSession,
+  createTranspositionState,
   currentChallengePhrase,
   drawNextTransposition,
   dynamicLengthPools,
   isResumableChallengeSession,
+  retargetTranspositionState,
   resolveSuddenDeath,
   selectChallengePhrases,
 } from "../src/session.js";
@@ -22,13 +25,19 @@ function seededRandom(seed = 1) {
   };
 }
 
-function phrase(index, soloId = `solo-${index}`, noteCount = 12 + index) {
+function phrase(
+  index,
+  soloId = `solo-${index}`,
+  noteCount = 12 + index,
+  transpositionRange = [-5, 6],
+) {
   return {
     phraseKey: `${soloId}:${index}`,
     soloId,
     performer: `Musicien ${index}`,
     title: `Morceau ${index}`,
     noteCount,
+    transpositionRange,
   };
 }
 
@@ -126,7 +135,11 @@ test("les limites court, moyen et long suivent les tiers du corpus réel", () =>
 });
 
 test("la phase normale enchaîne A-A-A, B-B-B, C-C-C", () => {
-  const phrases = [phrase(1), phrase(2), phrase(3)];
+  const phrases = [
+    phrase(1, "solo-1", 13, [0, 11]),
+    phrase(2, "solo-2", 14, [-5, 6]),
+    phrase(3, "solo-3", 15, [-11, 0]),
+  ];
   const random = seededRandom(21);
   const session = createChallengeSession(phrases, {
     random,
@@ -163,6 +176,13 @@ test("la phase normale enchaîne A-A-A, B-B-B, C-C-C", () => {
       new Set(phraseState.transpositionsUsed.map(pitchClass)).size,
       3,
     );
+    assert.ok(
+      phraseState.transpositionsUsed.every(
+        (transposition) =>
+          transposition >= phraseState.transpositionRange[0] &&
+          transposition <= phraseState.transpositionRange[1],
+      ),
+    );
   }
   assert.equal(session.phase, "transition");
 });
@@ -190,12 +210,7 @@ test("la mort subite fait revenir un échec plus tard dans un nouveau ton", () =
 });
 
 test("chaque phrase épuise ses douze tons avant un nouveau cycle", () => {
-  const state = {
-    remainingTranspositions: [],
-    lastTransposition: null,
-    transpositionsUsed: [],
-    cycleNumber: 0,
-  };
+  const state = createTranspositionState([0, 11]);
   const random = seededRandom(41);
   for (let index = 0; index < 25; index += 1) {
     drawNextTransposition(state, random);
@@ -206,6 +221,45 @@ test("chaque phrase épuise ses douze tons avant un nouveau cycle", () => {
   assert.equal(new Set(pitchClasses.slice(12, 24)).size, 12);
   assert.notEqual(pitchClasses[11], pitchClasses[12]);
   assert.equal(state.cycleNumber, 3);
+  assert.ok(
+    state.transpositionsUsed.every(
+      (transposition) => transposition >= 0 && transposition <= 11,
+    ),
+  );
+});
+
+test("un changement de tessiture remappe le cycle restant sans répéter de ton", () => {
+  const state = createTranspositionState([-5, 6]);
+  const random = seededRandom(45);
+  for (let index = 0; index < 4; index += 1) {
+    drawNextTransposition(state, random);
+  }
+  const usedPitchClasses = state.transpositionsUsed.map(pitchClass);
+  const remainingPitchClasses =
+    state.remainingTranspositions.map(pitchClass);
+
+  retargetTranspositionState(state, [0, 11], random);
+
+  assert.deepEqual(
+    state.transpositionsUsed.map(pitchClass),
+    usedPitchClasses,
+  );
+  assert.deepEqual(
+    state.remainingTranspositions.map(pitchClass),
+    remainingPitchClasses,
+  );
+  assert.ok(
+    [...state.transpositionsUsed, ...state.remainingTranspositions].every(
+      (transposition) => transposition >= 0 && transposition <= 11,
+    ),
+  );
+  while (state.transpositionsUsed.length < 12) {
+    drawNextTransposition(state, random);
+  }
+  assert.equal(
+    new Set(state.transpositionsUsed.map(pitchClass)).size,
+    12,
+  );
 });
 
 test("une session sérialisée reste reprenable", () => {
@@ -221,6 +275,16 @@ test("une session sérialisée reste reprenable", () => {
       phrases.map(({ phraseKey }) => phraseKey),
     ),
     true,
+  );
+  assert.equal(restored.schemaVersion, CHALLENGE_SCHEMA_VERSION);
+  const obsolete = JSON.parse(JSON.stringify(restored));
+  obsolete.schemaVersion = CHALLENGE_SCHEMA_VERSION - 1;
+  assert.equal(
+    isResumableChallengeSession(
+      obsolete,
+      phrases.map(({ phraseKey }) => phraseKey),
+    ),
+    false,
   );
   restored.phrases[0].phraseKey = "inconnue:1";
   assert.equal(

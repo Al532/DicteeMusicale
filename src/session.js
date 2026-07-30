@@ -1,6 +1,12 @@
-import { makeJazzTranspositionCycle, pitchClass } from "./engine.js";
+import {
+  DEFAULT_JAZZ_TRANSPOSITION_RANGE,
+  jazzTranspositionInRange,
+  makeJazzTranspositionCycle,
+  normalizeJazzTranspositionRange,
+  pitchClass,
+} from "./engine.js";
 
-export const CHALLENGE_SCHEMA_VERSION = 1;
+export const CHALLENGE_SCHEMA_VERSION = 2;
 export const CHALLENGE_PHRASE_COUNT = 3;
 export const TRAINING_TONES_PER_PHRASE = 3;
 
@@ -128,6 +134,103 @@ export function selectChallengePhrases({
   };
 }
 
+export function createTranspositionState(
+  transpositionRange = DEFAULT_JAZZ_TRANSPOSITION_RANGE,
+  {
+    initialTransposition = null,
+    random = Math.random,
+  } = {},
+) {
+  const normalizedRange = normalizeJazzTranspositionRange(
+    transpositionRange,
+  );
+  const state = {
+    transpositionRange: normalizedRange,
+    remainingTranspositions: [],
+    lastTransposition: null,
+    transpositionsUsed: [],
+    cycleNumber: 0,
+  };
+  if (Number.isFinite(initialTransposition)) {
+    const normalizedInitial = jazzTranspositionInRange(
+      initialTransposition,
+      normalizedRange,
+    );
+    state.remainingTranspositions = makeJazzTranspositionCycle({
+      excludeTransposition: normalizedInitial,
+      transpositionRange: normalizedRange,
+      random,
+    });
+    state.lastTransposition = normalizedInitial;
+    state.transpositionsUsed = [normalizedInitial];
+    state.cycleNumber = 1;
+  }
+  return state;
+}
+
+export function retargetTranspositionState(
+  state,
+  transpositionRange,
+  random = Math.random,
+) {
+  if (!state || typeof state !== "object") return state;
+  const normalizedRange = normalizeJazzTranspositionRange(
+    transpositionRange,
+  );
+  const mapToRange = (transposition) =>
+    jazzTranspositionInRange(transposition, normalizedRange);
+  const used = Array.isArray(state.transpositionsUsed)
+    ? state.transpositionsUsed
+        .filter(Number.isFinite)
+        .map(mapToRange)
+    : [];
+  const usedInCycleCount = used.length % 12;
+  const usedInCycle = new Set(
+    usedInCycleCount ? used.slice(-usedInCycleCount).map(pitchClass) : [],
+  );
+  const remaining = [];
+  const remainingPitchClasses = new Set();
+  for (const transposition of Array.isArray(state.remainingTranspositions)
+    ? state.remainingTranspositions
+    : []) {
+    if (!Number.isFinite(transposition)) continue;
+    const mapped = mapToRange(transposition);
+    const mappedPitchClass = pitchClass(mapped);
+    if (
+      usedInCycle.has(mappedPitchClass) ||
+      remainingPitchClasses.has(mappedPitchClass)
+    ) {
+      continue;
+    }
+    remaining.push(mapped);
+    remainingPitchClasses.add(mappedPitchClass);
+  }
+  if (usedInCycleCount || remaining.length) {
+    const missing = makeJazzTranspositionCycle({
+      transpositionRange: normalizedRange,
+      random,
+    }).filter((transposition) => {
+      const candidatePitchClass = pitchClass(transposition);
+      return (
+        !usedInCycle.has(candidatePitchClass) &&
+        !remainingPitchClasses.has(candidatePitchClass)
+      );
+    });
+    remaining.push(...missing);
+  }
+
+  state.transpositionRange = normalizedRange;
+  state.remainingTranspositions = remaining;
+  state.lastTransposition = Number.isFinite(state.lastTransposition)
+    ? mapToRange(state.lastTransposition)
+    : null;
+  state.transpositionsUsed = used;
+  state.cycleNumber = Number.isInteger(state.cycleNumber)
+    ? state.cycleNumber
+    : 0;
+  return state;
+}
+
 function createPhraseState(phrase) {
   return {
     phraseKey: phrase.phraseKey,
@@ -135,10 +238,7 @@ function createPhraseState(phrase) {
     performer: phrase.performer ?? "",
     title: phrase.title ?? "",
     noteCount: Number(phrase.noteCount) || null,
-    remainingTranspositions: [],
-    lastTransposition: null,
-    transpositionsUsed: [],
-    cycleNumber: 0,
+    ...createTranspositionState(phrase.transpositionRange),
   };
 }
 
@@ -146,6 +246,7 @@ export function drawNextTransposition(phrase, random = Math.random) {
   if (!phrase.remainingTranspositions.length) {
     phrase.remainingTranspositions = makeJazzTranspositionCycle({
       avoidFirstTransposition: phrase.lastTransposition,
+      transpositionRange: phrase.transpositionRange,
       random,
     });
     phrase.cycleNumber += 1;
@@ -299,6 +400,29 @@ export function isResumableChallengeSession(session, catalogPhraseKeys) {
   }
   const keys = new Set(session.phrases.map(({ phraseKey }) => phraseKey));
   if (keys.size !== CHALLENGE_PHRASE_COUNT) return false;
+  if (
+    session.phrases.some((phrase) => {
+      const normalizedRange = normalizeJazzTranspositionRange(
+        phrase.transpositionRange,
+      );
+      return (
+        !Array.isArray(phrase.transpositionRange) ||
+        phrase.transpositionRange.length !== 2 ||
+        normalizedRange[0] !== phrase.transpositionRange[0] ||
+        normalizedRange[1] !== phrase.transpositionRange[1] ||
+        !Array.isArray(phrase.remainingTranspositions) ||
+        !Array.isArray(phrase.transpositionsUsed) ||
+        [...phrase.remainingTranspositions, ...phrase.transpositionsUsed].some(
+          (transposition) =>
+            !Number.isInteger(transposition) ||
+            jazzTranspositionInRange(transposition, normalizedRange) !==
+              transposition,
+        )
+      );
+    })
+  ) {
+    return false;
+  }
   if (catalogPhraseKeys) {
     const available = new Set(catalogPhraseKeys);
     if ([...keys].some((phraseKey) => !available.has(phraseKey))) return false;
@@ -321,6 +445,15 @@ export function isResumableChallengeSession(session, catalogPhraseKeys) {
       !session.suddenQueue.length ||
       session.suddenQueue.some((phraseKey) => !keys.has(phraseKey)) ||
       !Number.isFinite(session.currentTransposition))
+  ) {
+    return false;
+  }
+  if (
+    Number.isFinite(session.currentTransposition) &&
+    jazzTranspositionInRange(
+      session.currentTransposition,
+      currentChallengePhrase(session)?.transpositionRange,
+    ) !== session.currentTransposition
   ) {
     return false;
   }

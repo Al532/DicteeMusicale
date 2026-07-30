@@ -2,8 +2,9 @@ import {
   DEFAULT_PERFORMERS,
   WJAZZD_PERFORMERS,
   isCorrectMidi,
+  jazzTranspositionInRange,
+  jazzTranspositionRangeForNotes,
   jazzPhraseCatalog,
-  makeJazzTranspositionCycle,
   keyboardLayoutForNotes,
   makeSequence,
   pitchClass,
@@ -14,9 +15,11 @@ import {
   advanceTraining,
   beginSuddenDeath,
   createChallengeSession,
+  createTranspositionState,
   currentChallengePhrase,
   drawNextTransposition,
   isResumableChallengeSession,
+  retargetTranspositionState,
   resolveSuddenDeath,
   selectChallengePhrases,
 } from "./session.js";
@@ -904,15 +907,6 @@ function showSuddenDeathTransition() {
   window.requestAnimationFrame(() => elements.startSuddenDeath.focus());
 }
 
-function createToneState() {
-  return {
-    remainingTranspositions: [],
-    lastTransposition: null,
-    transpositionsUsed: [],
-    cycleNumber: 0,
-  };
-}
-
 async function startNewChallenge() {
   elements.challengeCompleteModal.hidden = true;
   elements.suddenDeathModal.hidden = true;
@@ -954,7 +948,9 @@ async function resumeChallenge() {
 
 async function startFreePhrase(phraseKey) {
   freePhraseKey = phraseKey;
-  freeToneState = createToneState();
+  freeToneState = createTranspositionState(
+    catalogMap().get(phraseKey)?.transpositionRange,
+  );
   currentMode = "free";
   const transposition = drawNextTransposition(freeToneState);
   await loadPublicPhrase({ phraseKey, transposition });
@@ -1714,8 +1710,49 @@ function schedulePhraseSettingsReload() {
 
 async function reloadCurrentPhraseWithSettings() {
   const phraseKey = exercise?.source?.phraseKey;
-  const transposition = exercise?.transposition ?? 0;
   if (!phraseKey) return;
+  const catalogPhrase = catalogMap().get(phraseKey);
+  const transpositionRange =
+    catalogPhrase?.transpositionRange ??
+    exercise.source.transpositionRange;
+  let transposition = jazzTranspositionInRange(
+    exercise?.transposition ?? 0,
+    transpositionRange,
+  );
+  let transpositionState = exercise?.transpositionState ?? null;
+
+  if (currentMode === "challenge" && challengeSession) {
+    const phraseState = challengeSession.phrases.find(
+      (phrase) => phrase.phraseKey === phraseKey,
+    );
+    if (phraseState) {
+      retargetTranspositionState(phraseState, transpositionRange);
+      phraseState.noteCount =
+        Number(catalogPhrase?.noteCount) || phraseState.noteCount;
+      transposition = jazzTranspositionInRange(
+        challengeSession.currentTransposition,
+        transpositionRange,
+      );
+      challengeSession.currentTransposition = transposition;
+      persistChallengeSession();
+    }
+  } else if (currentMode === "free" && freeToneState) {
+    retargetTranspositionState(freeToneState, transpositionRange);
+    transposition = jazzTranspositionInRange(
+      exercise.transposition,
+      transpositionRange,
+    );
+  } else if (transpositionState) {
+    retargetTranspositionState(
+      transpositionState,
+      transpositionRange,
+    );
+    transposition = jazzTranspositionInRange(
+      exercise.transposition,
+      transpositionRange,
+    );
+  }
+
   if (currentMode === "challenge" || currentMode === "free") {
     await loadPublicPhrase({ phraseKey, transposition });
     return;
@@ -1723,6 +1760,7 @@ async function reloadCurrentPhraseWithSettings() {
   await startExercise({
     targetPhraseKeyOverride: phraseKey,
     transpositionOverride: transposition,
+    transpositionStateOverride: transpositionState,
     quickRatingFullPreview: false,
   });
 }
@@ -2013,9 +2051,10 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
     playbackRatePercent: null,
     originalTempo: generated.meta.originalTempo ?? null,
     notes: generated.notes,
-    originalNotes: generated.notes.map((midi) => midi - transposition),
-    transposition,
-    transpositionCycle: [],
+    originalNotes: generated.notes.map(
+      (midi) => midi - generated.meta.source.transposition,
+    ),
+    transposition: generated.meta.source.transposition,
     timings: generated.timings ?? null,
     chicks: generated.chicks ?? null,
     bassHits: generated.bassHits ?? null,
@@ -2103,6 +2142,7 @@ async function launchSuddenDeath() {
 async function startExercise({
   targetPhraseKeyOverride = null,
   transpositionOverride = null,
+  transpositionStateOverride = null,
   quickRatingFullPreview = null,
 } = {}) {
   if (phraseAdjustmentTimer !== null) {
@@ -2190,6 +2230,22 @@ async function startExercise({
   } catch {
     // La dictée reste jouable si un sample de basse est momentanément indisponible.
   }
+  const generatedTransposition =
+    generated.meta.source.transposition ?? 0;
+  const originalNotes = generated.notes.map(
+    (midi) => midi - generatedTransposition,
+  );
+  const transpositionRange =
+    generated.meta.source.transpositionRange ??
+    jazzTranspositionRangeForNotes(originalNotes);
+  const transpositionState = transpositionStateOverride
+    ? retargetTranspositionState(
+        transpositionStateOverride,
+        transpositionRange,
+      )
+    : createTranspositionState(transpositionRange, {
+        initialTransposition: generatedTransposition,
+      });
   exercise = {
     id: crypto.randomUUID(),
     startedAt: new Date().toISOString(),
@@ -2204,13 +2260,9 @@ async function startExercise({
     playbackRatePercent: generated.timings ? null : randomPlaybackSpeedPercent,
     originalTempo: generated.meta.originalTempo ?? null,
     notes: generated.notes,
-    originalNotes: generated.notes.map(
-      (midi) => midi - (generated.meta.source.transposition ?? 0),
-    ),
-    transposition: generated.meta.source.transposition ?? 0,
-    transpositionCycle: makeJazzTranspositionCycle({
-      excludeTransposition: generated.meta.source.transposition ?? 0,
-    }),
+    originalNotes,
+    transposition: generatedTransposition,
+    transpositionState,
     timings: generated.timings ?? null,
     chicks: generated.chicks ?? null,
     bassHits: generated.bassHits ?? null,
@@ -2418,12 +2470,9 @@ async function transposeSameExercise() {
   hideCompletionModal();
   stopAllTones();
   setPhraseRating(3, { automatic: true });
-  if (!exercise.transpositionCycle.length) {
-    exercise.transpositionCycle = makeJazzTranspositionCycle({
-      avoidFirstTransposition: exercise.transposition,
-    });
-  }
-  const transposition = exercise.transpositionCycle.shift();
+  const transposition = drawNextTransposition(
+    exercise.transpositionState,
+  );
   exercise.transposition = transposition;
   exercise.notes = exercise.originalNotes.map((midi) => midi + transposition);
   exercise.bassHits = voiceBassHits(exercise.bassHits ?? [], transposition);

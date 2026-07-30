@@ -18,6 +18,8 @@ import {
   isCorrectMidi,
   jazzCorpusSummary,
   jazzPhraseCatalog,
+  jazzTranspositionInRange,
+  jazzTranspositionRangeForNotes,
   keyboardLayoutForNotes,
   makeJazzTranspositionCycle,
   makeSequence,
@@ -107,29 +109,57 @@ test("la lecture part du dernier temps fort de la mesure", () => {
   assert.equal(playbackStartOnStrongBeat([], 1.2), 1.2);
 });
 
-test("les 12 transpositions, dont la tonalité originale, sont équiprobables", () => {
+test("la fenêtre centrale contient 12 transpositions équiprobables", () => {
   const shifts = Array.from({ length: 12 }, (_, bucket) =>
     randomJazzTransposition(() => (bucket + 0.25) / 12),
   );
+  assert.deepEqual(shifts, [
+    -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6,
+  ]);
   assert.deepEqual(
     [...new Set(shifts.map((shift) => pitchClass(shift)))].sort(
       (a, b) => a - b,
     ),
     Array.from({ length: 12 }, (_, index) => index),
   );
-  assert.ok(shifts.every((shift) => shift >= -6 && shift <= 6));
   assert.ok(shifts.includes(0));
+});
 
-  let draw = 0;
-  const negativeTritone = randomJazzTransposition(
-    () => [6.25 / 12, 0.25][draw++],
+test("la fenêtre mobile recentre la tessiture effective sans exclure l’original", () => {
+  assert.deepEqual(jazzTranspositionRangeForNotes([42, 54]), [0, 11]);
+  assert.deepEqual(jazzTranspositionRangeForNotes([60, 72]), [-5, 6]);
+  assert.deepEqual(jazzTranspositionRangeForNotes([78, 90]), [-11, 0]);
+  for (const notes of [[42, 54], [60, 72], [78, 90]]) {
+    const [minimum, maximum] = jazzTranspositionRangeForNotes(notes);
+    assert.equal(maximum - minimum, 11);
+    assert.ok(minimum <= 0 && maximum >= 0);
+    assert.equal(
+      jazzTranspositionInRange(13, [minimum, maximum]),
+      jazzTranspositionInRange(1, [minimum, maximum]),
+    );
+  }
+});
+
+test("un tirage respecte les fenêtres graves et aiguës", () => {
+  const lowRange = [0, 11];
+  const highRange = [-11, 0];
+  const lowShifts = Array.from({ length: 12 }, (_, bucket) =>
+    randomJazzTransposition(
+      () => (bucket + 0.25) / 12,
+      lowRange,
+    ),
   );
-  draw = 0;
-  const positiveTritone = randomJazzTransposition(
-    () => [6.25 / 12, 0.75][draw++],
+  const highShifts = Array.from({ length: 12 }, (_, bucket) =>
+    randomJazzTransposition(
+      () => (bucket + 0.25) / 12,
+      highRange,
+    ),
   );
-  assert.equal(negativeTritone, -6);
-  assert.equal(positiveTritone, 6);
+  assert.deepEqual(lowShifts, Array.from({ length: 12 }, (_, index) => index));
+  assert.deepEqual(
+    highShifts,
+    Array.from({ length: 12 }, (_, index) => index - 11),
+  );
 });
 
 test("une nouvelle transposition choisit uniformément l’un des 11 autres tons", () => {
@@ -145,11 +175,13 @@ test("une nouvelle transposition choisit uniformément l’un des 11 autres tons
 });
 
 test("les transpositions suivent des cycles complets sans répétition", () => {
+  const transpositionRange = [0, 11];
   const initialTransposition = 4;
   const firstCycle = [
     initialTransposition,
     ...makeJazzTranspositionCycle({
       excludeTransposition: initialTransposition,
+      transpositionRange,
       random: seededRandom(42),
     }),
   ];
@@ -163,9 +195,15 @@ test("les transpositions suivent des cycles complets sans répétition", () => {
   const lastTransposition = firstCycle.at(-1);
   const secondCycle = makeJazzTranspositionCycle({
     avoidFirstTransposition: lastTransposition,
+    transpositionRange,
     random: seededRandom(43),
   });
   assert.equal(secondCycle.length, 12);
+  assert.ok(
+    secondCycle.every(
+      (transposition) => transposition >= 0 && transposition <= 11,
+    ),
+  );
   assert.equal(new Set(secondCycle.map((shift) => pitchClass(shift))).size, 12);
   assert.notEqual(
     pitchClass(secondCycle[0]),
@@ -420,8 +458,17 @@ test("vingt notes est le défaut mais chaque phrase accepte 1 note à sa longueu
 
   assert.equal(defaultLimit.notes.length, 20);
   assert.equal(defaultLimit.meta.source.maxNotes, 20);
-  assert.deepEqual(oneNote.notes, defaultLimit.notes.slice(0, 1));
+  assert.equal(
+    oneNote.notes[0] - oneNote.meta.source.transposition,
+    defaultLimit.notes[0] - defaultLimit.meta.source.transposition,
+  );
   assert.equal(oneNote.meta.source.maxNotes, 1);
+  assert.deepEqual(
+    oneNote.meta.source.transpositionRange,
+    jazzTranspositionRangeForNotes([
+      oneNote.notes[0] - oneNote.meta.source.transposition,
+    ]),
+  );
   assert.equal(
     oversizedLimit.notes.length,
     oversizedLimit.meta.source.fullPhraseNoteCount,
@@ -515,9 +562,22 @@ test("la longueur effective du catalogue tient compte des réglages par phrase",
     },
   });
   const entry = catalog.find((candidate) => candidate.phraseKey === phraseKey);
+  const adjusted = applyPhraseSettingsToEvents(
+    solo.events.slice(phrase[0], phrase[1] + 1),
+    {
+      notesMax: 6,
+      ignoredShortestNotes: 2,
+    },
+  );
 
   assert.equal(entry.noteCount, 4);
   assert.equal(entry.fullPhraseNoteCount, phrase[1] - phrase[0] + 1);
+  assert.deepEqual(
+    entry.transpositionRange,
+    jazzTranspositionRangeForNotes(
+      adjusted.events.map(([midi]) => midi),
+    ),
+  );
 });
 
 test("le protocole peut écouter une phrase précise en entier et dans le ton original", () => {
@@ -560,7 +620,12 @@ test("les rythmes, transpositions, accords et chicks annotés sont conservés", 
     results.some((result) => result.meta.source.transposition !== 0),
   );
   for (const result of results) {
-    assert.ok(Math.abs(result.meta.source.transposition) <= 6);
+    const [minimum, maximum] =
+      result.meta.source.transpositionRange;
+    assert.equal(maximum - minimum, 11);
+    assert.ok(minimum <= 0 && maximum >= 0);
+    assert.ok(result.meta.source.transposition >= minimum);
+    assert.ok(result.meta.source.transposition <= maximum);
     assert.equal(result.timings.length, result.notes.length);
     assert.ok(result.timings[0].offset >= 0);
     assert.equal(
