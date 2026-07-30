@@ -322,17 +322,29 @@ test("la PWA embarque le nouveau moteur de session hors connexion", async () => 
   assert.equal(manifest.orientation, "any");
   assert.equal(manifest.name, "Jazz Solo Challenge");
   assert.equal(manifest.lang, "en");
+  assert.equal(manifest.id, "./");
   assert.equal(frenchManifest.lang, "fr");
+  assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
   assert.equal(frenchManifest.orientation, "any");
-  assert.match(serviceWorker, /dictee-musicale-v39/);
-  assert.match(index, /href="\.\/styles\.css\?v=39"/);
-  assert.match(index, /src="\.\/src\/app\.js\?v=39"/);
-  assert.match(serviceWorker, /\.\/styles\.css\?v=39/);
-  assert.match(serviceWorker, /\.\/src\/app\.js\?v=39/);
+  assert.match(serviceWorker, /dictee-musicale-v40/);
+  assert.match(index, /href="\.\/styles\.css\?v=40"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=40"/);
+  assert.match(serviceWorker, /\.\/styles\.css\?v=40/);
+  assert.match(serviceWorker, /\.\/src\/app\.js\?v=40/);
   assert.match(serviceWorker, /\.\/src\/i18n\.js/);
   assert.match(serviceWorker, /\.\/manifest-fr\.webmanifest/);
   assert.match(serviceWorker, /\.\/src\/session\.js/);
+  assert.match(
+    serviceWorker,
+    /event\.request\.mode === "navigate"[\s\S]*?caches[\s\S]*?\.match\("\.\/index\.html"\)/,
+  );
+  assert.match(
+    serviceWorker,
+    /caches\.match\(event\.request\)[\s\S]*?if \(cachedResponse\) return cachedResponse;[\s\S]*?fetch\(event\.request\)/,
+  );
+  assert.doesNotMatch(serviceWorker, /mustRevalidate|cache: "no-store"/);
+  assert.doesNotMatch(serviceWorker, /\.\/audio\/parker\//);
   assert.doesNotMatch(serviceWorker, /CLARINET_SAMPLES|PIANO_SAMPLES/);
   assert.match(
     app,

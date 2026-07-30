@@ -1,9 +1,8 @@
-const CACHE_NAME = "dictee-musicale-v39";
+const CACHE_NAME = "dictee-musicale-v40";
 const APP_SHELL = [
-  "./",
   "./index.html",
-  "./styles.css?v=39",
-  "./src/app.js?v=39",
+  "./styles.css?v=40",
+  "./src/app.js?v=40",
   "./src/i18n.js",
   "./src/audio.js",
   "./src/engine.js",
@@ -12,12 +11,6 @@ const APP_SHELL = [
   "./data/default-ratings.js",
   "./data/wjazzd-solos.js",
   "./data/wjazzd-chords.js",
-  "./audio/parker/billies-bounce.mp3",
-  "./audio/parker/donna-lee.mp3",
-  "./audio/parker/ornithology.mp3",
-  "./audio/parker/scrapple-from-the-apple.mp3",
-  "./audio/parker/thriving-on-a-riff.mp3",
-  "./audio/parker/yardbird-suite.mp3",
   "./audio/bass/28.mp3",
   "./audio/bass/29.mp3",
   "./audio/bass/30.mp3",
@@ -65,16 +58,32 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  const mustRevalidate = ["document", "script", "style"].includes(
-    event.request.destination,
-  );
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      caches
+        .match("./index.html")
+        .then((cachedShell) => cachedShell ?? fetch(event.request)),
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request, mustRevalidate ? { cache: "no-store" } : undefined)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((response) => response ?? caches.match("./"))),
+    caches.match(event.request).then(async (cachedResponse) => {
+      if (cachedResponse) return cachedResponse;
+
+      const networkResponse = await fetch(event.request);
+      if (networkResponse.ok && networkResponse.status === 200) {
+        const copy = networkResponse.clone();
+        event.waitUntil(
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, copy)),
+        );
+      }
+      return networkResponse;
+    }),
   );
 });
