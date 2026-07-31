@@ -15,7 +15,7 @@ import {
   YOUTUBE_SEARCH_RECORDINGS,
 } from "../data/youtube-search-recordings.js";
 
-test("les sources directes et résultats de recherche non validés restent invisibles", () => {
+test("les sources directes et décisions intégrées non validées restent invisibles", () => {
   assert.deepEqual(
     recordingsAtPhrase({
       soloId: "wjazzd-v2.1-10",
@@ -26,7 +26,26 @@ test("les sources directes et résultats de recherche non validés restent invis
     }),
     [],
   );
-  assert.deepEqual(RECORDING_VALIDATIONS, {});
+  const distribution = Object.values(RECORDING_VALIDATIONS).reduce(
+    (counts, { status }) => ({
+      ...counts,
+      [status]: (counts[status] ?? 0) + 1,
+    }),
+    {},
+  );
+  assert.deepEqual(distribution, {
+    "wrong-version": 20,
+    verified: 28,
+    unavailable: 2,
+  });
+  assert.deepEqual(
+    recordingsAtPhrase({
+      soloId: "wjazzd-v2.1-101",
+      onsetStart: 0,
+      onsetEnd: 1,
+    }),
+    [],
+  );
 });
 
 test("seule une validation explicite fournit le lecteur intégré borné", () => {

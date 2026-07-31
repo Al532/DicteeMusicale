@@ -7112,8 +7112,8 @@ export const DEFAULT_PHRASE_RATINGS = Object.freeze({
     "origin": "embedded"
   },
   "wjazzd-v2.1-76:3": {
-    "rating": 3,
-    "updatedAt": "2026-07-29T00:57:25.425Z",
+    "rating": 2,
+    "updatedAt": "2026-07-30T15:23:48.499Z",
     "soloId": "wjazzd-v2.1-76",
     "performer": "Chet Baker",
     "title": "Two's Blues",

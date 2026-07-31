@@ -26,8 +26,8 @@ test("le workflow expose le protocole complet sans données détaillées", () =>
   assert.equal(summary.structuralExcluded, 3_416);
   assert.deepEqual(summary.distribution, {
     1: 3_755,
-    2: 219,
-    3: 211,
+    2: 220,
+    3: 210,
   });
 });
 
