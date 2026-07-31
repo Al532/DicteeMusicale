@@ -245,6 +245,7 @@ export function createLickExplorer({
     index = nextIndex;
     transposition = 0;
     render();
+    void play();
     return true;
   }
 

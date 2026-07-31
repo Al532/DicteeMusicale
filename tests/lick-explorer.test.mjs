@@ -22,18 +22,16 @@ const html = await readFile(
 test("le corpus compact importe les 653 motifs DTL", () => {
   assert.equal(DTL_LICK_CORPUS.patternCount, 653);
   assert.equal(DTL_LICK_CORPUS.occurrenceCount, 11_630);
-  assert.equal(DTL_LICKS.length, 653);
-  assert.equal(DTL_LICKS[0].id, "dtl-ph-0001");
-  assert.equal(DTL_LICKS[0].occurrenceCount, 127);
+  assert.equal(DTL_LICK_CORPUS.licks.length, 653);
   assert.equal(
-    DTL_LICKS.reduce(
+    DTL_LICK_CORPUS.licks.reduce(
       (total, lick) => total + lick.occurrenceCount,
       0,
     ),
     11_630,
   );
 
-  for (const lick of DTL_LICKS) {
+  for (const lick of DTL_LICK_CORPUS.licks) {
     assert.equal(lick.notes.length, lick.intervals.length + 1);
     assert.equal(lick.timings.length, lick.notes.length);
     assert.equal(lick.timings[0][0], 0);
@@ -48,6 +46,36 @@ test("le corpus compact importe les 653 motifs DTL", () => {
       lick.intervals,
     );
   }
+});
+
+test("l'explorateur écarte les motifs sans saut supérieur à deux demi-tons", () => {
+  const excluded = DTL_LICK_CORPUS.licks.filter(
+    (lick) => !DTL_LICKS.includes(lick),
+  );
+
+  assert.equal(DTL_LICKS.length, 364);
+  assert.equal(excluded.length, 289);
+  assert.equal(DTL_LICKS[0].id, "dtl-ph-0003");
+  assert.equal(DTL_LICKS[0].occurrenceCount, 122);
+  assert.equal(
+    DTL_LICKS.reduce(
+      (total, lick) => total + lick.occurrenceCount,
+      0,
+    ),
+    4_333,
+  );
+  assert.equal(
+    DTL_LICKS.every((lick) =>
+      lick.intervals.some((interval) => Math.abs(interval) > 2),
+    ),
+    true,
+  );
+  assert.equal(
+    excluded.every((lick) =>
+      lick.intervals.every((interval) => Math.abs(interval) <= 2),
+    ),
+    true,
+  );
 });
 
 function createAudioHarness() {
@@ -92,7 +120,7 @@ test("le lecteur joue le premier lick avec ses timings WJD", async () => {
   try {
     explorer.open();
     assert.equal(explorer.snapshot().index, 0);
-    assert.equal(explorer.snapshot().id, "dtl-ph-0001");
+    assert.equal(explorer.snapshot().id, "dtl-ph-0003");
     assert.equal(
       dom.window.document
         .querySelector("#lick-explorer-panel")
@@ -118,6 +146,33 @@ test("le lecteur joue le premier lick avec ses timings WJD", async () => {
       duration: DTL_LICKS[0].timings[0][1],
     });
     assert.equal(sequence.meta.source.kind, "dtl-lick");
+  } finally {
+    explorer.destroy();
+    dom.window.close();
+  }
+});
+
+test("la navigation joue automatiquement le nouveau lick", async () => {
+  const dom = new JSDOM(html, { pretendToBeVisual: true });
+  const audio = createAudioHarness();
+  const explorer = createLickExplorer({
+    audioRuntime: audio.runtime,
+    documentObject: dom.window.document,
+    licks: DTL_LICKS.slice(0, 3),
+    windowObject: dom.window,
+  });
+
+  try {
+    explorer.open();
+    assert.equal(audio.calls.contexts, 0);
+    assert.equal(explorer.next(), true);
+    await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+
+    assert.equal(explorer.snapshot().id, DTL_LICKS[1].id);
+    assert.equal(explorer.snapshot().playing, true);
+    assert.equal(audio.calls.contexts, 1);
+    assert.deepEqual(audio.calls.preloads[0], DTL_LICKS[1].notes);
+    assert.equal(audio.calls.tones.length, DTL_LICKS[1].notes.length);
   } finally {
     explorer.destroy();
     dom.window.close();
@@ -150,8 +205,11 @@ test("la transposition aléatoire conserve le motif et change de ton", () => {
 });
 
 test("la navigation précédent/suivant reste bornée au corpus", () => {
-  assert.equal(moveLickIndex(0, -1, 653), 0);
-  assert.equal(moveLickIndex(0, 1, 653), 1);
-  assert.equal(moveLickIndex(1, -1, 653), 0);
-  assert.equal(moveLickIndex(652, 1, 653), 652);
+  assert.equal(moveLickIndex(0, -1, DTL_LICKS.length), 0);
+  assert.equal(moveLickIndex(0, 1, DTL_LICKS.length), 1);
+  assert.equal(moveLickIndex(1, -1, DTL_LICKS.length), 0);
+  assert.equal(
+    moveLickIndex(DTL_LICKS.length - 1, 1, DTL_LICKS.length),
+    DTL_LICKS.length - 1,
+  );
 });

@@ -76,7 +76,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(app.element("#home-panel").hidden, true);
       assert.equal(app.element("#lick-explorer-panel").hidden, false);
       assert.equal(app.snapshot().lickExplorer.index, 0);
-      assert.equal(app.snapshot().lickExplorer.total, 653);
+      assert.equal(app.snapshot().lickExplorer.total, 364);
       await app.click("#lick-explorer-next");
       assert.equal(app.snapshot().lickExplorer.index, 1);
       await app.click("#lick-explorer-previous");

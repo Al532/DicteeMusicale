@@ -663,4 +663,11 @@ export const DTL_LICK_CORPUS = Object.freeze({
   ]),
 });
 
-export const DTL_LICKS = DTL_LICK_CORPUS.licks;
+const MAX_STEP_INTERVAL = 2;
+export const DTL_LICKS = Object.freeze(
+  DTL_LICK_CORPUS.licks.filter((lick) =>
+    lick.intervals.some(
+      (interval) => Math.abs(interval) > MAX_STEP_INTERVAL,
+    ),
+  ),
+);

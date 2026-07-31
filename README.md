@@ -73,8 +73,9 @@ Le menu discret en bas de l’accueil permet d’activer les outils de maintenan
 - comparaison directe entre la phrase jouée par l’application et l’extrait
   YouTube ;
 - correction MIDI de la phrase sélectionnée directement depuis l’atelier ;
-- explorateur indépendant des 653 motifs du Pattern History Explorer de
-  Dig That Lick, avec lecture originale ou transposée ;
+- explorateur indépendant de 364 motifs mélodiquement distinctifs du Pattern
+  History Explorer de Dig That Lick, avec lecture automatique au défilement,
+  originale ou transposée ;
 - export du protocole.
 
 L’atelier mémorise les vidéos validées, les mauvaises versions et les solos
@@ -115,7 +116,10 @@ occurrences du
 Pour chaque motif, le corpus ne conserve qu’une occurrence WJD interne afin de
 restituer ses notes et son rythme réels. L’identité de cette occurrence n’est
 jamais affichée. Les identifiants `dtl-ph-NNNN` suivent l’ordre du catalogue
-DTL ; aucun clustering ni « lick moyen » n’est ajouté.
+DTL ; aucun clustering ni « lick moyen » n’est ajouté. L’explorateur écarte
+ensuite les 289 motifs uniquement composés de répétitions, demi-tons et tons :
+les 364 motifs parcourus contiennent donc tous au moins un saut supérieur à
+deux demi-tons.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :
