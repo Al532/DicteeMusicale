@@ -21,6 +21,19 @@ export function createAppRenderer({
     return `${noteName(pitchClass(midi))}${Math.floor(midi / 12) - 1}`;
   }
 
+  function phraseNumber(reference) {
+    const explicit = String(reference?.phrase ?? "").trim();
+    if (explicit) return explicit;
+    const phraseKey = String(reference?.phraseKey ?? "");
+    const separator = phraseKey.lastIndexOf(":");
+    return separator >= 0 ? phraseKey.slice(separator + 1).trim() : "";
+  }
+
+  function phraseReference(reference) {
+    const phrase = phraseNumber(reference);
+    return phrase ? translate("phrase.number", { phrase }) : "";
+  }
+
   function createPianoKey(midi, color, onInput) {
     const key = documentObject.createElement("button");
     key.type = "button";
@@ -196,7 +209,9 @@ export function createAppRenderer({
       const performer = documentObject.createElement("strong");
       performer.textContent = phrase.performer;
       const title = documentObject.createElement("span");
-      title.textContent = phrase.title;
+      title.textContent = [phrase.title, phraseReference(phrase)]
+        .filter(Boolean)
+        .join(" · ");
       open.append(performer, title);
       open.addEventListener("click", () => onOpen(phrase.phraseKey));
 
@@ -208,6 +223,7 @@ export function createAppRenderer({
         "aria-label",
         translate("favorites.removeSpecific", {
           performer: phrase.performer,
+          phrase: phraseNumber(phrase),
           title: phrase.title,
         }),
       );
@@ -222,6 +238,7 @@ export function createAppRenderer({
     elements.challengeProgress.hidden = false;
     elements.progressDots.hidden = false;
     elements.reviewNavigation.hidden = true;
+    elements.freeNavigation.hidden = true;
     documentObject.body.classList.toggle(
       "sudden-death-mode",
       session?.phase === "sudden-death",
@@ -253,6 +270,7 @@ export function createAppRenderer({
     elements.challengeProgress.hidden = false;
     elements.progressDots.hidden = true;
     elements.reviewNavigation.hidden = false;
+    elements.freeNavigation.hidden = true;
     elements.progressTitle.textContent = translate("mode.review");
     elements.progressDetail.textContent = total
       ? translate("review.progress", {
@@ -265,6 +283,21 @@ export function createAppRenderer({
       : "0/0";
     elements.reviewPrevious.disabled = index <= 0;
     elements.reviewNext.disabled = !total || index >= total - 1;
+  }
+
+  function renderFreeProgress({ index, total }) {
+    elements.challengeProgress.hidden = false;
+    elements.progressDots.hidden = true;
+    elements.reviewNavigation.hidden = true;
+    elements.freeNavigation.hidden = false;
+    elements.progressTitle.textContent = translate("mode.free");
+    elements.progressDetail.textContent = translate("free.progress", {
+      current: index + 1,
+      total,
+    });
+    elements.freeCounter.textContent = total ? `${index + 1}/${total}` : "0/0";
+    elements.freePrevious.disabled = index <= 0;
+    elements.freeNext.disabled = !total || index >= total - 1;
   }
 
   function renderRatingSession({
@@ -313,9 +346,12 @@ export function createAppRenderer({
     if (source.performer) {
       const performer = documentObject.createElement("strong");
       performer.textContent = source.performer;
+      const reference = phraseReference(source);
       elements.sourceSummary.append(
         performer,
-        documentObject.createTextNode(` — ${source.title}`),
+        documentObject.createTextNode(
+          ` — ${source.title}${reference ? ` · ${reference}` : ""}`,
+        ),
       );
     }
     elements.sourceLine.hidden =
@@ -376,13 +412,19 @@ export function createAppRenderer({
       const performer = documentObject.createElement("strong");
       performer.textContent = phrase.performer;
       const title = documentObject.createElement("span");
-      title.textContent = phrase.title;
+      title.textContent = [phrase.title, phraseReference(phrase)]
+        .filter(Boolean)
+        .join(" · ");
       copy.append(performer, title);
 
       const favorite = documentObject.createElement("button");
       favorite.type = "button";
       favorite.className = "completed-phrase-favorite";
-      const subject = `${phrase.performer}, ${phrase.title}`;
+      const subject = [
+        phrase.performer,
+        phrase.title,
+        phraseReference(phrase),
+      ].filter(Boolean).join(", ");
       const updateFavorite = () =>
         renderFavoriteControl(favorite, {
           favorite: isFavorite(phrase.phraseKey),
@@ -408,6 +450,7 @@ export function createAppRenderer({
     renderCompletedChallenge,
     renderFavoriteControl,
     renderFavorites,
+    renderFreeProgress,
     renderHomeState,
     renderPhraseControls,
     renderProgressDots,

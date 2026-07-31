@@ -117,8 +117,11 @@ const messages = {
     "game.playbackSpeed": "Playback speed",
     "game.replay": "Replay",
     "free.otherKey": "Another key",
+    "free.previous": "Previous phrase",
+    "free.next": "Next phrase",
     "common.next": "Next",
     "common.skip": "Skip",
+    "phrase.number": ({ phrase }) => `phrase ${phrase}`,
     "phrase.length": "Length",
     "phrase.lengthDecrease": "Reduce phrase length",
     "phrase.lengthIncrease": "Increase phrase length",
@@ -127,6 +130,7 @@ const messages = {
     "phraseEditor.close": "Close editor",
     "phraseEditor.phrase": ({ phrase }) => `phrase ${phrase}`,
     "phraseEditor.play": "Play phrase",
+    "phraseEditor.playSelected": "Play from selected note",
     "phraseEditor.undo": "Undo",
     "phraseEditor.redo": "Redo",
     "phraseEditor.restore": "Restore original",
@@ -220,14 +224,16 @@ const messages = {
       "All nine rounds complete · sudden death ready to start.",
     "session.sudden": ({ count }) =>
       `Sudden death in progress · ${count} ${plural(count, "phrase", "phrases")} remaining.`,
-    "favorites.removeSpecific": ({ performer, title }) =>
-      `Remove ${performer}, ${title} from favorites`,
+    "favorites.removeSpecific": ({ performer, phrase = "", title }) =>
+      `Remove ${performer}, ${title}${phrase ? `, phrase ${phrase}` : ""} from favorites`,
     "favorites.remove": ({ subject = "" }) =>
       `Remove${subject ? ` ${subject}` : ""} from favorites`,
     "favorites.addSubject": ({ subject = "" }) =>
       `Add${subject ? ` ${subject}` : ""} to favorites`,
     "challenge.progressPhrase": ({ current }) => `Phrase ${current} of 3`,
     "challenge.progressTone": ({ current }) => `Key ${current} of 3`,
+    "free.progress": ({ current, total }) =>
+      `Phrase ${current} of ${total}`,
     "challenge.remaining": ({ count }) =>
       `${count} ${plural(count, "phrase", "phrases")} to complete`,
     "piano.range": ({ chunks, start, end }) =>
@@ -423,8 +429,11 @@ const messages = {
     "game.playbackSpeed": "Vitesse de lecture",
     "game.replay": "Réécouter",
     "free.otherKey": "Autre ton",
+    "free.previous": "Phrase précédente",
+    "free.next": "Phrase suivante",
     "common.next": "Suivant",
     "common.skip": "Passer",
+    "phrase.number": ({ phrase }) => `phrase ${phrase}`,
     "phrase.length": "Longueur",
     "phrase.lengthDecrease": "Réduire la longueur de la phrase",
     "phrase.lengthIncrease": "Augmenter la longueur de la phrase",
@@ -433,6 +442,7 @@ const messages = {
     "phraseEditor.close": "Fermer l’éditeur",
     "phraseEditor.phrase": ({ phrase }) => `phrase ${phrase}`,
     "phraseEditor.play": "Écouter la phrase",
+    "phraseEditor.playSelected": "Écouter depuis la note sélectionnée",
     "phraseEditor.undo": "Annuler",
     "phraseEditor.redo": "Rétablir",
     "phraseEditor.restore": "Restaurer l’original",
@@ -527,14 +537,16 @@ const messages = {
       "Les neuf manches sont terminées · mort subite à lancer.",
     "session.sudden": ({ count }) =>
       `Mort subite en cours · ${count} phrase${count > 1 ? "s" : ""} restante${count > 1 ? "s" : ""}.`,
-    "favorites.removeSpecific": ({ performer, title }) =>
-      `Retirer ${performer}, ${title} des favoris`,
+    "favorites.removeSpecific": ({ performer, phrase = "", title }) =>
+      `Retirer ${performer}, ${title}${phrase ? `, phrase ${phrase}` : ""} des favoris`,
     "favorites.remove": ({ subject = "" }) =>
       `Retirer${subject ? ` ${subject}` : ""} des favoris`,
     "favorites.addSubject": ({ subject = "" }) =>
       `Ajouter${subject ? ` ${subject}` : ""} aux favoris`,
     "challenge.progressPhrase": ({ current }) => `Phrase ${current} sur 3`,
     "challenge.progressTone": ({ current }) => `Ton ${current} sur 3`,
+    "free.progress": ({ current, total }) =>
+      `Phrase ${current} sur ${total}`,
     "challenge.remaining": ({ count }) =>
       `${count} phrase${count > 1 ? "s" : ""} à valider`,
     "piano.range": ({ chunks, start, end }) =>

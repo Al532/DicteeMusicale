@@ -18,6 +18,10 @@ export function queryAppElements(documentObject) {
     favoritesEmpty: documentObject.querySelector("#favorites-empty"),
     favoriteToggle: documentObject.querySelector("#favorite-toggle"),
     freeTranspose: documentObject.querySelector("#free-transpose"),
+    freeNavigation: documentObject.querySelector("#free-navigation"),
+    freePrevious: documentObject.querySelector("#free-previous"),
+    freeNext: documentObject.querySelector("#free-next"),
+    freeCounter: documentObject.querySelector("#free-counter"),
     challengeProgress: documentObject.querySelector("#challenge-progress"),
     progressTitle: documentObject.querySelector("#progress-title"),
     progressDetail: documentObject.querySelector("#progress-detail"),
@@ -235,6 +239,8 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.freeTranspose, "click", () =>
     actions.transposeFreePhrase(),
   );
+  listen(elements.freePrevious, "click", () => actions.moveFreePhrase(-1));
+  listen(elements.freeNext, "click", () => actions.moveFreePhrase(1));
   listen(elements.startSuddenDeath, "click", () =>
     actions.launchSuddenDeath(),
   );

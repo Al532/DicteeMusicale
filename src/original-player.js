@@ -201,8 +201,13 @@ export function createOriginalPlayer({
     onDisableInput();
     setPlaying(true);
     returnFocus = documentObject.activeElement;
+    const phraseReference = currentSource.phrase
+      ? ` · ${translate("phrase.number", {
+          phrase: currentSource.phrase,
+        })}`
+      : "";
     elements.recordingTitle.textContent =
-      `${currentSource.performer} — ${currentSource.title}`;
+      `${currentSource.performer} — ${currentSource.title}${phraseReference}`;
     elements.recordingModal.hidden = false;
     elements.recordingPlayer.src = choice.embedUrl;
     seekToExactStart(choice);

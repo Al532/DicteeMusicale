@@ -1153,21 +1153,24 @@ body.game-mode {
   gap: 20px;
 }
 
-.review-navigation {
+.review-navigation,
+.free-navigation {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
 }
 
-.review-navigation .icon-button {
+.review-navigation .icon-button,
+.free-navigation .icon-button {
   width: 34px;
   min-width: 34px;
   height: 34px;
   min-height: 34px;
 }
 
-.review-navigation strong {
+.review-navigation strong,
+.free-navigation strong {
   min-width: 70px;
   color: var(--muted);
   font-size: 0.74rem;

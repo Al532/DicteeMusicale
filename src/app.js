@@ -174,6 +174,7 @@ let challengeSession = readJson(CHALLENGE_SESSION_KEY, null);
 let completedPhraseKeys = loadStoredArray(COMPLETED_PHRASES_KEY);
 let favoritePhraseKeys = loadStoredArray(FAVORITES_KEY);
 let freePhraseKey = null;
+let freeBrowsePhraseKeys = [];
 let freeToneState = null;
 let lastCompletedChallengePhrases = [];
 let playbackTimer = null;
@@ -430,6 +431,22 @@ function catalogMap(catalog = allPhraseCatalog()) {
   return new Map(catalog.map((phrase) => [phrase.phraseKey, phrase]));
 }
 
+function comparePhraseReferences(left, right) {
+  return (
+    left.performer.localeCompare(right.performer, locale) ||
+    left.title.localeCompare(right.title, locale) ||
+    Number(left.phrase) - Number(right.phrase)
+  );
+}
+
+function favoritePhraseCatalog() {
+  const phrasesByKey = catalogMap();
+  return [...new Set(favoritePhraseKeys)]
+    .map((phraseKey) => phrasesByKey.get(phraseKey))
+    .filter(Boolean)
+    .sort(comparePhraseReferences);
+}
+
 async function hydrateCatalogPhrase(phrase) {
   const detailed = await loadPhraseCatalogEntry(phrase.phraseKey, {
     phraseSettings,
@@ -479,15 +496,7 @@ function showHome() {
 }
 
 function renderFavorites() {
-  const phrasesByKey = catalogMap();
-  const favorites = [...new Set(favoritePhraseKeys)]
-    .map((phraseKey) => phrasesByKey.get(phraseKey))
-    .filter(Boolean)
-    .sort(
-      (left, right) =>
-        left.performer.localeCompare(right.performer, locale) ||
-        left.title.localeCompare(right.title, locale),
-    );
+  const favorites = favoritePhraseCatalog();
 
   appRenderer.renderFavorites(favorites, {
     onOpen: startFreePhrase,
@@ -559,6 +568,18 @@ function renderChallengeProgress() {
 
 function renderReviewProgress() {
   appRenderer.renderReviewProgress(ratingWorkflow.reviewState());
+}
+
+function freeProgressState() {
+  const index = freeBrowsePhraseKeys.indexOf(freePhraseKey);
+  return {
+    index: Math.max(0, index),
+    total: freeBrowsePhraseKeys.length,
+  };
+}
+
+function renderFreeProgress() {
+  appRenderer.renderFreeProgress(freeProgressState());
 }
 
 async function moveReviewPhrase(offset) {
@@ -651,8 +672,20 @@ async function resumeChallenge() {
   await loadChallengeRound();
 }
 
-async function startFreePhrase(phraseKey) {
+async function startFreePhrase(
+  phraseKey,
+  { preserveBrowseList = false } = {},
+) {
+  if (!preserveBrowseList) {
+    freeBrowsePhraseKeys = favoritePhraseCatalog().map(
+      (phrase) => phrase.phraseKey,
+    );
+  }
+  if (!freeBrowsePhraseKeys.includes(phraseKey)) {
+    freeBrowsePhraseKeys = [...freeBrowsePhraseKeys, phraseKey];
+  }
   freePhraseKey = phraseKey;
+  freeToneState = null;
   currentMode = "free";
   const catalogPhrase = catalogMap().get(phraseKey);
   if (!catalogPhrase) return;
@@ -674,6 +707,22 @@ async function startFreePhrase(phraseKey) {
   );
   const transposition = drawNextTransposition(freeToneState);
   await loadPublicPhrase({ phraseKey, transposition });
+}
+
+async function moveFreePhrase(offset) {
+  if (currentMode !== "free" || !freePhraseKey) return;
+  const index = freeBrowsePhraseKeys.indexOf(freePhraseKey);
+  const nextIndex = index + Number(offset);
+  if (
+    index < 0 ||
+    nextIndex < 0 ||
+    nextIndex >= freeBrowsePhraseKeys.length
+  ) {
+    return;
+  }
+  await startFreePhrase(freeBrowsePhraseKeys[nextIndex], {
+    preserveBrowseList: true,
+  });
 }
 
 async function transposeFreePhrase() {
@@ -1464,8 +1513,8 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
       elements.nextExercise.disabled = true;
       elements.ratingWorkspace.hidden = true;
       elements.freeTranspose.hidden = !isFree;
-      elements.challengeProgress.hidden = isFree;
-      if (isChallenge) renderChallengeProgress();
+      if (isFree) renderFreeProgress();
+      else renderChallengeProgress();
       renderFavoriteButton();
       renderRatingControls();
       renderPhraseControls();
@@ -2017,6 +2066,7 @@ bindAppEvents(
     launchSuddenDeath,
     leaveGameMode,
     markRecordingUnavailable,
+    moveFreePhrase,
     moveReviewPhrase,
     openCurrentPhraseEditor,
     openRecordingWorkshop,
@@ -2076,6 +2126,7 @@ if (
         }
       : null,
     freePhraseKey,
+    freeBrowsePhraseKeys: [...freeBrowsePhraseKeys],
     freeToneState: freeToneState
       ? structuredClone(freeToneState)
       : null,

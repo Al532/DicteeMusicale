@@ -250,6 +250,9 @@ export function createPhraseEditor({
     "#phrase-editor-duration",
   );
   const play = documentObject.querySelector("#phrase-editor-play");
+  const playSelected = documentObject.querySelector(
+    "#phrase-editor-play-selected",
+  );
   const undo = documentObject.querySelector("#phrase-editor-undo");
   const redo = documentObject.querySelector("#phrase-editor-redo");
   const restore = documentObject.querySelector("#phrase-editor-restore");
@@ -264,16 +267,27 @@ export function createPhraseEditor({
   let originalOnset = 0;
   let opener = null;
   let previewTimer = null;
-  let previewing = false;
+  let previewMode = null;
   let drag = null;
   let layout = null;
 
-  function setPreviewing(value) {
-    previewing = Boolean(value);
+  function setPreviewing(mode = null) {
+    previewMode = mode;
     play.textContent = translate(
-      previewing ? "audio.stop" : "phraseEditor.play",
+      mode === "phrase" ? "audio.stop" : "phraseEditor.play",
     );
-    play.setAttribute("aria-pressed", String(previewing));
+    playSelected.textContent = translate(
+      mode === "selected"
+        ? "audio.stop"
+        : "phraseEditor.playSelected",
+    );
+    play.setAttribute("aria-pressed", String(mode === "phrase"));
+    playSelected.setAttribute(
+      "aria-pressed",
+      String(mode === "selected"),
+    );
+    play.disabled = Boolean(mode && mode !== "phrase");
+    playSelected.disabled = Boolean(mode && mode !== "selected");
   }
 
   function stopPreview() {
@@ -281,8 +295,8 @@ export function createPhraseEditor({
       windowObject.clearTimeout(previewTimer);
       previewTimer = null;
     }
-    if (previewing) onStopPreview();
-    setPreviewing(false);
+    if (previewMode) onStopPreview();
+    setPreviewing();
   }
 
   function renderInspector(event = model?.selectedEvent) {
@@ -421,17 +435,21 @@ export function createPhraseEditor({
     onClose();
   }
 
-  function togglePreview() {
+  function togglePreview(mode) {
     if (!model) return;
-    if (previewing) {
+    if (previewMode) {
       stopPreview();
       return;
     }
-    const duration = Math.max(0, Number(onPreview(model.events)) || 0);
-    setPreviewing(true);
+    const startIndex = mode === "selected" ? model.selectedIndex : 0;
+    const duration = Math.max(
+      0,
+      Number(onPreview(model.events.slice(startIndex))) || 0,
+    );
+    setPreviewing(mode);
     previewTimer = windowObject.setTimeout(() => {
       previewTimer = null;
-      setPreviewing(false);
+      setPreviewing();
     }, duration);
   }
 
@@ -457,7 +475,10 @@ export function createPhraseEditor({
       if (action) commit(action);
     });
   }
-  play.addEventListener("click", togglePreview);
+  play.addEventListener("click", () => togglePreview("phrase"));
+  playSelected.addEventListener("click", () =>
+    togglePreview("selected")
+  );
   for (const button of closeButtons) {
     button.addEventListener("click", () => close());
   }
@@ -531,7 +552,7 @@ export function createPhraseEditor({
       originalOnset = normalizedOriginal[0][1];
       opener = documentObject.activeElement;
       title.textContent = `${performer} — ${tuneTitle} · ${translate(
-        "phraseEditor.phrase",
+        "phrase.number",
         { phrase },
       )}`;
       modal.hidden = false;

@@ -142,6 +142,10 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
     "phraseEditor.open",
   );
   assert.equal(document.querySelector("#phrase-editor-play").textContent.trim(), "Play phrase");
+  assert.equal(
+    document.querySelector("#phrase-editor-play-selected").dataset.i18n,
+    "phraseEditor.playSelected",
+  );
   assert.equal(document.querySelector("#phrase-editor-save").dataset.i18n, "phraseEditor.save");
   assert.equal(elements.exerciseRating.id, "exercise-rating");
   assert.equal(document.querySelector("#completion-rating"), null);
@@ -157,6 +161,14 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
       elements.reviewNext,
     ].map(({ id }) => id),
     ["review-previous", "review-counter", "review-next"],
+  );
+  assert.deepEqual(
+    [
+      elements.freePrevious,
+      elements.freeCounter,
+      elements.freeNext,
+    ].map(({ id }) => id),
+    ["free-previous", "free-counter", "free-next"],
   );
   assert.equal(elements.exportData.dataset.i18n, undefined);
   assert.equal(

@@ -30,6 +30,11 @@ function createFixture() {
       <span id="review-counter"></span>
       <button id="review-next"></button>
     </div>
+    <div id="free-navigation">
+      <button id="free-previous"></button>
+      <span id="free-counter"></span>
+      <button id="free-next"></button>
+    </div>
     <p id="rating-session-summary"></p>
     <p id="rating-coverage-summary"></p>
     <button id="undo-rating"></button>
@@ -64,6 +69,10 @@ function createFixture() {
     favoritesEmpty: document.querySelector("#favorites-empty"),
     favoritesList: document.querySelector("#favorites-list"),
     favoritesPanel: document.querySelector("#favorites-panel"),
+    freeCounter: document.querySelector("#free-counter"),
+    freeNavigation: document.querySelector("#free-navigation"),
+    freeNext: document.querySelector("#free-next"),
+    freePrevious: document.querySelector("#free-previous"),
     homePanel: document.querySelector("#home-panel"),
     newChallenge: document.querySelector("#new-challenge"),
     piano: document.querySelector("#piano"),
@@ -352,6 +361,16 @@ test("l’accueil et les favoris délèguent leurs actions sans état caché", (
     elements.favoritesList.querySelector("strong").textContent,
     "Charlie Parker",
   );
+  assert.equal(
+    elements.favoritesList.querySelector("span").textContent,
+    "Donna Lee · phrase 3",
+  );
+  assert.equal(
+    elements.favoritesList
+      .querySelector(".favorite-row-remove")
+      .getAttribute("aria-label"),
+    "Remove Charlie Parker, Donna Lee, phrase 3 from favorites",
+  );
   elements.favoritesList.querySelector(".favorite-row-main").click();
   elements.favoritesList.querySelector(".favorite-row-remove").click();
   assert.deepEqual(actions, [
@@ -375,6 +394,7 @@ test("les vues défi, review et session de notation restent stateless", () => {
   assert.equal(elements.challengeProgress.hidden, false);
   assert.equal(elements.progressDots.hidden, false);
   assert.equal(elements.reviewNavigation.hidden, true);
+  assert.equal(elements.freeNavigation.hidden, true);
   assert.equal(elements.progressTitle.textContent, "Phrase 2 of 3");
   assert.equal(elements.progressDetail.textContent, "Key 1 of 3");
   assert.equal(
@@ -403,6 +423,16 @@ test("les vues défi, review et session de notation restent stateless", () => {
   assert.equal(elements.reviewCounter.textContent, "2/3");
   assert.equal(elements.reviewPrevious.disabled, false);
   assert.equal(elements.reviewNext.disabled, false);
+  assert.equal(elements.freeNavigation.hidden, true);
+
+  renderer.renderFreeProgress({ index: 0, total: 2 });
+  assert.equal(elements.reviewNavigation.hidden, true);
+  assert.equal(elements.freeNavigation.hidden, false);
+  assert.equal(elements.progressTitle.textContent, "Free mode");
+  assert.equal(elements.progressDetail.textContent, "Phrase 1 of 2");
+  assert.equal(elements.freeCounter.textContent, "1/2");
+  assert.equal(elements.freePrevious.disabled, true);
+  assert.equal(elements.freeNext.disabled, false);
 
   renderer.renderRatingSession({
     count: 2,
@@ -429,6 +459,7 @@ test("la source et la fin de défi conservent contenu et favoris", () => {
     {
       performer: "Charlie Parker",
       title: "Donna Lee",
+      phrase: "3",
       phraseKey: "wjazzd-v2.1-55:3",
       transposition: 2,
       originalTempo: 188,
@@ -443,7 +474,7 @@ test("la source et la fin de défi conservent contenu et favoris", () => {
   );
   assert.equal(
     elements.sourceSummary.textContent,
-    "Charlie Parker — Donna Lee",
+    "Charlie Parker — Donna Lee · phrase 3",
   );
   assert.equal(elements.sourceLine.hidden, false);
   assert.equal(
@@ -472,6 +503,10 @@ test("la source et la fin de défi conservent contenu et favoris", () => {
     },
   );
   const favorite = document.querySelector(".completed-phrase-favorite");
+  assert.equal(
+    document.querySelector(".completed-phrase span").textContent,
+    "Donna Lee · phrase 3",
+  );
   assert.equal(favorite.textContent, "♡");
   favorite.click();
   assert.equal(favorite.textContent, "♥");

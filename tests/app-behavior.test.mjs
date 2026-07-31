@@ -131,6 +131,59 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
+  await t.test("le mode libre parcourt les favoris dans leur ordre affiché", async () => {
+    const app = await bootApp({
+      favorites: ["wjazzd-v2.1-1:1", "wjazzd-v2.1-456:1"],
+    });
+    try {
+      await app.click("#open-favorites");
+      const favoriteReferences = [
+        ...app.document.querySelectorAll(".favorite-row-main span"),
+      ].map(({ textContent }) => textContent);
+      assert.equal(favoriteReferences.length, 2);
+      assert.equal(
+        favoriteReferences.every((reference) => /phrase \d+/.test(reference)),
+        true,
+      );
+
+      await app.click(".favorite-row-main");
+      await app.waitFor(
+        () => app.snapshot().exercise,
+        "première phrase libre",
+      );
+      const first = app.snapshot();
+      assert.equal(first.freeBrowsePhraseKeys.length, 2);
+      assert.equal(app.element("#free-counter").textContent, "1/2");
+      assert.equal(app.element("#free-previous").disabled, true);
+      assert.equal(app.element("#free-next").disabled, false);
+      assert.match(
+        app.element("#source-summary").textContent,
+        new RegExp(`phrase ${first.exercise.source.phrase}`),
+      );
+
+      await app.click("#free-next");
+      await app.waitFor(
+        () =>
+          app.snapshot().exercise?.source?.phraseKey !==
+          first.exercise.source.phraseKey,
+        "phrase libre suivante",
+      );
+      assert.equal(app.element("#free-counter").textContent, "2/2");
+      assert.equal(app.element("#free-next").disabled, true);
+
+      await app.click("#free-previous");
+      await app.waitFor(
+        () =>
+          app.snapshot().exercise?.source?.phraseKey ===
+          first.exercise.source.phraseKey,
+        "retour à la phrase libre précédente",
+      );
+      assert.equal(app.element("#free-counter").textContent, "1/2");
+    } finally {
+      app.close();
+    }
+  });
+
   await t.test("mode libre, transposition et réglage de longueur", async () => {
     const phraseKey = "wjazzd-v2.1-55:3";
     let persistedPhraseSettings;
@@ -275,6 +328,36 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       const originalFirstMidi = Number(
         app.element('.phrase-editor-note[data-index="0"]').dataset.midi,
       );
+      const selectedIndex = Math.min(2, originalCount - 1);
+      await app.click(
+        `.phrase-editor-note[data-index="${selectedIndex}"]`,
+      );
+      assert.equal(
+        app.element("#phrase-editor-counter").value,
+        `${selectedIndex + 1}/${originalCount}`,
+      );
+      const oscillatorCount = app.audio.sources.filter(
+        ({ kind }) => kind === "oscillator",
+      ).length;
+      await app.click("#phrase-editor-play-selected");
+      const previewOscillators = app.audio.sources
+        .filter(({ kind }) => kind === "oscillator")
+        .slice(oscillatorCount);
+      assert.equal(
+        previewOscillators.length,
+        (originalCount - selectedIndex) * 2,
+      );
+      assert.equal(
+        app.element("#phrase-editor-play-selected").getAttribute(
+          "aria-pressed",
+        ),
+        "true",
+      );
+      assert.equal(app.element("#phrase-editor-play").disabled, true);
+      await app.click("#phrase-editor-play-selected");
+      assert.equal(app.element("#phrase-editor-play").disabled, false);
+
+      await app.click('.phrase-editor-note[data-index="0"]');
       await app.click('[data-phrase-editor-action="pitch-increase"]');
       await app.click('[data-phrase-editor-action="add-after"]');
       assert.equal(
@@ -778,6 +861,10 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(youtube.element("#play-original").hidden, false);
       await youtube.click("#play-original");
       assert.equal(youtube.element("#recording-modal").hidden, false);
+      assert.match(
+        youtube.element("#recording-title").textContent,
+        new RegExp(`phrase ${validatedSource.phrase}`),
+      );
 
       const embed = new URL(youtube.element("#recording-player").src);
       const expectedStart = Math.floor(
