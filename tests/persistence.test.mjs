@@ -7,6 +7,7 @@ import {
   DEFAULT_MELODY_SOUND,
   FAVORITES_KEY,
   PHRASE_SETTINGS_KEY,
+  RECORDING_VALIDATIONS_KEY,
   RATINGS_KEY,
   RATING_SCOPES_KEY,
   SETTINGS_KEY,
@@ -46,6 +47,7 @@ test("les clés de stockage conservent leurs identifiants historiques", () => {
     ratings: RATINGS_KEY,
     ratingScopes: RATING_SCOPES_KEY,
     phraseSettings: PHRASE_SETTINGS_KEY,
+    recordingValidations: RECORDING_VALIDATIONS_KEY,
     challengeSession: CHALLENGE_SESSION_KEY,
     completedPhrases: COMPLETED_PHRASES_KEY,
     favorites: FAVORITES_KEY,
@@ -59,6 +61,10 @@ test("les clés de stockage conservent leurs identifiants historiques", () => {
   assert.equal(
     PHRASE_SETTINGS_KEY,
     "dictee-musicale.phrase-settings.v1",
+  );
+  assert.equal(
+    RECORDING_VALIDATIONS_KEY,
+    "dictee-musicale.recording-validations.v1",
   );
   assert.equal(
     CHALLENGE_SESSION_KEY,

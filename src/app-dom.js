@@ -38,6 +38,63 @@ export function queryAppElements(documentObject) {
     gameSpeedSetting: documentObject.querySelector("#game-speed-setting"),
     startRating: documentObject.querySelector("#start-rating"),
     startReview: documentObject.querySelector("#start-review"),
+    openRecordingWorkshop: documentObject.querySelector(
+      "#open-recording-workshop",
+    ),
+    recordingWorkshopPanel: documentObject.querySelector(
+      "#recording-workshop-panel",
+    ),
+    closeRecordingWorkshop: documentObject.querySelector(
+      "#close-recording-workshop",
+    ),
+    recordingWorkshopProgress: documentObject.querySelector(
+      "#recording-workshop-progress",
+    ),
+    recordingWorkshopSolo: documentObject.querySelector(
+      "#recording-workshop-solo",
+    ),
+    recordingWorkshopStatus: documentObject.querySelector(
+      "#recording-workshop-status",
+    ),
+    recordingWorkshopCandidate: documentObject.querySelector(
+      "#recording-workshop-candidate",
+    ),
+    recordingWorkshopYoutube: documentObject.querySelector(
+      "#recording-workshop-youtube",
+    ),
+    recordingWorkshopOffset: documentObject.querySelector(
+      "#recording-workshop-offset",
+    ),
+    recordingOffsetButtons: documentObject.querySelectorAll(
+      "[data-recording-offset]",
+    ),
+    recordingWorkshopPhrase: documentObject.querySelector(
+      "#recording-workshop-phrase",
+    ),
+    previewRecordingWorkshop: documentObject.querySelector(
+      "#preview-recording-workshop",
+    ),
+    recordingWorkshopPreview: documentObject.querySelector(
+      "#recording-workshop-preview",
+    ),
+    recordingWorkshopPlayer: documentObject.querySelector(
+      "#recording-workshop-player",
+    ),
+    recordingWorkshopMessage: documentObject.querySelector(
+      "#recording-workshop-message",
+    ),
+    verifyRecordingWorkshop: documentObject.querySelector(
+      "#verify-recording-workshop",
+    ),
+    rejectRecordingWorkshop: documentObject.querySelector(
+      "#reject-recording-workshop",
+    ),
+    unavailableRecordingWorkshop: documentObject.querySelector(
+      "#unavailable-recording-workshop",
+    ),
+    exportRecordingValidations: documentObject.querySelector(
+      "#export-recording-validations",
+    ),
     developerMode: documentObject.querySelector("#developer-mode"),
     developerOnly: documentObject.querySelectorAll("[data-developer-only]"),
     ratingWorkspace: documentObject.querySelector("#rating-workspace"),
@@ -70,7 +127,6 @@ export function queryAppElements(documentObject) {
     phraseId: documentObject.querySelector("#phrase-id"),
     copyPhraseId: documentObject.querySelector("#copy-phrase-id"),
     sourceLink: documentObject.querySelector("#source-link"),
-    audioSourceLink: documentObject.querySelector("#audio-source-link"),
     originalControls: documentObject.querySelector("#original-controls"),
     playOriginal: documentObject.querySelector("#play-original"),
     transposeOriginalControl: documentObject.querySelector(
@@ -81,13 +137,6 @@ export function queryAppElements(documentObject) {
     recordingTitle: documentObject.querySelector("#recording-title"),
     recordingPlayer: documentObject.querySelector("#recording-player"),
     closeRecording: documentObject.querySelector("#close-recording"),
-    recordingVersionControl: documentObject.querySelector(
-      "#recording-version-control",
-    ),
-    recordingVersion: documentObject.querySelector("#recording-version"),
-    recordingExternalLink: documentObject.querySelector(
-      "#recording-external-link",
-    ),
     exerciseRating: documentObject.querySelector("#exercise-rating"),
     phraseAdjustments: documentObject.querySelector("#phrase-adjustments"),
     phraseLengthDecrease: documentObject.querySelector(
@@ -136,6 +185,44 @@ export function bindAppEvents(elements, actions, documentObject) {
   );
   listen(elements.startRating, "click", () => actions.startMode("rating"));
   listen(elements.startReview, "click", () => actions.startMode("review"));
+  listen(elements.openRecordingWorkshop, "click", () =>
+    actions.openRecordingWorkshop(),
+  );
+  listen(elements.closeRecordingWorkshop, "click", () =>
+    actions.closeRecordingWorkshop(),
+  );
+  listen(elements.recordingWorkshopSolo, "change", () =>
+    actions.selectRecordingWorkshopSolo(),
+  );
+  listen(elements.recordingWorkshopCandidate, "change", () =>
+    actions.selectRecordingWorkshopCandidate(),
+  );
+  listen(elements.recordingWorkshopYoutube, "input", () =>
+    actions.useManualRecordingCandidate(),
+  );
+  listen(elements.recordingWorkshopOffset, "change", () =>
+    actions.useManualRecordingCandidate(),
+  );
+  for (const button of elements.recordingOffsetButtons) {
+    listen(button, "click", () =>
+      actions.adjustRecordingOffset(Number(button.dataset.recordingOffset)),
+    );
+  }
+  listen(elements.previewRecordingWorkshop, "click", () =>
+    actions.previewRecordingWorkshop(),
+  );
+  listen(elements.verifyRecordingWorkshop, "click", () =>
+    actions.verifyRecordingWorkshop(),
+  );
+  listen(elements.rejectRecordingWorkshop, "click", () =>
+    actions.rejectRecordingWorkshop(),
+  );
+  listen(elements.unavailableRecordingWorkshop, "click", () =>
+    actions.markRecordingUnavailable(),
+  );
+  listen(elements.exportRecordingValidations, "click", () =>
+    actions.exportRecordingValidations(),
+  );
   listen(elements.startChallenge, "click", () => actions.startNewChallenge());
   listen(elements.resumeChallenge, "click", () => actions.resumeChallenge());
   listen(elements.newChallenge, "click", () => actions.startNewChallenge());
@@ -181,9 +268,6 @@ export function bindAppEvents(elements, actions, documentObject) {
   );
   listen(elements.closeRecording, "click", () =>
     actions.closeRecordingPlayer(),
-  );
-  listen(elements.recordingVersion, "change", () =>
-    actions.showRecordingChoice(Number(elements.recordingVersion.value)),
   );
   listen(elements.recordingModal, "click", (event) => {
     if (event.target === elements.recordingModal) {

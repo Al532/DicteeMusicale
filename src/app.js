@@ -12,6 +12,7 @@ import {
   keyboardMidiNotes,
 } from "./audio-runtime.js";
 import { createOriginalPlayer } from "./original-player.js";
+import { mergeRecordingValidations } from "./recording.js";
 import {
   advanceTraining,
   beginSuddenDeath,
@@ -59,6 +60,7 @@ import {
   COMPLETED_PHRASES_KEY,
   FAVORITES_KEY,
   PHRASE_SETTINGS_KEY,
+  RECORDING_VALIDATIONS_KEY,
   RATINGS_KEY,
   RATING_SCOPES_KEY,
   loadAndMigrateGlobalSettings,
@@ -74,6 +76,7 @@ import {
   DEFAULT_RATING_SCOPES,
 } from "../data/default-ratings.js";
 import { DEFAULT_PHRASE_SETTINGS } from "../data/default-phrase-settings.js";
+import { RECORDING_VALIDATIONS } from "../data/recording-validations.js";
 
 applyDocumentTranslations();
 activateEmbeddedBrowserGuard({
@@ -102,6 +105,14 @@ const audioRuntime = createAudioRuntime({
   baseUrl: document.baseURI,
   translate: t,
 });
+let localRecordingValidations = loadStoredObject(
+  RECORDING_VALIDATIONS_KEY,
+);
+let recordingValidations = mergeRecordingValidations(
+  RECORDING_VALIDATIONS,
+  localRecordingValidations,
+);
+let recordingWorkshop = null;
 const {
   getAudioContext,
   playBass,
@@ -115,6 +126,7 @@ const originalPlayer = createOriginalPlayer({
   baseUrl: document.baseURI,
   documentObject: document,
   elements,
+  getRecordingValidations: () => recordingValidations,
   onBeforePlay: () => stopAllTones(),
   onDisableInput: () => {
     acceptingInput = false;
@@ -214,6 +226,90 @@ function renderDeveloperMode() {
   elements.developerMode.checked = developerMode;
   renderRatingControls();
   renderPhraseControls();
+}
+
+async function ensureRecordingWorkshop() {
+  if (recordingWorkshop) return recordingWorkshop;
+  const { createRecordingWorkshop } = await import(
+    "./recording-workshop.js"
+  );
+  recordingWorkshop = createRecordingWorkshop({
+    documentObject: document,
+    elements,
+    fetchImpl: (...args) => globalThis.fetch(...args),
+    getReviewPhraseKeys: () =>
+      threeStarReviewCatalog().map(({ phraseKey }) => phraseKey),
+    initialLocalValidations: localRecordingValidations,
+    onChange(nextLocalValidations) {
+      localRecordingValidations = nextLocalValidations;
+      writeJson(
+        RECORDING_VALIDATIONS_KEY,
+        localRecordingValidations,
+      );
+      recordingValidations = mergeRecordingValidations(
+        RECORDING_VALIDATIONS,
+        localRecordingValidations,
+      );
+      if (exercise?.source) {
+        originalPlayer.renderSource(exercise.source);
+      }
+    },
+    onDownload: download,
+    translate: t,
+    windowObject: window,
+  });
+  return recordingWorkshop;
+}
+
+async function openRecordingWorkshop() {
+  if (!developerMode) return;
+  const workshop = await ensureRecordingWorkshop();
+  appRenderer.showHomePanel(false);
+  elements.favoritesPanel.hidden = true;
+  elements.recordingWorkshopPanel.hidden = false;
+  workshop.open();
+}
+
+function closeRecordingWorkshop() {
+  recordingWorkshop?.stopPreview();
+  elements.recordingWorkshopPanel.hidden = true;
+  showHome();
+}
+
+function selectRecordingWorkshopSolo() {
+  recordingWorkshop?.selectSolo();
+}
+
+function selectRecordingWorkshopCandidate() {
+  recordingWorkshop?.selectCandidate();
+}
+
+function useManualRecordingCandidate() {
+  recordingWorkshop?.useManualCandidate();
+}
+
+function adjustRecordingOffset(delta) {
+  recordingWorkshop?.adjustOffset(delta);
+}
+
+function previewRecordingWorkshop() {
+  void recordingWorkshop?.preview();
+}
+
+function verifyRecordingWorkshop() {
+  recordingWorkshop?.verify();
+}
+
+function rejectRecordingWorkshop() {
+  recordingWorkshop?.reject();
+}
+
+function markRecordingUnavailable() {
+  recordingWorkshop?.markUnavailable();
+}
+
+function exportRecordingValidations() {
+  recordingWorkshop?.exportData();
 }
 
 async function setDeveloperMode(enabled) {
@@ -353,6 +449,8 @@ function renderHomeState() {
 }
 
 function showHome() {
+  recordingWorkshop?.stopPreview();
+  elements.recordingWorkshopPanel.hidden = true;
   appRenderer.showHomePanel(true);
   renderHomeState();
 }
@@ -381,6 +479,8 @@ function renderFavorites() {
 }
 
 function showFavorites() {
+  recordingWorkshop?.stopPreview();
+  elements.recordingWorkshopPanel.hidden = true;
   appRenderer.showHomePanel(false);
   renderFavorites();
 }
@@ -1733,23 +1833,31 @@ bindAppEvents(
   elements,
   {
     adjustCurrentPhraseSettings,
+    adjustRecordingOffset,
+    closeRecordingWorkshop,
     closeRecordingPlayer: originalPlayer.close,
     copyCurrentPhraseId,
     exportData,
+    exportRecordingValidations,
     goToNextExercise,
     isRatingModeActive: () => currentMode === "rating",
     launchSuddenDeath,
     leaveGameMode,
+    markRecordingUnavailable,
     moveReviewPhrase,
+    openRecordingWorkshop,
+    previewRecordingWorkshop,
+    rejectRecordingWorkshop,
     resumeChallenge,
     saveSettings,
+    selectRecordingWorkshopCandidate,
+    selectRecordingWorkshopSolo,
     setDeveloperMode,
     setQuickRating,
     setQuickRatingPhraseEnd,
     setRatingFromButton,
     showFavorites,
     showHome,
-    showRecordingChoice: originalPlayer.showChoice,
     startMode,
     startNewChallenge,
     syncGameSpeed,
@@ -1759,6 +1867,8 @@ bindAppEvents(
     togglePlayback,
     transposeFreePhrase,
     undoLastRating,
+    useManualRecordingCandidate,
+    verifyRecordingWorkshop,
   },
   document,
 );

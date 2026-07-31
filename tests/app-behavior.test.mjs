@@ -10,6 +10,8 @@ const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RATINGS_KEY = "dictee-musicale.ratings.v1";
 const PHRASE_SETTINGS_KEY =
   "dictee-musicale.phrase-settings.v1";
+const RECORDING_VALIDATIONS_KEY =
+  "dictee-musicale.recording-validations.v1";
 
 test("les parcours principaux exécutent réellement app.js dans le DOM", async (t) => {
   await t.test("démarrage, migration, accueil et navigation", async () => {
@@ -446,7 +448,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
-  await t.test("original Parker local et lecteur YouTube borné", async () => {
+  await t.test("original Parker local et intégration validée bornée", async () => {
     const parker = await bootApp({
       favorites: ["wjazzd-v2.1-55:3"],
     });
@@ -476,7 +478,14 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
 
     const youtube = await bootApp({
-      favorites: ["wjazzd-v2.1-10:1"],
+      favorites: ["wjazzd-v2.1-14:2"],
+      storage: {
+        [SETTINGS_KEY]: {
+          realSpeed: 100,
+          developerMode: true,
+          transposeOriginal: false,
+        },
+      },
     });
     try {
       await youtube.click("#open-favorites");
@@ -487,28 +496,147 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       );
       const source = youtube.snapshot().exercise.source;
       assert.equal(Boolean(source.audioFile), false);
+      assert.equal(youtube.element("#play-original").hidden, true);
+      assert.equal(youtube.element("#original-controls").hidden, true);
+
+      await youtube.click("#fullscreen-button");
+      await youtube.click("#close-favorites");
+      await youtube.click("#open-recording-workshop");
+      await youtube.waitFor(
+        () =>
+          youtube.element("#recording-workshop-panel").hidden === false &&
+          youtube.element("#recording-workshop-solo").options.length ===
+            112,
+        "ouverture de l’atelier",
+      );
+      await youtube.change(
+        "#recording-workshop-solo",
+        "wjazzd-v2.1-14",
+      );
+      assert.equal(
+        youtube.element("#recording-workshop-youtube").value,
+        "7sVa_wDvUKs",
+      );
+      assert.equal(
+        Number(youtube.element("#recording-workshop-offset").value),
+        58.1878,
+      );
+      assert.deepEqual(
+        [
+          ...youtube.element("#recording-workshop-phrase").options,
+        ].map(({ value }) => value),
+        ["2", "6"],
+      );
+      await youtube.click("#preview-recording-workshop");
+      await youtube.waitFor(
+        () =>
+          youtube
+            .element("#recording-workshop-player")
+            .hasAttribute("src"),
+        "aperçu de la phrase",
+      );
+      const preview = new URL(
+        youtube.element("#recording-workshop-player").src,
+      );
+      assert.equal(preview.hostname, "www.youtube-nocookie.com");
+      assert.equal(preview.searchParams.get("enablejsapi"), "1");
+
+      await youtube.click('[data-recording-offset="0.1"]');
+      assert.equal(
+        Number(youtube.element("#recording-workshop-offset").value),
+        58.2878,
+      );
+      await youtube.click("#verify-recording-workshop");
+      assert.deepEqual(
+        youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+          "wjazzd-v2.1-14"
+        ],
+        {
+          status: "verified",
+          youtubeId: "7sVa_wDvUKs",
+          offset: 58.2878,
+          updatedAt:
+            youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+              "wjazzd-v2.1-14"
+            ].updatedAt,
+        },
+      );
+
+      await youtube.click("#close-recording-workshop");
+      assert.equal(
+        youtube.element("#recording-workshop-panel").hidden,
+        true,
+      );
+      await youtube.click("#open-favorites");
+      await youtube.click(".favorite-row-main");
+      await youtube.waitFor(
+        () => youtube.snapshot().exercise,
+        "phrase validée",
+      );
+      const validatedSource = youtube.snapshot().exercise.source;
+      assert.equal(youtube.element("#play-original").hidden, false);
       await youtube.click("#play-original");
       assert.equal(youtube.element("#recording-modal").hidden, false);
 
       const embed = new URL(youtube.element("#recording-player").src);
-      const expectedStart = Math.floor(111.8102 + source.onsetStart);
+      const expectedStart = Math.floor(
+        58.2878 + validatedSource.onsetStart,
+      );
       const expectedEnd = Math.ceil(
-        111.8102 + source.onsetEnd + 0.25,
+        58.2878 + validatedSource.onsetEnd + 0.25,
       );
       assert.equal(embed.hostname, "www.youtube-nocookie.com");
       assert.equal(embed.searchParams.get("start"), String(expectedStart));
       assert.equal(embed.searchParams.get("end"), String(expectedEnd));
       assert.equal(embed.searchParams.get("autoplay"), "1");
-
-      const fallback = new URL(
-        youtube.element("#recording-external-link").href,
+      assert.equal(
+        youtube.document.querySelector("#recording-external-link"),
+        null,
       );
-      assert.equal(fallback.searchParams.get("t"), `${expectedStart}s`);
       await youtube.click("#close-recording");
       assert.equal(youtube.element("#recording-modal").hidden, true);
       assert.equal(
         youtube.element("#recording-player").hasAttribute("src"),
         false,
+      );
+
+      await youtube.click("#fullscreen-button");
+      await youtube.click("#close-favorites");
+      await youtube.click("#open-recording-workshop");
+      await youtube.waitFor(
+        () =>
+          youtube.element("#recording-workshop-panel").hidden === false,
+        "réouverture de l’atelier",
+      );
+      await youtube.change(
+        "#recording-workshop-solo",
+        "wjazzd-v2.1-15",
+      );
+      const rejectedId =
+        youtube.element("#recording-workshop-youtube").value;
+      await youtube.click("#reject-recording-workshop");
+      assert.deepEqual(
+        youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+          "wjazzd-v2.1-15"
+        ].rejectedYoutubeIds,
+        [rejectedId],
+      );
+      assert.equal(
+        youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+          "wjazzd-v2.1-15"
+        ].status,
+        "wrong-version",
+      );
+      assert.notEqual(
+        youtube.element("#recording-workshop-youtube").value,
+        rejectedId,
+      );
+      await youtube.click("#unavailable-recording-workshop");
+      assert.equal(
+        youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+          "wjazzd-v2.1-15"
+        ].status,
+        "unavailable",
       );
     } finally {
       youtube.close();

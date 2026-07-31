@@ -3,8 +3,6 @@ import {
   sliceAudioBuffer,
 } from "./audio.js";
 import {
-  recordingSearchUrl,
-  recordingUrlAtPhrase,
   recordingsAtPhrase,
 } from "./recording.js";
 
@@ -16,6 +14,7 @@ export function createOriginalPlayer({
   documentObject = globalThis.document,
   elements,
   fetchImpl = (...args) => globalThis.fetch(...args),
+  getRecordingValidations = () => undefined,
   onBeforePlay = () => {},
   onDisableInput = () => {},
   onRestoreInput = () => {},
@@ -23,7 +22,6 @@ export function createOriginalPlayer({
   windowObject = globalThis.window,
 } = {}) {
   const decodedAudioBuffers = new Map();
-  let activeChoices = [];
   let currentSource = null;
   let isPlaying = false;
   let playbackTimer = null;
@@ -46,12 +44,18 @@ export function createOriginalPlayer({
     elements.feedback.textContent = message;
   }
 
-  function showChoice(index) {
-    const choice = activeChoices[index];
-    if (!choice) return;
-    elements.recordingVersion.value = String(index);
-    elements.recordingPlayer.src = choice.embedUrl;
-    elements.recordingExternalLink.href = choice.watchUrl;
+  function seekToExactStart(choice) {
+    if (!Number.isFinite(choice?.exactStart)) return;
+    windowObject.setTimeout(() => {
+      elements.recordingPlayer.contentWindow?.postMessage?.(
+        JSON.stringify({
+          event: "command",
+          func: "seekTo",
+          args: [choice.exactStart, true],
+        }),
+        "https://www.youtube-nocookie.com",
+      );
+    }, 100);
   }
 
   function close({
@@ -61,7 +65,6 @@ export function createOriginalPlayer({
     if (elements.recordingModal.hidden) return;
     elements.recordingPlayer.removeAttribute("src");
     elements.recordingModal.hidden = true;
-    activeChoices = [];
     setPlaying(false);
     if (restoreInput) onRestoreInput();
     if (restoreFocus) returnFocus?.focus?.();
@@ -187,30 +190,22 @@ export function createOriginalPlayer({
   }
 
   function openRecording() {
-    const choices = recordingsAtPhrase(currentSource);
+    const choices = recordingsAtPhrase(
+      currentSource,
+      getRecordingValidations(),
+    );
     if (!choices.length) return;
+    const [choice] = choices;
 
     onBeforePlay();
     onDisableInput();
     setPlaying(true);
     returnFocus = documentObject.activeElement;
-    activeChoices = choices;
     elements.recordingTitle.textContent =
       `${currentSource.performer} — ${currentSource.title}`;
-    elements.recordingVersion.replaceChildren(
-      ...choices.map((_, index) => {
-        const option = documentObject.createElement("option");
-        option.value = String(index);
-        option.textContent = translate("recording.versionNumber", {
-          current: index + 1,
-          total: choices.length,
-        });
-        return option;
-      }),
-    );
-    elements.recordingVersionControl.hidden = choices.length <= 1;
     elements.recordingModal.hidden = false;
-    showChoice(0);
+    elements.recordingPlayer.src = choice.embedUrl;
+    seekToExactStart(choice);
     elements.closeRecording.focus();
   }
 
@@ -235,42 +230,23 @@ export function createOriginalPlayer({
   function renderSource(source) {
     currentSource = source ?? null;
     const hasLocalAudio = Boolean(source?.audioFile);
-    const choices = recordingsAtPhrase(source);
-    const recordingUrl = recordingUrlAtPhrase(source);
-    const searchUrl = recordingUrl
-      ? null
-      : recordingSearchUrl(source);
+    const choices = recordingsAtPhrase(
+      source,
+      getRecordingValidations(),
+    );
     const canPlay = hasLocalAudio || choices.length > 0;
 
     elements.playOriginal.hidden = !canPlay;
     elements.playOriginal.disabled = !canPlay;
     elements.transposeOriginalControl.hidden = !hasLocalAudio;
     elements.transposeOriginal.disabled = !hasLocalAudio;
-    elements.originalControls.hidden =
-      !canPlay && !recordingUrl && !searchUrl;
-    if (recordingUrl) {
-      elements.audioSourceLink.hidden = false;
-      elements.audioSourceLink.href = recordingUrl;
-      elements.audioSourceLink.textContent = translate(
-        "source.youtubeRecording",
-      );
-    } else if (searchUrl) {
-      elements.audioSourceLink.hidden = false;
-      elements.audioSourceLink.href = searchUrl;
-      elements.audioSourceLink.textContent = translate(
-        "source.youtubeSearch",
-      );
-    } else {
-      elements.audioSourceLink.hidden = true;
-      elements.audioSourceLink.removeAttribute("href");
-    }
+    elements.originalControls.hidden = !canPlay;
   }
 
   return Object.freeze({
     close,
     isPlaying: () => isPlaying,
     renderSource,
-    showChoice,
     stop,
     toggle,
   });

@@ -2,54 +2,47 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  recordingSearchUrl,
-  recordingUrlAtPhrase,
+  mergeRecordingValidations,
+  normalizeRecordingValidation,
+  recordingValidationsModule,
   recordingsAtPhrase,
+  youtubeIdFromValue,
 } from "../src/recording.js";
+import { RECORDING_VALIDATIONS } from "../data/recording-validations.js";
 import { WJAZZTUBE_RECORDINGS } from "../data/wjazztube-recordings.js";
 import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
 
-test("le lien YouTube commence au même point que l’extrait local", () => {
-  assert.equal(
-    recordingUrlAtPhrase({
-      audioSourceUrl: "https://www.youtube.com/watch?v=89jYv-h7OJA",
-      audioOffset: 39.466,
-      onsetStart: 1.1813,
+test("les anciennes sources directes et JazzTube restent invisibles", () => {
+  assert.deepEqual(
+    recordingsAtPhrase({
+      soloId: "wjazzd-v2.1-10",
+      audioSourceUrl: "https://www.youtube.com/watch?v=8B3W29P7lD8",
+      audioOffset: 111.8102,
+      onsetStart: 5,
+      onsetEnd: 10,
     }),
-    "https://www.youtube.com/watch?v=89jYv-h7OJA&t=40s",
+    [],
   );
+  assert.deepEqual(RECORDING_VALIDATIONS, {});
 });
 
-test("le lien remplace un ancien timing et tolère les métadonnées partielles", () => {
-  assert.equal(
-    recordingUrlAtPhrase({
-      audioSourceUrl: "https://www.youtube.com/watch?v=abcdefghijk&t=9s",
-      audioOffset: 23.714,
-      onsetStart: 5.5859,
-    }),
-    "https://www.youtube.com/watch?v=abcdefghijk&t=29s",
-  );
-  assert.equal(
-    recordingUrlAtPhrase({
-      audioSourceUrl: "https://www.youtube.com/watch?v=abcdefghijk",
-    }),
-    "https://www.youtube.com/watch?v=abcdefghijk",
-  );
-  assert.equal(recordingUrlAtPhrase({ audioSourceUrl: "not a URL" }), null);
-  assert.equal(recordingUrlAtPhrase(null), null);
-});
-
-test("JazzTube fournit le lecteur intégré et borne la phrase", () => {
-  const choices = recordingsAtPhrase({
+test("seule une validation explicite fournit le lecteur intégré borné", () => {
+  const source = {
     soloId: "wjazzd-v2.1-10",
     onsetStart: 5,
     onsetEnd: 10,
+  };
+  const choices = recordingsAtPhrase(source, {
+    "wjazzd-v2.1-10": {
+      status: "verified",
+      youtubeId: "8B3W29P7lD8",
+      offset: 111.8102,
+    },
   });
   assert.equal(choices.length, 1);
-  assert.equal(
-    choices[0].watchUrl,
-    "https://www.youtube.com/watch?v=8B3W29P7lD8&t=116s",
-  );
+  assert.equal(choices[0].exactStart, 116.8102);
+  assert.equal(choices[0].start, 116);
+  assert.equal(choices[0].end, 123);
   const embedUrl = new URL(choices[0].embedUrl);
   assert.equal(embedUrl.origin, "https://www.youtube-nocookie.com");
   assert.equal(embedUrl.pathname, "/embed/8B3W29P7lD8");
@@ -57,45 +50,115 @@ test("JazzTube fournit le lecteur intégré et borne la phrase", () => {
   assert.equal(embedUrl.searchParams.get("end"), "123");
   assert.equal(embedUrl.searchParams.get("autoplay"), "1");
   assert.equal(embedUrl.searchParams.get("playsinline"), "1");
+  assert.equal(embedUrl.searchParams.get("enablejsapi"), "1");
 });
 
-test("toutes les phrases ont au moins une destination YouTube", () => {
-  for (const solo of WJAZZD_SOLOS) {
-    const source = {
-      soloId: solo.id,
-      performer: solo.performer,
-      title: solo.title,
-      recordingDate: solo.recordingDate,
-      onsetStart: solo.events[0]?.[1],
-      onsetEnd: solo.events.at(-1)?.[1],
-      audioSourceUrl: solo.audioSourceUrl,
-      audioOffset: solo.audioOffset,
-    };
-    assert.ok(
-      recordingUrlAtPhrase(source) || recordingSearchUrl(source),
-      solo.id,
-    );
+test("les mauvaises versions, indisponibilités et données invalides ne jouent rien", () => {
+  const source = {
+    soloId: "solo",
+    onsetStart: 1,
+    onsetEnd: 2,
+  };
+  for (const validation of [
+    {
+      status: "wrong-version",
+      rejectedYoutubeIds: ["abcdefghijk"],
+    },
+    { status: "unavailable" },
+    { status: "verified", youtubeId: "invalide", offset: 1 },
+    { status: "verified", youtubeId: "abcdefghijk", offset: "non" },
+  ]) {
+    assert.deepEqual(recordingsAtPhrase(source, { solo: validation }), []);
   }
 });
 
-test("la recherche de secours cible le musicien, le morceau et la date", () => {
-  const url = new URL(
-    recordingSearchUrl({
-      performer: "Art Pepper",
-      title: "Anthropology",
-      recordingDate: "1979",
-    }),
-  );
-  assert.equal(url.origin, "https://www.youtube.com");
-  assert.equal(url.pathname, "/results");
+test("les URL vidéo sont normalisées sans produire de lien public", () => {
+  assert.equal(youtubeIdFromValue("abcdefghijk"), "abcdefghijk");
   assert.equal(
-    url.searchParams.get("search_query"),
-    '"Art Pepper" "Anthropology" 1979',
+    youtubeIdFromValue("https://youtu.be/abcdefghijk?t=20"),
+    "abcdefghijk",
   );
-  assert.equal(recordingSearchUrl({ performer: "Art Pepper" }), null);
+  assert.equal(
+    youtubeIdFromValue(
+      "https://www.youtube.com/watch?v=abcdefghijk&t=20",
+    ),
+    "abcdefghijk",
+  );
+  assert.equal(
+    youtubeIdFromValue(
+      "https://www.youtube.com/embed/abcdefghijk",
+    ),
+    "abcdefghijk",
+  );
+  assert.equal(
+    youtubeIdFromValue(
+      "https://www.youtube.com/shorts/abcdefghijk",
+    ),
+    "abcdefghijk",
+  );
+  assert.equal(
+    youtubeIdFromValue(
+      "https://www.youtube-nocookie.com/embed/abcdefghijk",
+    ),
+    "abcdefghijk",
+  );
+  assert.equal(youtubeIdFromValue("https://example.com/abcdefghijk"), null);
 });
 
-test("les correspondances JazzTube sont cohérentes et restent compactes", () => {
+test("les validations locales remplacent proprement les décisions intégrées", () => {
+  const merged = mergeRecordingValidations(
+    {
+      solo: {
+        status: "verified",
+        youtubeId: "abcdefghijk",
+        offset: 10,
+      },
+    },
+    {
+      solo: {
+        status: "unavailable",
+        updatedAt: "2026-07-31T00:00:00.000Z",
+      },
+    },
+  );
+  assert.deepEqual(merged.solo, {
+    status: "unavailable",
+    updatedAt: "2026-07-31T00:00:00.000Z",
+  });
+  assert.deepEqual(
+    normalizeRecordingValidation({
+      status: "wrong-version",
+      rejectedYoutubeIds: [
+        "abcdefghijk",
+        "https://youtu.be/abcdefghijk",
+        "bad",
+      ],
+    }),
+    {
+      status: "wrong-version",
+      rejectedYoutubeIds: ["abcdefghijk"],
+    },
+  );
+});
+
+test("l’export produit le module canonique trié", () => {
+  const content = recordingValidationsModule({
+    z: { status: "unavailable" },
+    a: {
+      status: "verified",
+      youtubeId: "abcdefghijk",
+      offset: 1.2,
+    },
+  });
+  assert.match(content, /Only entries with status "verified"/);
+  assert.ok(content.indexOf('"a"') < content.indexOf('"z"'));
+  assert.match(
+    content,
+    /export const RECORDING_VALIDATIONS = Object\.freeze\(/,
+  );
+});
+
+test("les correspondances JazzTube restent un corpus de candidats compact", () => {
   const soloIds = new Set(WJAZZD_SOLOS.map(({ id }) => id));
   const entries = Object.entries(WJAZZTUBE_RECORDINGS);
   assert.equal(entries.length, 329);

@@ -2,6 +2,8 @@ export const SETTINGS_KEY = "dictee-musicale.settings.v1";
 export const RATINGS_KEY = "dictee-musicale.ratings.v1";
 export const RATING_SCOPES_KEY = "dictee-musicale.rating-scopes.v1";
 export const PHRASE_SETTINGS_KEY = "dictee-musicale.phrase-settings.v1";
+export const RECORDING_VALIDATIONS_KEY =
+  "dictee-musicale.recording-validations.v1";
 export const CHALLENGE_SESSION_KEY =
   "dictee-musicale.challenge-session.v1";
 export const COMPLETED_PHRASES_KEY =
@@ -13,6 +15,7 @@ export const STORAGE_KEYS = Object.freeze({
   ratings: RATINGS_KEY,
   ratingScopes: RATING_SCOPES_KEY,
   phraseSettings: PHRASE_SETTINGS_KEY,
+  recordingValidations: RECORDING_VALIDATIONS_KEY,
   challengeSession: CHALLENGE_SESSION_KEY,
   completedPhrases: COMPLETED_PHRASES_KEY,
   favorites: FAVORITES_KEY,

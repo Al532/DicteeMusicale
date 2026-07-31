@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=46" />
-    <script type="module" src="./src/app.js?v=46"></script>
+    <link rel="stylesheet" href="./styles.css?v=47" />
+    <script type="module" src="./src/app.js?v=47"></script>
   </head>
   <body>
     <div
@@ -162,6 +162,9 @@
               <button class="quiet-button" id="start-review" type="button">
                 <span data-i18n="developer.threeStarReview">Review 3-star phrases</span>
               </button>
+              <button class="quiet-button" id="open-recording-workshop" type="button">
+                <span data-i18n="developer.recordingWorkshop">Recording workshop</span>
+              </button>
               <button class="quiet-button" id="export-data" type="button">
                 <span data-i18n="developer.exportData">Export data</span>
               </button>
@@ -211,6 +214,153 @@
           <p data-i18n="favorites.empty.body">
             Add favorites during a challenge to find them here.
           </p>
+        </div>
+      </section>
+
+      <section
+        class="recording-workshop-panel"
+        id="recording-workshop-panel"
+        aria-labelledby="recording-workshop-title"
+        hidden
+      >
+        <div class="page-heading">
+          <button
+            class="icon-button"
+            id="close-recording-workshop"
+            type="button"
+            aria-label="Back"
+            data-i18n-aria-label="recordingWorkshop.back"
+          >←</button>
+          <div>
+            <p class="eyebrow" data-i18n="recordingWorkshop.kicker">Developer workshop</p>
+            <h1 id="recording-workshop-title" data-i18n="recordingWorkshop.title">
+              Original recordings
+            </h1>
+          </div>
+        </div>
+        <p class="recording-workshop-intro" data-i18n="recordingWorkshop.intro">
+          Check one recording per solo using only 3-star phrases. Nothing
+          appears in the public player until it has been explicitly validated
+          here.
+        </p>
+        <p
+          class="recording-workshop-progress"
+          id="recording-workshop-progress"
+        ></p>
+
+        <div class="recording-workshop-grid">
+          <div class="recording-workshop-fields">
+            <label class="workshop-field">
+              <span data-i18n="recordingWorkshop.solo">Solo</span>
+              <select id="recording-workshop-solo"></select>
+            </label>
+            <div class="recording-workshop-current">
+              <span data-i18n="recordingWorkshop.currentStatus">Current status</span>
+              <strong
+                id="recording-workshop-status"
+                data-status="pending"
+              ></strong>
+            </div>
+            <label class="workshop-field">
+              <span data-i18n="recordingWorkshop.candidate">Candidate</span>
+              <select id="recording-workshop-candidate"></select>
+            </label>
+            <label class="workshop-field">
+              <span data-i18n="recordingWorkshop.youtubeId">Video URL or ID</span>
+              <input
+                id="recording-workshop-youtube"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                inputmode="url"
+              />
+            </label>
+            <label class="workshop-field">
+              <span data-i18n="recordingWorkshop.offset">Solo offset (seconds)</span>
+              <input
+                id="recording-workshop-offset"
+                type="number"
+                step="0.1"
+                value="0"
+              />
+            </label>
+            <div
+              class="recording-offset-steps"
+              aria-label="Adjust solo offset"
+              data-i18n-aria-label="recordingWorkshop.adjustOffset"
+            >
+              <button class="quiet-button" type="button" data-recording-offset="-1">− 1 s</button>
+              <button class="quiet-button" type="button" data-recording-offset="-0.1">− 0.1 s</button>
+              <button class="quiet-button" type="button" data-recording-offset="0.1">+ 0.1 s</button>
+              <button class="quiet-button" type="button" data-recording-offset="1">+ 1 s</button>
+            </div>
+            <div class="recording-phrase-test">
+              <label class="workshop-field">
+                <span data-i18n="recordingWorkshop.phrase">Test phrase</span>
+                <select id="recording-workshop-phrase"></select>
+              </label>
+              <button
+                class="primary-button"
+                id="preview-recording-workshop"
+                type="button"
+              >
+                <span data-i18n="recordingWorkshop.preview">Preview</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="recording-workshop-result">
+            <div
+              class="recording-workshop-preview"
+              id="recording-workshop-preview"
+              hidden
+            >
+              <iframe
+                id="recording-workshop-player"
+                title="Recording validation preview"
+                data-i18n-title="recordingWorkshop.player"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allowfullscreen
+              ></iframe>
+            </div>
+            <p
+              class="recording-workshop-message"
+              id="recording-workshop-message"
+              role="status"
+              aria-live="polite"
+            ></p>
+            <div class="recording-workshop-decisions">
+              <button
+                class="primary-button"
+                id="verify-recording-workshop"
+                type="button"
+              >
+                <span data-i18n="recordingWorkshop.verify">Validated</span>
+              </button>
+              <button
+                class="quiet-button"
+                id="reject-recording-workshop"
+                type="button"
+              >
+                <span data-i18n="recordingWorkshop.reject">Wrong version</span>
+              </button>
+              <button
+                class="quiet-button"
+                id="unavailable-recording-workshop"
+                type="button"
+              >
+                <span data-i18n="recordingWorkshop.unavailable">Unavailable</span>
+              </button>
+            </div>
+            <button
+              class="text-button recording-workshop-export"
+              id="export-recording-validations"
+              type="button"
+            >
+              <span data-i18n="recordingWorkshop.export">Export validations</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -403,15 +553,6 @@
                 <input id="transpose-original" type="checkbox" />
                 <span data-i18n="game.transpose">Transpose</span>
               </label>
-              <a
-                class="recording-link"
-                id="audio-source-link"
-                href="#"
-                target="_blank"
-                rel="noreferrer"
-                hidden
-                data-i18n="source.youtubeRecording"
-              >YouTube at this phrase</a>
             </div>
           </div>
         </div>
@@ -479,20 +620,6 @@
             allowfullscreen
           ></iframe>
         </div>
-        <footer class="recording-footer">
-          <label id="recording-version-control" hidden>
-            <span data-i18n="recording.version">Version</span>
-            <select id="recording-version"></select>
-          </label>
-          <a
-            class="recording-link"
-            id="recording-external-link"
-            href="#"
-            target="_blank"
-            rel="noreferrer"
-            data-i18n="recording.openYoutube"
-          >Open in YouTube</a>
-        </footer>
       </div>
     </div>
 

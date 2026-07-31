@@ -51,17 +51,14 @@ exposés dans l’interface. Les fondamentales de basse suivent les accords
 annotés ; un chick de charleston marque les temps 2 et 4. La vitesse se règle
 directement sous le clavier pendant le jeu.
 
-Lorsqu’une synchronisation [JazzTube](https://mir.audiolabs.uni-erlangen.de/jazztube/)
-existe, l’enregistrement s’ouvre au début exact de la phrase dans un lecteur
-YouTube intégré, sans quitter l’application.
-Le lecteur permet aussi de choisir une autre version référencée et d’ouvrir
-YouTube directement. Les extraits locaux des six solos de Charlie Parker
-restent prioritaires et disponibles hors ligne.
+Le lecteur YouTube intégré ne s’affiche que pour les solos explicitement
+validés dans `data/recording-validations.js`. L’interface publique ne propose
+ni lien externe ni recherche de secours. Les extraits locaux des six solos de
+Charlie Parker restent prioritaires et disponibles hors ligne.
 
-JazzTube référence actuellement 329 des 456 solos du corpus. Pour les autres,
-l’application propose une recherche YouTube ciblée par musicien, morceau et
-date, sans prétendre fournir un minutage qui n’a pas été vérifié. Les
-correspondances peuvent être régénérées avec :
+Les anciennes correspondances JazzTube restent disponibles uniquement comme
+candidats dans l’atelier développeur. Elles ne deviennent jamais publiques
+sans validation manuelle. La liste des candidats peut être régénérée avec :
 
 ```bash
 npm run recordings:generate
@@ -73,7 +70,13 @@ Le menu discret en bas de l’accueil permet d’activer les outils de maintenan
 
 - notation rapide à trois étoiles ;
 - revue et ajustement des phrases trois étoiles ;
+- validation des enregistrements, du minutage et de plusieurs phrases d’un
+  même solo, uniquement parmi les phrases trois étoiles ;
 - export du protocole.
+
+L’atelier mémorise les vidéos validées, les mauvaises versions et les solos
+indisponibles. Son export produit un fichier `recording-validations.js` prêt à
+remplacer celui du dossier `data/`.
 
 Les rejets structurels et les inférences globales à 1★ restent gérés par le
 protocole existant. Une note directe demeure toujours prioritaire.

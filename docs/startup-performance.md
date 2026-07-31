@@ -20,15 +20,15 @@ temps d’un téléphone ou le transfert HTTP exact d’un CDN.
 | Mesure médiane | Avant | Après | Évolution |
 |---|---:|---:|---:|
 | Modules JavaScript initiaux | 14 | 22 | modules plus petits et spécialisés |
-| JavaScript initial brut | 7 502 525 o | 849 794 o | −88,7 % |
-| JavaScript initial gzip | 2 574 806 o | 146 808 o | −94,3 % |
-| JavaScript initial Brotli | 1 785 694 o | 118 559 o | −93,4 % |
-| Interface initiale brute | 7 556 639 o | 903 908 o | −88,0 % |
-| Interface initiale gzip | 2 586 205 o | 158 207 o | −93,9 % |
-| Interface initiale Brotli | 1 795 336 o | 128 201 o | −92,9 % |
-| Import/analyse et initialisation jusqu’à l’interface utilisable (JSDOM) | 241,39 ms | 82,38 ms | −65,9 % |
-| Hausse du tas JavaScript | 60 904 872 o | 5 456 904 o | −91,0 % |
-| Hausse RSS | 124 383 232 o | 10 616 832 o | −91,5 % |
+| JavaScript initial brut | 7 502 525 o | 804 389 o | −89,3 % |
+| JavaScript initial gzip | 2 574 806 o | 134 835 o | −94,8 % |
+| JavaScript initial Brotli | 1 785 694 o | 108 577 o | −93,9 % |
+| Interface initiale brute | 7 556 639 o | 866 171 o | −88,5 % |
+| Interface initiale gzip | 2 586 205 o | 147 252 o | −94,3 % |
+| Interface initiale Brotli | 1 795 336 o | 119 058 o | −93,4 % |
+| Import/analyse et initialisation jusqu’à l’interface utilisable (JSDOM) | 241,39 ms | 79,77 ms | −67,0 % |
+| Hausse du tas JavaScript | 60 904 872 o | 5 256 208 o | −91,4 % |
+| Hausse RSS | 124 383 232 o | 8 912 896 o | −92,8 % |
 
 L’index compact pèse 327 163 octets bruts, 57 426 octets avec le même
 `gzipSync` que le script de mesure, et 45 593 octets Brotli. Le premier bloc
@@ -44,6 +44,9 @@ Le graphe initial contient l’index, mais ni `data/wjazzd-solos.js` ni
 détaillé sur son chemin critique ; le bloc utile est demandé lorsqu’une phrase
 est choisie. Les anciens monolithes restent uniquement comme source de
 génération et comme référence de parité dans les tests.
+
+Les correspondances JazzTube, potentiellement volumineuses, ne sont désormais
+chargées qu’à l’ouverture de l’atelier développeur de validation.
 
 Le service worker installe d’abord le cœur de l’interface et l’index. Son
 installation continue ensuite en arrière-plan, sans bloquer la page déjà

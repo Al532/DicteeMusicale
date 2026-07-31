@@ -103,7 +103,12 @@ test("le contrat HTML expose uniquement les outils développeur actuels", () => 
     [...developerActions.querySelectorAll(":scope > button")].map(
       ({ id }) => id,
     ),
-    ["start-rating", "start-review", "export-data"],
+    [
+      "start-rating",
+      "start-review",
+      "open-recording-workshop",
+      "export-data",
+    ],
   );
   assert.equal(elements.developerMode.type, "checkbox");
 
@@ -174,12 +179,33 @@ test("les favoris et les originaux conservent leur structure publique", () => {
     elements.transposeOriginalControl.contains(elements.transposeOriginal),
     true,
   );
-  assert.equal(elements.audioSourceLink.hidden, true);
+  assert.equal(document.querySelector("#audio-source-link"), null);
   assert.equal(elements.recordingModal.hidden, true);
   assert.equal(elements.recordingPlayer.tagName, "IFRAME");
+  assert.equal(document.querySelector("#recording-external-link"), null);
   assert.equal(
-    elements.recordingExternalLink.dataset.i18n,
-    "recording.openYoutube",
+    [...document.querySelectorAll("a")].some(({ href }) =>
+      /(?:youtube\.com|youtu\.be)/i.test(href)
+    ),
+    false,
+  );
+});
+
+test("l’atelier de validation reste réservé au mode développeur", () => {
+  assert.equal(elements.recordingWorkshopPanel.hidden, true);
+  assert.equal(elements.recordingWorkshopPlayer.tagName, "IFRAME");
+  assert.equal(elements.recordingOffsetButtons.length, 4);
+  assert.deepEqual(
+    [
+      elements.verifyRecordingWorkshop,
+      elements.rejectRecordingWorkshop,
+      elements.unavailableRecordingWorkshop,
+    ].map(({ id }) => id),
+    [
+      "verify-recording-workshop",
+      "reject-recording-workshop",
+      "unavailable-recording-workshop",
+    ],
   );
 });
 
@@ -377,6 +403,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./src/original-player.js",
     "./src/persistence.js",
     "./src/recording.js",
+    "./src/recording-workshop.js",
     "./src/engine.js",
     "./src/ratings.js",
     "./src/rating-workflow.js",
@@ -384,6 +411,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./src/session.js",
     "./data/default-ratings.js",
     "./data/default-phrase-settings.js",
+    "./data/recording-validations.js",
     "./data/wjazzd-index.js",
     "./data/wjazzd-blocks/manifest.json",
     "./data/wjazztube-recordings.js",
