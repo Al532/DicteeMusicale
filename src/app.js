@@ -38,8 +38,12 @@ import {
   normalizeEditedPhraseEvents,
   resolvePhraseSettings,
 } from "./phrase-settings.js";
-import { loadPhraseCorpus } from "./corpus-loader.js";
+import {
+  WJAZZD_SOLO_INDEX,
+  loadPhraseCorpus,
+} from "./corpus-loader.js";
 import { createPhraseEditor } from "./phrase-editor.js";
+import { createDataExportCsv } from "./data-export.js";
 import {
   applyDocumentTranslations,
   locale,
@@ -270,7 +274,6 @@ async function ensureRecordingWorkshop() {
         originalPlayer.renderSource(exercise.source);
       }
     },
-    onDownload: download,
     onPlayPhrase: playRecordingWorkshopPhrase,
     onStopPhrase: stopAllTones,
     translate: t,
@@ -337,10 +340,6 @@ function rejectRecordingWorkshop() {
 
 function markRecordingUnavailable() {
   recordingWorkshop?.markUnavailable();
-}
-
-function exportRecordingValidations() {
-  recordingWorkshop?.exportData();
 }
 
 async function ensureLickExplorer() {
@@ -2030,97 +2029,20 @@ function download(filename, content, type) {
   URL.revokeObjectURL(url);
 }
 
-function csvCell(value) {
-  const text = String(value ?? "");
-  return `"${text.replaceAll('"', '""')}"`;
-}
-
 function exportData() {
-  const protocol = currentRatingProtocol();
-  const storedPhraseRatings = ratingWorkflow.phraseRatings();
-  const phrasesByKey = catalogMap();
-  const rows = [
-    [
-      "protocole_version",
-      "portee",
-      "identifiant",
-      "etoiles",
-      "musicien",
-      "morceau",
-      "phrase",
-      "origine",
-      "taille_echantillon",
-      "accord",
-      "couverture",
-      "source_url",
-      "mise_a_jour",
-      "notes_max",
-      "notes_courtes_ignorees",
-      "evenements_midi_corriges",
-      "reglages_mise_a_jour",
-    ],
-  ];
-  const phraseKeys = [
-    ...new Set([
-      ...Object.keys(storedPhraseRatings),
-      ...Object.keys(phraseSettings),
-    ]),
-  ].sort();
-  for (const phraseKey of phraseKeys) {
-    const stored = storedPhraseRatings[phraseKey];
-    const entry =
-      stored && typeof stored === "object" ? stored : { rating: stored };
-    const rating = Number(entry.rating);
-    const hasRating = rating >= 1 && rating <= 3;
-    const settings = phraseSettings[phraseKey] ?? null;
-    if (!hasRating && !settings) continue;
-    const catalogEntry = phrasesByKey.get(phraseKey);
-    rows.push([
-      RATING_PROTOCOL_VERSION,
-      "phrase",
-      phraseKey,
-      hasRating ? rating : null,
-      entry.performer ?? catalogEntry?.performer,
-      entry.title ?? catalogEntry?.title,
-      entry.phrase ?? catalogEntry?.phrase,
-      hasRating ? entry.origin ?? "manual" : null,
-      hasRating ? 1 : null,
-      hasRating ? 1 : null,
-      hasRating ? 1 : null,
-      entry.sourceUrl ?? catalogEntry?.sourceUrl,
-      hasRating ? entry.updatedAt : null,
-      settings?.notesMax,
-      settings?.ignoredShortestNotes,
-      settings?.editedEvents
-        ? JSON.stringify(settings.editedEvents)
-        : null,
-      settings?.updatedAt,
-    ]);
-  }
-  for (const scope of [...protocol.scopes, ...protocol.structuralRules]) {
-    rows.push([
-      RATING_PROTOCOL_VERSION,
-      scope.scope,
-      scope.scopeId,
-      scope.rating,
-      scope.performer,
-      scope.title,
-      null,
-      scope.origin,
-      scope.sampleSize,
-      Number.isFinite(scope.agreement) ? scope.agreement.toFixed(4) : null,
-      Number.isFinite(scope.coverage) ? scope.coverage.toFixed(4) : null,
-      null,
-      scope.updatedAt,
-      null,
-      null,
-      null,
-      null,
-    ]);
-  }
   download(
     `dictee-musicale-donnees-${new Date().toISOString().slice(0, 10)}.csv`,
-    `\ufeff${rows.map((row) => row.map(csvCell).join(";")).join("\n")}`,
+    createDataExportCsv({
+      phraseRatings: ratingWorkflow.phraseRatings(),
+      phraseSettings,
+      phrasesByKey: catalogMap(),
+      protocol: currentRatingProtocol(),
+      protocolVersion: RATING_PROTOCOL_VERSION,
+      recordingValidations,
+      solosById: new Map(
+        WJAZZD_SOLO_INDEX.map((solo) => [solo.id, solo]),
+      ),
+    }),
     "text/csv;charset=utf-8",
   );
 }
@@ -2165,7 +2087,6 @@ bindAppEvents(
     copyCurrentPhraseId,
     editSelectedRecordingWorkshopPhrase,
     exportData,
-    exportRecordingValidations,
     goToNextExercise,
     isRatingModeActive: () => currentMode === "rating",
     launchSuddenDeath,

@@ -10,6 +10,16 @@ export const TYPICAL_LICK_FILTER = Object.freeze({
   extraIntervalPenalty: 0.5,
 });
 
+export const VERY_TYPICAL_LICK_FILTER = Object.freeze({
+  minLogExcessProb: 2,
+});
+
+export const LICK_FILTER = Object.freeze({
+  all: "all",
+  typical: "typical",
+  veryTypical: "very-typical",
+});
+
 export function adjustedLickSalience(lick) {
   const extraIntervals = Math.max(0, lick.intervals.length - 6);
   return (
@@ -30,6 +40,30 @@ export function isTypicalLick(lick) {
       adjustedLickSalience(lick) >=
         TYPICAL_LICK_FILTER.minAdjustedLogExcessProb,
   );
+}
+
+export function isVeryTypicalLick(lick) {
+  return Boolean(
+    isTypicalLick(lick) &&
+      Number(lick.logExcessProb) >=
+        VERY_TYPICAL_LICK_FILTER.minLogExcessProb,
+  );
+}
+
+function normalizeLickFilter(value) {
+  return Object.values(LICK_FILTER).includes(value)
+    ? value
+    : LICK_FILTER.all;
+}
+
+function filterLicks(licks, filter) {
+  if (filter === LICK_FILTER.veryTypical) {
+    return licks.filter(isVeryTypicalLick);
+  }
+  if (filter === LICK_FILTER.typical) {
+    return licks.filter(isTypicalLick);
+  }
+  return licks;
 }
 
 function normalizeTiming(timing) {
@@ -127,9 +161,7 @@ function queryLickExplorerElements(documentObject) {
     playRandom: documentObject.querySelector("#lick-explorer-play-random"),
     stop: documentObject.querySelector("#lick-explorer-stop"),
     autoRandom: documentObject.querySelector("#lick-explorer-auto-random"),
-    typicalOnly: documentObject.querySelector(
-      "#lick-explorer-typical-only",
-    ),
+    filter: documentObject.querySelector("#lick-explorer-filter"),
     status: documentObject.querySelector("#lick-explorer-status"),
   };
 }
@@ -156,12 +188,10 @@ export function createLickExplorer({
   const sourceIndex = new Map(
     allLicks.map((lick, lickIndex) => [lick, lickIndex]),
   );
-  let typicalOnly = elements.typicalOnly.checked;
-  let visibleLicks = typicalOnly
-    ? allLicks.filter(isTypicalLick)
-    : allLicks;
+  let filter = normalizeLickFilter(elements.filter.value);
+  let visibleLicks = filterLicks(allLicks, filter);
   if (!visibleLicks.length) {
-    throw new TypeError("The typical DTL lick selection is empty.");
+    throw new TypeError("The DTL lick selection is empty.");
   }
   let index = 0;
   let transposition = 0;
@@ -302,23 +332,21 @@ export function createLickExplorer({
     return move(1);
   }
 
-  function setTypicalOnly(enabled) {
-    const nextTypicalOnly = Boolean(enabled);
-    elements.typicalOnly.checked = nextTypicalOnly;
-    if (nextTypicalOnly === typicalOnly) return false;
+  function setFilter(value) {
+    const nextFilter = normalizeLickFilter(value);
+    elements.filter.value = nextFilter;
+    if (nextFilter === filter) return false;
 
     const previousLick = currentLick();
     const previousSourceIndex = sourceIndex.get(previousLick) ?? 0;
-    const nextLicks = nextTypicalOnly
-      ? allLicks.filter(isTypicalLick)
-      : allLicks;
+    const nextLicks = filterLicks(allLicks, nextFilter);
     if (!nextLicks.length) {
-      elements.typicalOnly.checked = typicalOnly;
+      elements.filter.value = filter;
       return false;
     }
 
     stop();
-    typicalOnly = nextTypicalOnly;
+    filter = nextFilter;
     visibleLicks = nextLicks;
     const preservedIndex = visibleLicks.indexOf(previousLick);
     const followingIndex = visibleLicks.findIndex(
@@ -333,6 +361,10 @@ export function createLickExplorer({
     transposition = 0;
     render();
     return true;
+  }
+
+  function setTypicalOnly(enabled) {
+    return setFilter(enabled ? LICK_FILTER.typical : LICK_FILTER.all);
   }
 
   function open() {
@@ -359,8 +391,8 @@ export function createLickExplorer({
   listen(elements.playOriginal, "click", () => void playOriginal());
   listen(elements.playRandom, "click", () => void playRandom());
   listen(elements.stop, "click", () => stop({ announce: true }));
-  listen(elements.typicalOnly, "change", () => {
-    setTypicalOnly(elements.typicalOnly.checked);
+  listen(elements.filter, "change", () => {
+    setFilter(elements.filter.value);
   });
   listen(documentObject, "keydown", (event) => {
     if (event.key === "Escape" && !elements.panel.hidden) {
@@ -384,16 +416,18 @@ export function createLickExplorer({
     playOriginal,
     playRandom,
     previous,
+    setFilter,
     setTypicalOnly,
     snapshot: () => ({
       autoRandom: elements.autoRandom.checked,
+      filter,
       id: currentLick().id,
       index,
       playing,
       sourceTotal: allLicks.length,
       total: visibleLicks.length,
       transposition,
-      typicalOnly,
+      typicalOnly: filter !== LICK_FILTER.all,
     }),
     stop,
   });

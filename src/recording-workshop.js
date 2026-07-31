@@ -9,7 +9,6 @@ import {
   mergeRecordingValidations,
   normalizeRecordingValidations,
   recordingChoiceAtPhrase,
-  recordingValidationsModule,
   youtubeIdFromValue,
 } from "./recording.js";
 
@@ -34,7 +33,6 @@ export function createRecordingWorkshop({
     throw new Error("Phrase preview loader unavailable");
   },
   onChange = () => {},
-  onDownload = () => {},
   onPlayPhrase = async () => {},
   onStopPhrase = () => {},
   translate = (key) => key,
@@ -505,14 +503,6 @@ export function createRecordingWorkshop({
       "recording-workshop-message";
   }
 
-  function exportData() {
-    onDownload(
-      "recording-validations.js",
-      recordingValidationsModule(validations()),
-      "text/javascript;charset=utf-8",
-    );
-  }
-
   function initializeOptions() {
     const previousSoloId = elements.recordingWorkshopSolo.value;
     reviewPhraseKeySet = new Set(getReviewPhraseKeys());
@@ -545,7 +535,6 @@ export function createRecordingWorkshop({
 
   return Object.freeze({
     adjustOffset,
-    exportData,
     markUnavailable,
     open,
     playPhrase,

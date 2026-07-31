@@ -182,6 +182,12 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
     elements.exportData.querySelector("[data-i18n]")?.dataset.i18n,
     "developer.exportData",
   );
+  assert.deepEqual(
+    [...document.querySelector("#lick-explorer-filter").options].map(
+      ({ value }) => value,
+    ),
+    ["all", "typical", "very-typical"],
+  );
 });
 
 test("les favoris et les originaux conservent leur structure publique", () => {
@@ -232,6 +238,7 @@ test("l’atelier de validation reste réservé au mode développeur", () => {
       "unavailable-recording-workshop",
     ],
   );
+  assert.equal(document.querySelector("#export-recording-validations"), null);
 });
 
 test("le format public reste un défi 3 × 3", () => {
@@ -421,6 +428,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./src/app-shell.js",
     "./src/audio-runtime.js",
     "./src/corpus-loader.js",
+    "./src/data-export.js",
     "./src/embedded-browser.js",
     "./src/exercise.js",
     "./src/i18n.js",

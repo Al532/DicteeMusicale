@@ -672,6 +672,16 @@ output {
   accent-color: var(--accent);
 }
 
+.lick-explorer-option select {
+  min-height: 38px;
+  margin-left: auto;
+  padding: 0 10px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
 .lick-explorer-status {
   min-height: 20px;
   margin: -6px 0 0;
@@ -844,10 +854,6 @@ output {
   min-height: 42px;
   padding-inline: 10px;
   font-size: 0.7rem;
-}
-
-.recording-workshop-export {
-  justify-self: end;
 }
 
 .page-heading {

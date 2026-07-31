@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=56" />
-    <script type="module" src="./src/app.js?v=56"></script>
+    <link rel="stylesheet" href="./styles.css?v=57" />
+    <script type="module" src="./src/app.js?v=57"></script>
   </head>
   <body>
     <div
@@ -169,7 +169,7 @@
                 <span data-i18n="developer.lickExplorer">Lick Explorer</span>
               </button>
               <button class="quiet-button" id="export-data" type="button">
-                <span data-i18n="developer.exportData">Export data</span>
+                <span data-i18n="developer.exportData">Export all data</span>
               </button>
             </div>
           </div>
@@ -324,11 +324,19 @@
                 New random key on every play
               </span>
             </label>
-            <label class="lick-explorer-option">
-              <input id="lick-explorer-typical-only" type="checkbox" />
-              <span data-i18n="lickExplorer.typicalOnly">
-                Typical licks only
-              </span>
+            <label class="lick-explorer-option" for="lick-explorer-filter">
+              <span data-i18n="lickExplorer.filter">Selection</span>
+              <select id="lick-explorer-filter">
+                <option value="all" data-i18n="lickExplorer.filter.all">
+                  All licks
+                </option>
+                <option value="typical" data-i18n="lickExplorer.filter.typical">
+                  Typical licks
+                </option>
+                <option value="very-typical" data-i18n="lickExplorer.filter.veryTypical">
+                  Very typical licks
+                </option>
+              </select>
             </label>
           </div>
           <p
@@ -491,13 +499,6 @@
                 <span data-i18n="recordingWorkshop.unavailable">Unavailable</span>
               </button>
             </div>
-            <button
-              class="text-button recording-workshop-export"
-              id="export-recording-validations"
-              type="button"
-            >
-              <span data-i18n="recordingWorkshop.export">Export validations</span>
-            </button>
           </div>
         </div>
       </section>

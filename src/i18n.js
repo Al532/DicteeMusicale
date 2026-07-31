@@ -42,7 +42,7 @@ const messages = {
     "embedded.copyFailed": "Unable to copy the link",
     "developer.tools": "Developer tools",
     "developer.mode": "Developer mode",
-    "developer.exportData": "Export data",
+    "developer.exportData": "Export all data",
     "developer.quickRating": "Quick rating",
     "developer.threeStarReview": "Review 3-star phrases",
     "developer.recordingWorkshop": "Recording workshop",
@@ -69,7 +69,10 @@ const messages = {
     "lickExplorer.originalKey": "Original key",
     "lickExplorer.randomKey": "Random key",
     "lickExplorer.autoRandom": "New random key on every play",
-    "lickExplorer.typicalOnly": "Typical licks only",
+    "lickExplorer.filter": "Selection",
+    "lickExplorer.filter.all": "All licks",
+    "lickExplorer.filter.typical": "Typical licks",
+    "lickExplorer.filter.veryTypical": "Very typical licks",
     "lickExplorer.status.original": "Original key selected.",
     "lickExplorer.status.transposed": ({ value }) =>
       `Transposition ${value > 0 ? "+" : ""}${value} selected.`,
@@ -113,7 +116,6 @@ const messages = {
     "recordingWorkshop.verify": "Validated",
     "recordingWorkshop.reject": "Wrong version",
     "recordingWorkshop.unavailable": "Unavailable",
-    "recordingWorkshop.export": "Export validations",
     "recordingWorkshop.invalid": "Enter a valid video and offset.",
     "recordingWorkshop.loading": "Loading phrase…",
     "recordingWorkshop.previewReady": ({ phrase, start }) =>
@@ -375,7 +377,7 @@ const messages = {
     "embedded.copyFailed": "Impossible de copier le lien",
     "developer.tools": "Outils développeur",
     "developer.mode": "Mode développeur",
-    "developer.exportData": "Exporter les données",
+    "developer.exportData": "Exporter toutes les données",
     "developer.quickRating": "Notation rapide",
     "developer.threeStarReview": "Revue des phrases 3 étoiles",
     "developer.recordingWorkshop": "Atelier enregistrements",
@@ -403,7 +405,10 @@ const messages = {
     "lickExplorer.randomKey": "Tonalité aléatoire",
     "lickExplorer.autoRandom":
       "Nouvelle tonalité aléatoire à chaque lecture",
-    "lickExplorer.typicalOnly": "Licks typiques uniquement",
+    "lickExplorer.filter": "Sélection",
+    "lickExplorer.filter.all": "Tous les licks",
+    "lickExplorer.filter.typical": "Licks typiques",
+    "lickExplorer.filter.veryTypical": "Licks très typiques",
     "lickExplorer.status.original": "Tonalité originale sélectionnée.",
     "lickExplorer.status.transposed": ({ value }) =>
       `Transposition ${value > 0 ? "+" : ""}${value} sélectionnée.`,
@@ -447,7 +452,6 @@ const messages = {
     "recordingWorkshop.verify": "Validé",
     "recordingWorkshop.reject": "Mauvaise version",
     "recordingWorkshop.unavailable": "Indisponible",
-    "recordingWorkshop.export": "Exporter les validations",
     "recordingWorkshop.invalid":
       "Saisis une vidéo et un décalage valides.",
     "recordingWorkshop.loading": "Chargement de la phrase…",

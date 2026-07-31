@@ -104,9 +104,6 @@ export function queryAppElements(documentObject) {
     unavailableRecordingWorkshop: documentObject.querySelector(
       "#unavailable-recording-workshop",
     ),
-    exportRecordingValidations: documentObject.querySelector(
-      "#export-recording-validations",
-    ),
     developerMode: documentObject.querySelector("#developer-mode"),
     developerOnly: documentObject.querySelectorAll("[data-developer-only]"),
     ratingWorkspace: documentObject.querySelector("#rating-workspace"),
@@ -231,9 +228,6 @@ export function bindAppEvents(elements, actions, documentObject) {
   );
   listen(elements.unavailableRecordingWorkshop, "click", () =>
     actions.markRecordingUnavailable(),
-  );
-  listen(elements.exportRecordingValidations, "click", () =>
-    actions.exportRecordingValidations(),
   );
   listen(elements.startChallenge, "click", () => actions.startNewChallenge());
   listen(elements.resumeChallenge, "click", () => actions.resumeChallenge());

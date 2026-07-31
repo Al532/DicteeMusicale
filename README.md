@@ -76,12 +76,11 @@ Le menu discret en bas de l’accueil permet d’activer les outils de maintenan
 - explorateur indépendant de 364 motifs mélodiquement distinctifs du Pattern
   History Explorer de Dig That Lick, avec lecture automatique au défilement,
   originale ou transposée ;
-- export du protocole.
+- export central des notes, réglages de phrases et synchronisations YouTube.
 
 L’atelier mémorise les vidéos validées, les mauvaises versions et les solos
-indisponibles, puis avance automatiquement au prochain solo sans décision. Son
-export produit un fichier `recording-validations.js` prêt à remplacer celui du
-dossier `data/`.
+indisponibles, puis avance automatiquement au prochain solo sans décision. Ces
+données sont incluses dans le CSV produit depuis l’accueil développeur.
 
 Les rejets structurels et les inférences globales à 1★ restent gérés par le
 protocole existant. Une note directe demeure toujours prioritaire.
@@ -119,11 +118,12 @@ jamais affichée. Les identifiants `dtl-ph-NNNN` suivent l’ordre du catalogue
 DTL ; aucun clustering ni « lick moyen » n’est ajouté. L’explorateur écarte
 ensuite les 289 motifs uniquement composés de répétitions, demi-tons et tons :
 les 364 motifs parcourus contiennent donc tous au moins un saut supérieur à
-deux demi-tons. Un filtre facultatif « Licks typiques » réduit cette liste à
-117 motifs : au moins dix occurrences, trois solos et trois interprètes, 90 %
-d’occurrences entièrement contenues dans une phrase, puis une saillance DTL
-`log_excess_prob` minimale corrigée selon la longueur du motif. Ces statistiques
-restent internes et aucune identité supplémentaire n’est exposée dans l’écran.
+deux demi-tons. Le sélecteur propose 117 « licks typiques » : au moins dix
+occurrences, trois solos et trois interprètes, 90 % d’occurrences entièrement
+contenues dans une phrase, puis une saillance DTL `log_excess_prob` minimale
+corrigée selon la longueur du motif. Le niveau « très typiques » conserve 58 de
+ces motifs en exigeant aussi `log_excess_prob >= 2`. Ces statistiques restent
+internes et aucune identité supplémentaire n’est exposée dans l’écran.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :
@@ -137,11 +137,14 @@ Le script lit la liste officielle des occurrences, choisit la première encore
 compatible avec l’export WJazzD local, puis extrait les hauteurs, timings et
 tempo dans le corpus compact.
 
-Pour intégrer le dernier export du protocole :
+Pour intégrer le dernier export central :
 
 ```bash
-npm run ratings:generate -- /chemin/vers/dictee-musicale-protocole-AAAA-MM-JJ.csv data/default-ratings.js
+npm run ratings:generate -- /chemin/vers/dictee-musicale-donnees-AAAA-MM-JJ.csv data/default-ratings.js
 ```
+
+Cette commande régénère aussi `data/default-phrase-settings.js` et, lorsque le
+CSV contient les colonnes YouTube, `data/recording-validations.js`.
 
 ## Licence
 

@@ -77,14 +77,13 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(app.element("#lick-explorer-panel").hidden, false);
       assert.equal(app.snapshot().lickExplorer.index, 0);
       assert.equal(app.snapshot().lickExplorer.total, 364);
-      await app.change("#lick-explorer-typical-only", undefined, {
-        checked: true,
-      });
-      assert.equal(app.snapshot().lickExplorer.typicalOnly, true);
+      await app.change("#lick-explorer-filter", "typical");
+      assert.equal(app.snapshot().lickExplorer.filter, "typical");
       assert.equal(app.snapshot().lickExplorer.total, 117);
-      await app.change("#lick-explorer-typical-only", undefined, {
-        checked: false,
-      });
+      await app.change("#lick-explorer-filter", "very-typical");
+      assert.equal(app.snapshot().lickExplorer.filter, "very-typical");
+      assert.equal(app.snapshot().lickExplorer.total, 58);
+      await app.change("#lick-explorer-filter", "all");
       assert.equal(app.snapshot().lickExplorer.total, 364);
       await app.click("#lick-explorer-next");
       assert.equal(app.snapshot().lickExplorer.index, 1);
@@ -905,6 +904,33 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         youtube.element("#recording-workshop-panel").hidden,
         true,
       );
+
+      let exportedBlob = null;
+      const originalCreateObjectUrl = URL.createObjectURL;
+      const originalRevokeObjectUrl = URL.revokeObjectURL;
+      const originalAnchorClick =
+        youtube.window.HTMLAnchorElement.prototype.click;
+      URL.createObjectURL = (blob) => {
+        exportedBlob = blob;
+        return "blob:central-export";
+      };
+      URL.revokeObjectURL = () => {};
+      youtube.window.HTMLAnchorElement.prototype.click = () => {};
+      try {
+        await youtube.click("#export-data");
+      } finally {
+        URL.createObjectURL = originalCreateObjectUrl;
+        URL.revokeObjectURL = originalRevokeObjectUrl;
+        youtube.window.HTMLAnchorElement.prototype.click = originalAnchorClick;
+      }
+      assert.ok(exportedBlob);
+      const exportedCsv = await exportedBlob.text();
+      assert.match(
+        exportedCsv,
+        /"youtube";"wjazzd-v2\.1-14"/,
+      );
+      assert.match(exportedCsv, /"wbU4zwhOGVg";"58\.2878"/);
+
       await youtube.click("#open-favorites");
       await youtube.click(".favorite-row-main");
       await youtube.waitFor(

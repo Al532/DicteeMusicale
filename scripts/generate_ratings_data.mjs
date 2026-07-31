@@ -1,6 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
+import {
+  normalizeRecordingValidation,
+  recordingValidationsModule,
+} from "../src/recording.js";
 
 function parseCsv(text) {
   const rows = [];
@@ -84,6 +88,16 @@ function parseEditedEvents(value) {
   }
 }
 
+function parseStringArray(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 const [
   inputPath,
   outputPath = "data/default-ratings.js",
@@ -91,10 +105,14 @@ const [
     dirname(outputPath),
     "default-phrase-settings.js",
   ),
+  recordingValidationsOutputPath = join(
+    dirname(outputPath),
+    "recording-validations.js",
+  ),
 ] = process.argv.slice(2);
 if (!inputPath) {
   throw new Error(
-    "Usage: node scripts/generate_ratings_data.mjs <export.csv> [data/default-ratings.js] [data/default-phrase-settings.js]",
+    "Usage: node scripts/generate_ratings_data.mjs <export.csv> [data/default-ratings.js] [data/default-phrase-settings.js] [data/recording-validations.js]",
   );
 }
 
@@ -102,12 +120,27 @@ const text = (await readFile(inputPath, "utf8")).replace(/^\uFEFF/, "");
 const [headers, ...rows] = parseCsv(text);
 const phraseRatings = {};
 const phraseSettings = {};
+const recordingValidations = {};
 const ratingScopes = [];
+const hasRecordingColumns = headers.includes("statut_youtube");
 
 for (const cells of rows) {
   const entry = objectFromRow(headers, cells);
   const scope = entry.portee || "phrase";
   const rating = Number(entry.etoiles);
+
+  if (scope === "youtube") {
+    const soloId = entry.identifiant;
+    const validation = normalizeRecordingValidation({
+      status: entry.statut_youtube,
+      youtubeId: entry.youtube_id,
+      offset: entry.decalage_youtube,
+      rejectedYoutubeIds: parseStringArray(entry.youtube_ids_rejetes),
+      updatedAt: entry.mise_a_jour,
+    });
+    if (soloId && validation) recordingValidations[soloId] = validation;
+    continue;
+  }
 
   if (scope === "phrase") {
     const phraseKey = entry.identifiant || entry.phrase_id;
@@ -202,10 +235,22 @@ export const DEFAULT_PHRASE_SETTINGS = Object.freeze(${JSON.stringify(
 )});
 `;
 
-await Promise.all([
+const writes = [
   writeFile(outputPath, ratingsSource),
   writeFile(phraseSettingsOutputPath, phraseSettingsSource),
-]);
+];
+if (hasRecordingColumns) {
+  writes.push(
+    writeFile(
+      recordingValidationsOutputPath,
+      recordingValidationsModule(recordingValidations),
+    ),
+  );
+}
+await Promise.all(writes);
 console.log(
-  `Generated ${Object.keys(phraseRatings).length} phrase ratings and ${ratingScopes.length} scope ratings in ${outputPath}; ${Object.keys(phraseSettings).length} phrase settings in ${phraseSettingsOutputPath}.`,
+  `Generated ${Object.keys(phraseRatings).length} phrase ratings and ${ratingScopes.length} scope ratings in ${outputPath}; ${Object.keys(phraseSettings).length} phrase settings in ${phraseSettingsOutputPath}` +
+    (hasRecordingColumns
+      ? `; ${Object.keys(recordingValidations).length} YouTube validations in ${recordingValidationsOutputPath}.`
+      : "."),
 );

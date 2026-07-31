@@ -12,6 +12,7 @@ import {
   createLickExplorer,
   createLickSequence,
   isTypicalLick,
+  isVeryTypicalLick,
   moveLickIndex,
   randomLickTransposition,
 } from "../src/lick-explorer.js";
@@ -73,6 +74,18 @@ test("le filtre typique conserve les motifs diffusés, phrasés et saillants", (
   assert.equal(
     DTL_LICKS.some(
       (lick) => !isTypicalLick(lick) && lick.occurrenceCount < 10,
+    ),
+    true,
+  );
+});
+
+test("le filtre très typique exige aussi une forte surreprésentation", () => {
+  const veryTypicalLicks = DTL_LICKS.filter(isVeryTypicalLick);
+
+  assert.equal(veryTypicalLicks.length, 58);
+  assert.equal(
+    veryTypicalLicks.every(
+      (lick) => isTypicalLick(lick) && lick.logExcessProb >= 2,
     ),
     true,
   );
@@ -209,7 +222,7 @@ test("la navigation joue automatiquement le nouveau lick", async () => {
   }
 });
 
-test("le filtre typique est activable sans perdre le catalogue complet", () => {
+test("le sélecteur passe du catalogue complet aux deux niveaux typiques", () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
   const audio = createAudioHarness();
   const explorer = createLickExplorer({
@@ -222,19 +235,26 @@ test("le filtre typique est activable sans perdre le catalogue complet", () => {
   try {
     explorer.open();
     assert.equal(explorer.snapshot().total, 364);
-    assert.equal(explorer.snapshot().typicalOnly, false);
+    assert.equal(explorer.snapshot().filter, "all");
 
-    assert.equal(explorer.setTypicalOnly(true), true);
+    assert.equal(explorer.setFilter("typical"), true);
     assert.equal(explorer.snapshot().total, 117);
     assert.equal(explorer.snapshot().sourceTotal, 364);
-    assert.equal(explorer.snapshot().typicalOnly, true);
+    assert.equal(explorer.snapshot().filter, "typical");
     assert.equal(isTypicalLick(DTL_LICKS.find(
       (lick) => lick.id === explorer.snapshot().id,
     )), true);
 
-    assert.equal(explorer.setTypicalOnly(false), true);
+    assert.equal(explorer.setFilter("very-typical"), true);
+    assert.equal(explorer.snapshot().total, 58);
+    assert.equal(explorer.snapshot().filter, "very-typical");
+    assert.equal(isVeryTypicalLick(DTL_LICKS.find(
+      (lick) => lick.id === explorer.snapshot().id,
+    )), true);
+
+    assert.equal(explorer.setFilter("all"), true);
     assert.equal(explorer.snapshot().total, 364);
-    assert.equal(explorer.snapshot().typicalOnly, false);
+    assert.equal(explorer.snapshot().filter, "all");
   } finally {
     explorer.destroy();
     dom.window.close();
