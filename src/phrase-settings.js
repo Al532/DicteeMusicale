@@ -30,7 +30,7 @@ export function normalizeEditedPhraseEvents(value) {
       !Number.isFinite(onset) ||
       onset < 0 ||
       !Number.isFinite(duration) ||
-      duration <= 0
+      duration < 0
     ) {
       return null;
     }

@@ -383,6 +383,37 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
+  await t.test("l’éditeur ouvre une phrase dont la source contient une durée nulle", async () => {
+    const phraseKey = "wjazzd-v2.1-181:17";
+    const app = await bootApp({
+      favorites: [phraseKey],
+      storage: {
+        [SETTINGS_KEY]: {
+          realSpeed: 100,
+          developerMode: true,
+          transposeOriginal: false,
+        },
+      },
+    });
+    try {
+      await app.click("#open-favorites");
+      await app.click(".favorite-row-main");
+      await app.waitFor(
+        () => app.snapshot().exercise,
+        "phrase avec durée MIDI nulle",
+      );
+
+      await app.click("#open-phrase-editor");
+      await app.waitFor(
+        () => app.snapshot().phraseEditorOpen,
+        "éditeur MIDI ouvert malgré la durée nulle",
+      );
+      assert.equal(app.element("#phrase-editor-modal").hidden, false);
+    } finally {
+      app.close();
+    }
+  });
+
   await t.test("un réglage local hydrate l’ambitus avant le premier ton", async () => {
     const phraseKey = "wjazzd-v2.1-1:1";
     const app = await bootApp({
