@@ -32,40 +32,6 @@ DEFAULT_PERFORMERS = [
     "Stan Getz",
 ]
 
-AUDIO_REFERENCES = {
-    ("Charlie Parker", "Billie's Bounce"): {
-        "file": "audio/parker/billies-bounce.mp3",
-        "source": "https://www.youtube.com/watch?v=89jYv-h7OJA",
-        "offset": 39.466,
-    },
-    ("Charlie Parker", "Donna Lee"): {
-        "file": "audio/parker/donna-lee.mp3",
-        "source": "https://www.youtube.com/watch?v=jvMeB6dHP94",
-        "offset": 31.786,
-    },
-    ("Charlie Parker", "Ornithology"): {
-        "file": "audio/parker/ornithology.mp3",
-        "source": "https://www.youtube.com/watch?v=OKQcgu8dbuw",
-        "offset": 37.082,
-    },
-    ("Charlie Parker", "Scrapple from the Apple"): {
-        "file": "audio/parker/scrapple-from-the-apple.mp3",
-        "source": "https://www.youtube.com/watch?v=GQ84uSuzXTc",
-        "offset": 23.714,
-    },
-    ("Charlie Parker", "Thriving on a Riff"): {
-        "file": "audio/parker/thriving-on-a-riff.mp3",
-        "source": "https://www.youtube.com/watch?v=SwJBVVgGfS0",
-        "offset": 34.874,
-    },
-    ("Charlie Parker", "Yardbird Suite"): {
-        "file": "audio/parker/yardbird-suite.mp3",
-        "source": "https://www.youtube.com/watch?v=HqGJt6ca6eY",
-        "offset": 39.634,
-    },
-}
-
-
 def build_corpus(database: Path) -> tuple[list[dict], list[dict], dict[str, list]]:
     connection = sqlite3.connect(database)
     connection.row_factory = sqlite3.Row
@@ -115,7 +81,6 @@ def build_corpus(database: Path) -> tuple[list[dict], list[dict], dict[str, list
             """,
             (melid,),
         ).fetchall()
-        audio = AUDIO_REFERENCES.get((info["performer"], info["title"]))
         solo = {
             "id": f"wjazzd-v2.1-{melid}",
             "performer": info["performer"],
@@ -144,12 +109,6 @@ def build_corpus(database: Path) -> tuple[list[dict], list[dict], dict[str, list
             for row in beats
             if row["chord"] and row["chord"].strip()
         ]
-        if audio:
-            solo.update(
-                audioFile=audio["file"],
-                audioSourceUrl=audio["source"],
-                audioOffset=audio["offset"],
-            )
         solos.append(solo)
 
     counts = Counter(solo["performer"] for solo in solos)

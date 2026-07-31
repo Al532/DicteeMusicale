@@ -78,7 +78,6 @@ export function normalizeGlobalSettings(value = {}) {
       MAX_REAL_SPEED_PERCENT,
     ),
     developerMode: Boolean(settings.developerMode),
-    transposeOriginal: Boolean(settings.transposeOriginal),
     melodySound: DEFAULT_MELODY_SOUND,
   };
 }
@@ -88,7 +87,6 @@ export function serializedGlobalSettings(value = {}) {
   return {
     realSpeed: settings.realSpeed,
     developerMode: settings.developerMode,
-    transposeOriginal: settings.transposeOriginal,
   };
 }
 

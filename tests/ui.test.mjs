@@ -192,10 +192,7 @@ test("les favoris et les originaux conservent leur structure publique", () => {
   assert.equal(elements.sourceSummary.hidden, true);
   assert.equal(elements.originalControls.hidden, true);
   assert.equal(elements.playOriginal.id, "play-original");
-  assert.equal(
-    elements.transposeOriginalControl.contains(elements.transposeOriginal),
-    true,
-  );
+  assert.equal(document.querySelector("#transpose-original"), null);
   assert.equal(document.querySelector("#audio-source-link"), null);
   assert.equal(elements.recordingModal.hidden, true);
   assert.equal(elements.recordingPlayer.tagName, "IFRAME");
@@ -212,6 +209,10 @@ test("l’atelier de validation reste réservé au mode développeur", () => {
   assert.equal(elements.recordingWorkshopPanel.hidden, true);
   assert.equal(elements.recordingWorkshopPlayer.tagName, "IFRAME");
   assert.equal(elements.recordingOffsetButtons.length, 4);
+  assert.equal(
+    elements.editRecordingWorkshopPhrase.dataset.i18n,
+    "phraseEditor.open",
+  );
   assert.deepEqual(
     [
       elements.verifyRecordingWorkshop,
@@ -416,7 +417,6 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./src/embedded-browser.js",
     "./src/exercise.js",
     "./src/i18n.js",
-    "./src/audio.js",
     "./src/original-player.js",
     "./src/persistence.js",
     "./src/phrase-editor.js",
@@ -440,7 +440,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
   }
   assert.equal(
     [...shellAssets].some((asset) => asset.startsWith("./audio/parker/")),
-    true,
+    false,
   );
   assert.equal(
     [...shellAssets].some(

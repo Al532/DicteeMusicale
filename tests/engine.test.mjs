@@ -412,27 +412,15 @@ test("la sélection vide est refusée seulement pour les phrases réelles", () =
   );
 });
 
-test("seuls les six solos calibrés exposent un enregistrement", async () => {
-  const withAudio = WJAZZD_SOLOS.filter((solo) => solo.audioFile);
-  assert.equal(withAudio.length, 6);
-  assert.ok(withAudio.every((solo) => solo.performer === "Charlie Parker"));
-  await Promise.all(
-    withAudio.map(async (solo) => {
-      assert.match(solo.audioFile, /^audio\/parker\/[a-z0-9-]+\.mp3$/);
-      assert.match(
-        solo.audioSourceUrl,
-        /^https:\/\/www\.youtube\.com\/watch\?v=/,
-      );
-      assert.ok(Number.isFinite(solo.audioOffset));
-      const file = await stat(new URL(`../${solo.audioFile}`, import.meta.url));
-      assert.ok(file.size > 1_000_000);
-    }),
-  );
-  assert.ok(
-    WJAZZD_SOLOS
-      .filter((solo) => !solo.audioFile)
-      .every((solo) => solo.audioSourceUrl === undefined),
-  );
+test("les séquences n’exposent plus d’enregistrement local", () => {
+  const result = makeSequence({
+    random: seededRandom(42),
+    selectedPerformers: ["Charlie Parker"],
+    targetPhraseKey: "wjazzd-v2.1-55:3",
+  });
+  assert.equal("audioFile" in result.meta.source, false);
+  assert.equal("audioSourceUrl" in result.meta.source, false);
+  assert.equal("audioOffset" in result.meta.source, false);
 });
 
 test("vingt notes est le défaut mais chaque phrase accepte 1 note à sa longueur complète", () => {

@@ -197,6 +197,19 @@ function createAudioHarness(clock) {
       };
     }
 
+    createDynamicsCompressor() {
+      return {
+        attack: audioParam(0.003),
+        connect(target) {
+          return target;
+        },
+        knee: audioParam(30),
+        ratio: audioParam(12),
+        release: audioParam(0.25),
+        threshold: audioParam(-24),
+      };
+    }
+
     createGain() {
       return {
         connect(target) {

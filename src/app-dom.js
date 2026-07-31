@@ -81,6 +81,9 @@ export function queryAppElements(documentObject) {
     playRecordingWorkshopPhrase: documentObject.querySelector(
       "#play-recording-workshop-phrase",
     ),
+    editRecordingWorkshopPhrase: documentObject.querySelector(
+      "#edit-recording-workshop-phrase",
+    ),
     recordingWorkshopPreview: documentObject.querySelector(
       "#recording-workshop-preview",
     ),
@@ -136,10 +139,6 @@ export function queryAppElements(documentObject) {
     sourceLink: documentObject.querySelector("#source-link"),
     originalControls: documentObject.querySelector("#original-controls"),
     playOriginal: documentObject.querySelector("#play-original"),
-    transposeOriginalControl: documentObject.querySelector(
-      "#transpose-original-control",
-    ),
-    transposeOriginal: documentObject.querySelector("#transpose-original"),
     recordingModal: documentObject.querySelector("#recording-modal"),
     recordingTitle: documentObject.querySelector("#recording-title"),
     recordingPlayer: documentObject.querySelector("#recording-player"),
@@ -216,6 +215,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.playRecordingWorkshopPhrase, "click", () =>
     actions.playSelectedRecordingWorkshopPhrase(),
   );
+  listen(elements.editRecordingWorkshopPhrase, "click", () =>
+    actions.editSelectedRecordingWorkshopPhrase(),
+  );
   listen(elements.verifyRecordingWorkshop, "click", () =>
     actions.verifyRecordingWorkshop(),
   );
@@ -281,7 +283,6 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.copyPhraseId, "click", () =>
     actions.copyCurrentPhraseId(),
   );
-  listen(elements.transposeOriginal, "change", () => actions.saveSettings());
   listen(elements.exportData, "click", () => actions.exportData());
   listen(elements.undoRating, "click", () => actions.undoLastRating());
   listen(elements.fullscreenButton, "click", () => actions.toggleGameMode());

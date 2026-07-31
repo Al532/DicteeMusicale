@@ -105,6 +105,7 @@ const appRenderer = createAppRenderer({
   pitchClass,
   translate: t,
 });
+let phraseEditorTarget = null;
 const phraseEditor = createPhraseEditor({
   documentObject: document,
   noteLabel: appRenderer.noteLabel,
@@ -138,8 +139,6 @@ const {
   preloadMelodySamples,
 } = audioRuntime;
 const originalPlayer = createOriginalPlayer({
-  audioRuntime,
-  baseUrl: document.baseURI,
   documentObject: document,
   elements,
   getRecordingValidations: () => recordingValidations,
@@ -219,7 +218,6 @@ function loadSettings() {
   melodySound = settings.melodySound;
   audioRuntime.setMelodySound(melodySound);
   elements.developerMode.checked = developerMode;
-  elements.transposeOriginal.checked = settings.transposeOriginal;
   renderDeveloperMode();
   renderSpeedSetting();
 }
@@ -228,7 +226,6 @@ function saveSettings() {
   saveGlobalSettings({
     realSpeed: realSpeedPercent,
     developerMode,
-    transposeOriginal: elements.transposeOriginal.checked,
   });
 }
 
@@ -318,6 +315,13 @@ function previewRecordingWorkshop() {
 
 function playSelectedRecordingWorkshopPhrase() {
   void recordingWorkshop?.playPhrase();
+}
+
+function editSelectedRecordingWorkshopPhrase() {
+  const phraseKey = recordingWorkshop?.selectedPhraseKey();
+  if (!phraseKey) return;
+  recordingWorkshop.stopPreview();
+  void openPhraseEditorForPhrase(phraseKey, { origin: "workshop" });
 }
 
 function verifyRecordingWorkshop() {
@@ -972,31 +976,43 @@ function renderPhraseControls() {
   });
 }
 
-async function openCurrentPhraseEditor() {
-  const source = exercise?.source;
-  if (
-    !developerMode ||
-    !source?.phraseKey ||
-    source.kind !== "transcription" ||
-    phraseSettingsLocked()
-  ) {
-    return;
-  }
-  const phraseKey = source.phraseKey;
+async function openPhraseEditorForPhrase(
+  phraseKey,
+  { origin = "exercise" } = {},
+) {
+  if (!developerMode || !phraseKey) return;
+  if (origin === "exercise" && phraseSettingsLocked()) return;
+  const openButton = origin === "workshop"
+    ? elements.editRecordingWorkshopPhrase
+    : elements.openPhraseEditor;
+  phraseEditorTarget = null;
   stopAllTones();
   acceptingInput = false;
-  elements.openPhraseEditor.disabled = true;
+  openButton.disabled = true;
   try {
     const loaded = await loadPhraseCorpus(phraseKey);
-    if (exercise?.source?.phraseKey !== phraseKey || !developerMode) return;
+    const stillCurrent = origin === "workshop"
+      ? !elements.recordingWorkshopPanel.hidden &&
+        recordingWorkshop?.selectedPhraseKey() === phraseKey
+      : exercise?.source?.phraseKey === phraseKey;
+    if (!stillCurrent || !developerMode) return;
     const originalEvents = loaded.solo.events.slice(
       loaded.phrase[0],
       loaded.phrase[1] + 1,
+    );
+    const storedEditedEvents = normalizeEditedPhraseEvents(
+      phraseSettings[phraseKey]?.editedEvents,
     );
     const materialized = materializeLegacyPhraseEvents(
       originalEvents,
       phraseSettings[phraseKey],
     );
+    phraseEditorTarget = {
+      phraseKey,
+      fullPhraseNoteCount:
+        storedEditedEvents?.length ?? originalEvents.length,
+      origin,
+    };
     phraseEditor.open({
       editedEvents: materialized.events,
       originalEvents,
@@ -1005,14 +1021,67 @@ async function openCurrentPhraseEditor() {
       title: loaded.solo.title,
     });
   } catch (error) {
-    elements.feedback.className = "feedback error";
-    elements.feedback.textContent = localizeError(
+    const message = localizeError(
       error instanceof Error ? error.message : t("phrase.unavailable"),
     );
-    restoreExerciseInput();
+    if (origin === "workshop") {
+      elements.recordingWorkshopMessage.className =
+        "recording-workshop-message error";
+      elements.recordingWorkshopMessage.textContent = message;
+    } else {
+      elements.feedback.className = "feedback error";
+      elements.feedback.textContent = message;
+      restoreExerciseInput();
+    }
   } finally {
-    renderPhraseControls();
+    openButton.disabled = false;
+    if (origin === "exercise") renderPhraseControls();
   }
+}
+
+async function openCurrentPhraseEditor() {
+  const source = exercise?.source;
+  if (!source?.phraseKey || source.kind !== "transcription") return;
+  await openPhraseEditorForPhrase(source.phraseKey);
+}
+
+function savePhraseSettingsForKey(
+  phraseKey,
+  nextSettings,
+  {
+    editedEvents = phraseSettings[phraseKey]?.editedEvents,
+    fullPhraseNoteCount,
+    reloadCurrent = false,
+  } = {},
+) {
+  if (
+    !developerMode ||
+    !phraseKey ||
+    !Number.isFinite(fullPhraseNoteCount) ||
+    (reloadCurrent && phraseSettingsLocked())
+  ) {
+    return false;
+  }
+  const normalized = resolvePhraseSettings(
+    nextSettings,
+    fullPhraseNoteCount,
+  );
+  const normalizedEditedEvents = normalizeEditedPhraseEvents(editedEvents);
+  localPhraseSettings[phraseKey] = {
+    notesMax: normalized.notesMax,
+    ignoredShortestNotes: normalized.ignoredShortestNotes,
+    ...(normalizedEditedEvents
+      ? { editedEvents: normalizedEditedEvents }
+      : {}),
+    updatedAt: new Date().toISOString(),
+  };
+  refreshPhraseSettingsFromLocal();
+  writeJson(PHRASE_SETTINGS_KEY, localPhraseSettings);
+  if (reloadCurrent && exercise?.source?.phraseKey === phraseKey) {
+    renderPhraseControls();
+    schedulePhraseSettingsReload();
+  }
+  return true;
 }
 
 function saveCurrentPhraseSettings(
@@ -1031,31 +1100,26 @@ function saveCurrentPhraseSettings(
   ) {
     return false;
   }
-  const normalized = resolvePhraseSettings(
-    nextSettings,
+  return savePhraseSettingsForKey(source.phraseKey, nextSettings, {
+    editedEvents,
     fullPhraseNoteCount,
-  );
-  const normalizedEditedEvents = normalizeEditedPhraseEvents(editedEvents);
-  localPhraseSettings[source.phraseKey] = {
-    notesMax: normalized.notesMax,
-    ignoredShortestNotes: normalized.ignoredShortestNotes,
-    ...(normalizedEditedEvents
-      ? { editedEvents: normalizedEditedEvents }
-      : {}),
-    updatedAt: new Date().toISOString(),
-  };
-  refreshPhraseSettingsFromLocal();
-  writeJson(PHRASE_SETTINGS_KEY, localPhraseSettings);
-  renderPhraseControls();
-  schedulePhraseSettingsReload();
-  return true;
+    reloadCurrent: true,
+  });
 }
 
 function saveCurrentPhraseEvents(editedEvents, originalEvents) {
   const normalizedOriginal = normalizeEditedPhraseEvents(originalEvents);
   const normalizedEdited = normalizeEditedPhraseEvents(editedEvents);
-  const current = currentResolvedPhraseSettings();
-  if (!normalizedOriginal || !current) return false;
+  const target = phraseEditorTarget ?? {
+    phraseKey: exercise?.source?.phraseKey,
+    fullPhraseNoteCount: exercise?.source?.fullPhraseNoteCount,
+    origin: "exercise",
+  };
+  const current = resolvePhraseSettings(
+    phraseSettings[target.phraseKey],
+    target.fullPhraseNoteCount,
+  );
+  if (!normalizedOriginal || !target.phraseKey) return false;
   const fullPhraseNoteCount =
     normalizedEdited?.length ?? normalizedOriginal.length;
   const wasUsingFullPhrase =
@@ -1066,7 +1130,8 @@ function saveCurrentPhraseEvents(editedEvents, originalEvents) {
         current.notesMax - current.ignoredShortestNotes,
         fullPhraseNoteCount,
       );
-  return saveCurrentPhraseSettings(
+  const saved = savePhraseSettingsForKey(
+    target.phraseKey,
     {
       notesMax,
       ignoredShortestNotes: 0,
@@ -1074,8 +1139,11 @@ function saveCurrentPhraseEvents(editedEvents, originalEvents) {
     {
       editedEvents: normalizedEdited,
       fullPhraseNoteCount,
+      reloadCurrent: target.origin === "exercise",
     },
   );
+  phraseEditorTarget = null;
+  return saved;
 }
 
 function adjustCurrentPhraseSettings(field, delta) {
@@ -2059,6 +2127,7 @@ bindAppEvents(
     closeRecordingWorkshop,
     closeRecordingPlayer: originalPlayer.close,
     copyCurrentPhraseId,
+    editSelectedRecordingWorkshopPhrase,
     exportData,
     exportRecordingValidations,
     goToNextExercise,
@@ -2074,7 +2143,6 @@ bindAppEvents(
     previewRecordingWorkshop,
     rejectRecordingWorkshop,
     resumeChallenge,
-    saveSettings,
     selectRecordingWorkshopCandidate,
     selectRecordingWorkshopSolo,
     setDeveloperMode,

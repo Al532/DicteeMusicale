@@ -156,7 +156,6 @@ const messages = {
     "rating.twoStars": "Rate 2 stars",
     "rating.threeStars": "Rate 3 stars",
     "game.listenOriginal": "Play original",
-    "game.transpose": "Transpose",
     "recording.kicker": "Original recording",
     "recording.close": "Close recording",
     "recording.player": "Original recording player",
@@ -203,12 +202,6 @@ const messages = {
     "audio.listenCarefully": "Listen carefully…",
     "instrument.clarinet": "clarinet",
     "instrument.piano": "piano",
-    "audio.loadingRecording": "Loading recording…",
-    "audio.transposingRecording": "Transposing recording…",
-    "audio.recording": ({ transposition }) =>
-      `Original recording${transposition ? ` transposed ${transposition > 0 ? "+" : ""}${transposition}` : ""}…`,
-    "audio.readError": "Unable to play this recording.",
-    "audio.originalStopped": "Original playback stopped. Your turn.",
     "rating.prompt": "Rate 1, 2 or 3 stars — keys 1, 2 or 3.",
     "rating.adjustedPreview":
       "Saved. Listen to the adjusted excerpt, then refine it with − / +.",
@@ -468,7 +461,6 @@ const messages = {
     "rating.twoStars": "Noter 2 étoiles",
     "rating.threeStars": "Noter 3 étoiles",
     "game.listenOriginal": "Écouter l’original",
-    "game.transpose": "Transposer",
     "recording.kicker": "Enregistrement original",
     "recording.close": "Fermer l’enregistrement",
     "recording.player": "Lecteur de l’enregistrement original",
@@ -516,12 +508,6 @@ const messages = {
     "audio.listenCarefully": "Écoute bien…",
     "instrument.clarinet": "clarinette",
     "instrument.piano": "piano",
-    "audio.loadingRecording": "Chargement de l’enregistrement…",
-    "audio.transposingRecording": "Transposition de l’enregistrement…",
-    "audio.recording": ({ transposition }) =>
-      `Enregistrement original${transposition ? ` transposé ${transposition > 0 ? "+" : ""}${transposition}` : ""}…`,
-    "audio.readError": "Impossible de lire cet enregistrement.",
-    "audio.originalStopped": "Lecture originale arrêtée. À toi.",
     "rating.prompt": "Attribue 1, 2 ou 3 étoiles — touches 1, 2 ou 3.",
     "rating.adjustedPreview":
       "Enregistré. Écoute l’extrait ajusté, puis affine-le avec − / +.",

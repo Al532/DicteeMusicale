@@ -42,7 +42,6 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.deepEqual(app.storageJson(SETTINGS_KEY), {
         realSpeed: 75,
         developerMode: false,
-        transposeOriginal: false,
       });
       assert.deepEqual(app.serviceWorkerCalls, ["./sw.js"]);
       assert.equal(
@@ -84,10 +83,11 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     try {
       assert.equal(restarted.element("#game-speed").value, "75");
       assert.equal(restarted.element("#developer-mode").checked, true);
-      assert.equal(
-        restarted.element("#transpose-original").checked,
-        true,
-      );
+      assert.equal(restarted.document.querySelector("#transpose-original"), null);
+      assert.deepEqual(restarted.storageJson(SETTINGS_KEY), {
+        realSpeed: 75,
+        developerMode: true,
+      });
     } finally {
       restarted.close();
     }
@@ -701,7 +701,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
-  await t.test("original Parker local et intégration validée bornée", async () => {
+  await t.test("les originaux utilisent uniquement les intégrations YouTube validées", async () => {
     const parker = await bootApp({
       favorites: ["wjazzd-v2.1-55:3"],
     });
@@ -713,19 +713,25 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         "phrase Parker",
       );
       const source = parker.snapshot().exercise.source;
-      assert.equal(source.audioFile, "audio/parker/donna-lee.mp3");
+      assert.equal(source.audioFile, undefined);
       assert.equal(parker.element("#play-original").hidden, false);
       await parker.click("#play-original");
-      assert.ok(
-        parker.fetchCalls.some((url) =>
-          /\/audio\/parker\/donna-lee\.mp3$/.test(url),
-        ),
+      assert.equal(
+        parker.fetchCalls.some((url) => url.includes("/audio/parker/")),
+        false,
       );
       assert.equal(parker.snapshot().isOriginalPlaying, true);
-      const sliced = parker.audio.buffers.at(-1);
-      const expectedDuration =
-        source.onsetEnd - source.onsetStart + 0.25;
-      assert.ok(Math.abs(sliced.duration - expectedDuration) < 0.01);
+      assert.equal(parker.element("#recording-modal").hidden, false);
+      const recording = new URL(parker.element("#recording-player").src);
+      assert.equal(recording.pathname, "/embed/02apSoxB7B4");
+      assert.equal(
+        recording.searchParams.get("start"),
+        String(Math.floor(30.1666 + source.onsetStart)),
+      );
+      assert.equal(
+        recording.searchParams.get("end"),
+        String(Math.ceil(30.1666 + source.onsetEnd + 0.25)),
+      );
     } finally {
       parker.close();
     }
@@ -779,6 +785,28 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
           ...youtube.element("#recording-workshop-phrase").options,
         ].map(({ value }) => value),
         ["2", "6"],
+      );
+
+      const workshopPhraseKey = "wjazzd-v2.1-14:2";
+      await youtube.click("#edit-recording-workshop-phrase");
+      await youtube.waitFor(
+        () => youtube.snapshot().phraseEditorOpen,
+        "éditeur MIDI ouvert depuis l’atelier",
+      );
+      const workshopFirstMidi = Number(
+        youtube.element('.phrase-editor-note[data-index="0"]').dataset.midi,
+      );
+      await youtube.click('[data-phrase-editor-action="pitch-increase"]');
+      await youtube.click("#phrase-editor-save");
+      assert.equal(youtube.snapshot().phraseEditorOpen, false);
+      assert.equal(
+        youtube.element("#recording-workshop-panel").hidden,
+        false,
+      );
+      assert.equal(
+        youtube.storageJson(PHRASE_SETTINGS_KEY)[workshopPhraseKey]
+          .editedEvents[0][0],
+        workshopFirstMidi + 1,
       );
 
       const sourceCountBeforePhrase = youtube.audio.sources.length;

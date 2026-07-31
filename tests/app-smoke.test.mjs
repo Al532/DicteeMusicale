@@ -56,7 +56,6 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
     {
       realSpeed: 75,
       developerMode: false,
-      transposeOriginal: false,
     },
   );
   assert.equal(

@@ -176,6 +176,12 @@ export const RECORDING_VALIDATIONS = Object.freeze({
     ],
     "updatedAt": "2026-07-31T08:11:48.771Z"
   },
+  "wjazzd-v2.1-52": {
+    "status": "verified",
+    "youtubeId": "89jYv-h7OJA",
+    "offset": 39.466,
+    "updatedAt": "2026-07-31T16:14:49.000Z"
+  },
   "wjazzd-v2.1-55": {
     "status": "verified",
     "youtubeId": "02apSoxB7B4",
@@ -202,6 +208,12 @@ export const RECORDING_VALIDATIONS = Object.freeze({
     ],
     "updatedAt": "2026-07-31T08:18:07.399Z"
   },
+  "wjazzd-v2.1-63": {
+    "status": "verified",
+    "youtubeId": "GQ84uSuzXTc",
+    "offset": 23.714,
+    "updatedAt": "2026-07-31T16:14:49.000Z"
+  },
   "wjazzd-v2.1-65": {
     "status": "wrong-version",
     "rejectedYoutubeIds": [
@@ -214,6 +226,18 @@ export const RECORDING_VALIDATIONS = Object.freeze({
     "youtubeId": "NbVCwM_15W8",
     "offset": 47,
     "updatedAt": "2026-07-31T08:21:49.980Z"
+  },
+  "wjazzd-v2.1-67": {
+    "status": "verified",
+    "youtubeId": "SwJBVVgGfS0",
+    "offset": 34.874,
+    "updatedAt": "2026-07-31T16:14:49.000Z"
+  },
+  "wjazzd-v2.1-68": {
+    "status": "verified",
+    "youtubeId": "HqGJt6ca6eY",
+    "offset": 39.634,
+    "updatedAt": "2026-07-31T16:14:49.000Z"
   },
   "wjazzd-v2.1-69": {
     "status": "wrong-version",

@@ -35,7 +35,7 @@ test("les sources directes et décisions intégrées non validées restent invis
   );
   assert.deepEqual(distribution, {
     "wrong-version": 20,
-    verified: 28,
+    verified: 32,
     unavailable: 2,
   });
   assert.deepEqual(
@@ -46,6 +46,34 @@ test("les sources directes et décisions intégrées non validées restent invis
     }),
     [],
   );
+});
+
+test("les anciens fichiers Parker sont remplacés par leurs vidéos YouTube", () => {
+  const expected = {
+    "wjazzd-v2.1-52": ["89jYv-h7OJA", 39.466],
+    "wjazzd-v2.1-55": ["02apSoxB7B4", 30.1666],
+    "wjazzd-v2.1-61": ["Z2tvlp7RnlM", 35.951],
+    "wjazzd-v2.1-63": ["GQ84uSuzXTc", 23.714],
+    "wjazzd-v2.1-67": ["SwJBVVgGfS0", 34.874],
+    "wjazzd-v2.1-68": ["HqGJt6ca6eY", 39.634],
+  };
+  for (const [soloId, [youtubeId, offset]] of Object.entries(expected)) {
+    assert.deepEqual(
+      recordingsAtPhrase({ soloId, onsetStart: 0, onsetEnd: 1 })[0],
+      {
+        youtubeId,
+        exactStart: offset,
+        exactEnd: offset + 1.25,
+        start: Math.floor(offset),
+        end: Math.ceil(offset + 1.25),
+        embedUrl:
+          `https://www.youtube-nocookie.com/embed/${youtubeId}` +
+          `?autoplay=1&playsinline=1&rel=0&enablejsapi=1` +
+          `&start=${Math.floor(offset)}&end=${Math.ceil(offset + 1.25)}`,
+      },
+      soloId,
+    );
+  }
 });
 
 test("seule une validation explicite fournit le lecteur intégré borné", () => {

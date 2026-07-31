@@ -1,17 +1,16 @@
 const CACHE_PREFIX = "dictee-musicale-";
-const SHELL_CACHE = `${CACHE_PREFIX}shell-v51`;
+const SHELL_CACHE = `${CACHE_PREFIX}shell-v52`;
 const CORPUS_CACHE = `${CACHE_PREFIX}corpus-0bebff94`;
 const CORPUS_MANIFEST = "./data/wjazzd-blocks/manifest.json";
 const CORPUS_BLOCK_PATH = "/data/wjazzd-blocks/block-";
 
 const CORE_SHELL = [
   "./index.html",
-  "./styles.css?v=51",
-  "./src/app.js?v=51",
+  "./styles.css?v=52",
+  "./src/app.js?v=52",
   "./src/app-dom.js",
   "./src/app-renderer.js",
   "./src/app-shell.js",
-  "./src/audio.js",
   "./src/audio-runtime.js",
   "./src/corpus-loader.js",
   "./src/embedded-browser.js",
@@ -46,12 +45,6 @@ const OFFLINE_MEDIA = [
     { length: 21 },
     (_, index) => `./audio/bass/${index + 28}.mp3`,
   ),
-  "./audio/parker/billies-bounce.mp3",
-  "./audio/parker/donna-lee.mp3",
-  "./audio/parker/ornithology.mp3",
-  "./audio/parker/scrapple-from-the-apple.mp3",
-  "./audio/parker/thriving-on-a-riff.mp3",
-  "./audio/parker/yardbird-suite.mp3",
 ];
 
 async function fetchAndCache(cache, resource) {

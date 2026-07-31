@@ -4,8 +4,11 @@ import assert from "node:assert/strict";
 import {
   BASS_GAIN,
   DEFAULT_MELODY_SOUND,
+  MASTER_GAIN,
+  MASTER_LIMITER_THRESHOLD_DB,
   MELODY_EMPHASIS_GAIN,
   MELODY_SAMPLE_INSTRUMENTS,
+  SYNTHETIC_MELODY_GAIN,
   createAudioRuntime,
   keyboardMidiNotes,
 } from "../src/audio-runtime.js";
@@ -80,6 +83,7 @@ class FakeAudioContext {
     this.gains = [];
     this.sources = [];
     this.filters = [];
+    this.compressors = [];
     this.buffers = [];
     this.decodeCalls = [];
     this.resumeCalls = 0;
@@ -119,6 +123,17 @@ class FakeAudioContext {
     filter.Q = { value: 0 };
     this.filters.push(filter);
     return filter;
+  }
+
+  createDynamicsCompressor() {
+    const compressor = new FakeAudioNode();
+    compressor.threshold = new FakeAudioParam(-24);
+    compressor.knee = new FakeAudioParam(30);
+    compressor.ratio = new FakeAudioParam(12);
+    compressor.attack = new FakeAudioParam(0.003);
+    compressor.release = new FakeAudioParam(0.25);
+    this.compressors.push(compressor);
+    return compressor;
   }
 
   createBuffer(channels, frameCount, sampleRate) {
@@ -221,10 +236,17 @@ test("le son synthétique conserve oscillateurs, enveloppes et fallback", () => 
   assert.deepEqual(context.oscillators[0].stopCalls, [[11]]);
   assert.deepEqual(context.gains[0].gain.events, [
     ["set", 0.0001, 10.5],
-    ["exponential", 0.145, 10.512],
-    ["set", 0.145, 10.945],
+    ["exponential", SYNTHETIC_MELODY_GAIN, 10.512],
+    ["set", SYNTHETIC_MELODY_GAIN, 10.945],
     ["exponential", 0.0001, 10.98],
   ]);
+  assert.equal(context.gains.at(-1).gain.value, MASTER_GAIN);
+  assert.equal(context.compressors.length, 1);
+  assert.equal(
+    context.compressors[0].threshold.value,
+    MASTER_LIMITER_THRESHOLD_DB,
+  );
+  assert.equal(context.compressors[0].ratio.value, 20);
   assert.equal(runtime.activeSourceCount(), 2);
   context.oscillators[0].emit("ended");
   assert.equal(runtime.activeSourceCount(), 1);

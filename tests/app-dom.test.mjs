@@ -21,6 +21,10 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
     elements.playRecordingWorkshopPhrase.id,
     "play-recording-workshop-phrase",
   );
+  assert.equal(
+    elements.editRecordingWorkshopPhrase.id,
+    "edit-recording-workshop-phrase",
+  );
   assert.equal(elements.developerOnly.length, 1);
   assert.equal(elements.quickRatingButtons.length, 3);
   assert.equal(elements.openPhraseEditor.id, "open-phrase-editor");
@@ -42,6 +46,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     },
     closePhraseEditor() {
       calls.push(["closePhraseEditor"]);
+    },
+    editSelectedRecordingWorkshopPhrase() {
+      calls.push(["editSelectedRecordingWorkshopPhrase"]);
     },
     isRatingModeActive() {
       return true;
@@ -82,6 +89,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
   elements.startRating.click();
   elements.playRecordingWorkshopPhrase.click();
+  elements.editRecordingWorkshopPhrase.click();
   elements.openPhraseEditor.click();
   elements.freeNext.click();
   elements.freePrevious.click();
@@ -124,6 +132,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     ["syncGameSpeed", "75"],
     ["startMode", "rating"],
     ["playSelectedRecordingWorkshopPhrase"],
+    ["editSelectedRecordingWorkshopPhrase"],
     ["openCurrentPhraseEditor"],
     ["moveFreePhrase", 1],
     ["moveFreePhrase", -1],
@@ -138,7 +147,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 11);
+  assert.equal(calls.length, 12);
 
   dom.window.close();
 });

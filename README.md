@@ -53,8 +53,8 @@ directement sous le clavier pendant le jeu.
 
 Le lecteur YouTube intégré ne s’affiche que pour les solos explicitement
 validés dans `data/recording-validations.js`. L’interface publique ne propose
-ni lien externe ni recherche de secours. Les extraits locaux des six solos de
-Charlie Parker restent prioritaires et disponibles hors ligne.
+ni lien externe ni recherche de secours. Aucun enregistrement original n’est
+embarqué dans l’application.
 
 `data/youtube-search-recordings.js` contient un candidat pour chacun des 112
 solos actuellement représentés par une phrase 3★. Chaque candidat correspond
@@ -72,6 +72,7 @@ Le menu discret en bas de l’accueil permet d’activer les outils de maintenan
   même solo, uniquement parmi les phrases trois étoiles ;
 - comparaison directe entre la phrase jouée par l’application et l’extrait
   YouTube ;
+- correction MIDI de la phrase sélectionnée directement depuis l’atelier ;
 - export du protocole.
 
 L’atelier mémorise les vidéos validées, les mauvaises versions et les solos

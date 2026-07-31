@@ -173,7 +173,7 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
 
   assert.equal(worker.skipWaitingCalls, 1);
   const shell = worker.cacheStores.get(
-    "dictee-musicale-shell-v51",
+    "dictee-musicale-shell-v52",
   );
   const corpus = worker.cacheStores.get(
     `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
@@ -203,7 +203,7 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
     [...shell.keys()].some((url) =>
       url.endsWith("/audio/parker/donna-lee.mp3")
     ),
-    true,
+    false,
   );
 });
 
@@ -243,6 +243,7 @@ test("l’activation ne supprime que les anciennes caches de l’application", a
   await worker.caches.open("dictee-musicale-shell-v49");
   await worker.caches.open("dictee-musicale-shell-v50");
   await worker.caches.open("dictee-musicale-shell-v51");
+  await worker.caches.open("dictee-musicale-shell-v52");
   await worker.caches.open(
     `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
   );
@@ -253,7 +254,7 @@ test("l’activation ne supprime que les anciennes caches de l’application", a
   assert.deepEqual(
     new Set(await worker.caches.keys()),
     new Set([
-      "dictee-musicale-shell-v51",
+      "dictee-musicale-shell-v52",
       `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
       "autre-application-v1",
     ]),

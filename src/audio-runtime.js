@@ -14,11 +14,15 @@ export const MELODY_SAMPLE_INSTRUMENTS = Object.freeze({
 });
 
 export const DEFAULT_MELODY_SOUND = "synthetic";
-export const MELODY_GAIN = 0.8;
-export const MELODY_EMPHASIS_GAIN = 0.96;
+export const MASTER_GAIN = 2;
+export const MASTER_LIMITER_THRESHOLD_DB = -1;
+export const MELODY_GAIN = 1;
+export const MELODY_EMPHASIS_GAIN = 1.12;
+export const SYNTHETIC_MELODY_GAIN = 0.36;
+export const SYNTHETIC_MELODY_EMPHASIS_GAIN = 0.5;
 export const MELODY_ATTACK_SECONDS = 0.006;
 export const MELODY_RELEASE_SECONDS = 0.035;
-export const BASS_GAIN = 0.3;
+export const BASS_GAIN = 0.22;
 export const BASS_ATTACK_SECONDS = 0.005;
 export const BASS_RELEASE_SECONDS = 0.075;
 
@@ -42,6 +46,7 @@ export function createAudioRuntime({
   initialMelodySound = DEFAULT_MELODY_SOUND,
 } = {}) {
   let audioContext;
+  let outputNode = null;
   let melodySound = initialMelodySound;
   let chickBuffer = null;
   const activeAudioSources = new Set();
@@ -54,6 +59,22 @@ export function createAudioRuntime({
     audioContext ??= audioContextFactory();
     if (audioContext.state === "suspended") audioContext.resume();
     return audioContext;
+  }
+
+  function getOutputNode() {
+    if (outputNode) return outputNode;
+    const context = getAudioContext();
+    const master = context.createGain();
+    const limiter = context.createDynamicsCompressor();
+    master.gain.value = MASTER_GAIN;
+    limiter.threshold.value = MASTER_LIMITER_THRESHOLD_DB;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0;
+    limiter.release.value = 0.12;
+    master.connect(limiter).connect(context.destination);
+    outputNode = master;
+    return outputNode;
   }
 
   function setMelodySound(sound) {
@@ -182,7 +203,9 @@ export function createAudioRuntime({
     overtone.type = "sine";
     overtone.frequency.value = frequency * 2;
 
-    const volume = emphasis ? 0.2 : 0.145;
+    const volume = emphasis
+      ? SYNTHETIC_MELODY_EMPHASIS_GAIN
+      : SYNTHETIC_MELODY_GAIN;
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(volume, start + attack);
     gain.gain.setValueAtTime(volume, start + release);
@@ -198,8 +221,8 @@ export function createAudioRuntime({
     );
     overtoneGain.gain.exponentialRampToValueAtTime(0.0001, stop);
 
-    oscillator.connect(gain).connect(context.destination);
-    overtone.connect(overtoneGain).connect(context.destination);
+    oscillator.connect(gain).connect(getOutputNode());
+    overtone.connect(overtoneGain).connect(getOutputNode());
     trackSource(oscillator);
     trackSource(overtone);
     oscillator.start(start);
@@ -261,7 +284,7 @@ export function createAudioRuntime({
     gain.gain.exponentialRampToValueAtTime(volume, start + attack);
     gain.gain.setValueAtTime(volume, release);
     gain.gain.exponentialRampToValueAtTime(0.0001, stop);
-    source.connect(gain).connect(context.destination);
+    source.connect(gain).connect(getOutputNode());
     trackSource(source);
     source.start(start, sampleOffset);
     source.stop(stop + 0.02);
@@ -293,7 +316,7 @@ export function createAudioRuntime({
     filter.Q.value = 0.7;
     gain.gain.setValueAtTime(0.055, start);
     gain.gain.exponentialRampToValueAtTime(0.0001, stop);
-    source.connect(filter).connect(gain).connect(context.destination);
+    source.connect(filter).connect(gain).connect(getOutputNode());
     trackSource(source);
     source.start(start);
     source.stop(stop);
@@ -361,7 +384,7 @@ export function createAudioRuntime({
     );
     gain.gain.setValueAtTime(BASS_GAIN, release);
     gain.gain.exponentialRampToValueAtTime(0.0001, stop);
-    source.connect(gain).connect(context.destination);
+    source.connect(gain).connect(getOutputNode());
     trackSource(source);
     source.start(start);
     source.stop(stop + 0.02);

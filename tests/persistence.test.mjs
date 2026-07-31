@@ -128,7 +128,6 @@ test("les réglages globaux migrent parkerSpeed et imposent le son synthétique"
     {
       realSpeed: 75,
       developerMode: true,
-      transposeOriginal: true,
       melodySound: DEFAULT_MELODY_SOUND,
     },
   );
@@ -155,7 +154,6 @@ test("la sérialisation omet les anciens réglages et le son implicite", () => {
     {
       realSpeed: 80,
       developerMode: true,
-      transposeOriginal: false,
     },
   );
 });
@@ -172,13 +170,11 @@ test("le chargement migratoire réécrit le format canonique", () => {
   assert.deepEqual(loadAndMigrateGlobalSettings(storage), {
     realSpeed: 70,
     developerMode: false,
-    transposeOriginal: false,
     melodySound: DEFAULT_MELODY_SOUND,
   });
   assert.deepEqual(readJson(SETTINGS_KEY, null, storage), {
     realSpeed: 70,
     developerMode: false,
-    transposeOriginal: false,
   });
 
   assert.equal(
@@ -186,7 +182,6 @@ test("le chargement migratoire réécrit le format canonique", () => {
       {
         realSpeed: 30,
         developerMode: true,
-        transposeOriginal: true,
       },
       storage,
     ),
@@ -195,7 +190,6 @@ test("le chargement migratoire réécrit le format canonique", () => {
   assert.deepEqual(loadGlobalSettings(storage), {
     realSpeed: 30,
     developerMode: true,
-    transposeOriginal: true,
     melodySound: DEFAULT_MELODY_SOUND,
   });
 });

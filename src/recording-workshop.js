@@ -552,6 +552,7 @@ export function createRecordingWorkshop({
     preview,
     reject,
     selectCandidate,
+    selectedPhraseKey,
     selectSolo,
     stopPreview,
     useManualCandidate,

@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=51" />
-    <script type="module" src="./src/app.js?v=51"></script>
+    <link rel="stylesheet" href="./styles.css?v=52" />
+    <script type="module" src="./src/app.js?v=52"></script>
   </head>
   <body>
     <div
@@ -302,6 +302,12 @@
               <div class="recording-phrase-actions">
                 <button
                   class="quiet-button"
+                  id="edit-recording-workshop-phrase"
+                  type="button"
+                  data-i18n="phraseEditor.open"
+                >Edit notes</button>
+                <button
+                  class="quiet-button"
                   id="play-recording-workshop-phrase"
                   type="button"
                 >
@@ -565,10 +571,6 @@
               <button class="quiet-button" id="play-original" aria-pressed="false" disabled>
                 <span data-i18n="game.listenOriginal">Play original</span>
               </button>
-              <label class="transpose-toggle" id="transpose-original-control">
-                <input id="transpose-original" type="checkbox" />
-                <span data-i18n="game.transpose">Transpose</span>
-              </label>
             </div>
           </div>
         </div>
