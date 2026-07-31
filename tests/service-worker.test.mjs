@@ -173,7 +173,7 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
 
   assert.equal(worker.skipWaitingCalls, 1);
   const shell = worker.cacheStores.get(
-    "dictee-musicale-shell-v55",
+    "dictee-musicale-shell-v56",
   );
   const corpus = worker.cacheStores.get(
     `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
@@ -244,7 +244,9 @@ test("l’activation ne supprime que les anciennes caches de l’application", a
   await worker.caches.open("dictee-musicale-shell-v50");
   await worker.caches.open("dictee-musicale-shell-v51");
   await worker.caches.open("dictee-musicale-shell-v52");
+  await worker.caches.open("dictee-musicale-shell-v54");
   await worker.caches.open("dictee-musicale-shell-v55");
+  await worker.caches.open("dictee-musicale-shell-v56");
   await worker.caches.open(
     `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
   );
@@ -255,7 +257,7 @@ test("l’activation ne supprime que les anciennes caches de l’application", a
   assert.deepEqual(
     new Set(await worker.caches.keys()),
     new Set([
-      "dictee-musicale-shell-v55",
+      "dictee-musicale-shell-v56",
       `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
       "autre-application-v1",
     ]),

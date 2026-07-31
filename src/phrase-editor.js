@@ -21,6 +21,17 @@ function cloneEvents(events) {
   return events.map((event) => [...event]);
 }
 
+function eventInsertedAfter(events, index) {
+  const current = events[index];
+  const next = events[index + 1];
+  const onset = rounded(current[1] + current[2]);
+  const duration = next
+    ? rounded(next[1] - onset)
+    : rounded(current[2]);
+  if (duration <= 0) return null;
+  return [current[0], onset, duration, current[3]];
+}
+
 export function phraseEditorEventsEqual(left, right) {
   return (
     left.length === right.length &&
@@ -100,32 +111,14 @@ export function createPhraseEditorModel({
 
   return Object.freeze({
     addAfter() {
-      const current = currentEvents()[selectedIndex];
-      const nextEvent = currentEvents()[selectedIndex + 1];
-      const onset = current[1] + Math.max(
-        PHRASE_EDITOR_MIN_DURATION,
-        current[2],
-      );
-      const duration = clamp(
-        current[2],
-        0.06,
-        0.25,
-      );
-      const inserted = [
-        current[0],
-        rounded(onset),
-        rounded(duration),
-        current[3],
-      ];
+      const inserted = eventInsertedAfter(currentEvents(), selectedIndex);
+      if (!inserted) return false;
       const next = cloneEvents(currentEvents());
-      const requiredShift = nextEvent
-        ? Math.max(0, onset + duration + 0.001 - nextEvent[1])
-        : 0;
-      for (let index = selectedIndex + 1; index < next.length; index += 1) {
-        next[index][1] = rounded(next[index][1] + requiredShift);
-      }
       next.splice(selectedIndex + 1, 0, inserted);
       return commit(next, selectedIndex + 1);
+    },
+    get canAddAfter() {
+      return Boolean(eventInsertedAfter(currentEvents(), selectedIndex));
     },
     changeDuration(delta) {
       const current = currentEvents()[selectedIndex];
@@ -140,32 +133,6 @@ export function createPhraseEditorModel({
       const next = cloneEvents(currentEvents());
       next.splice(selectedIndex, 1);
       return commit(next, Math.min(selectedIndex, next.length - 1));
-    },
-    duplicateSelected() {
-      const current = currentEvents()[selectedIndex];
-      const nextEvent = currentEvents()[selectedIndex + 1];
-      const insertionDuration = Math.max(
-        PHRASE_EDITOR_MIN_DURATION,
-        current[2],
-      );
-      const inserted = [
-        current[0],
-        rounded(current[1] + insertionDuration),
-        rounded(insertionDuration),
-        current[3],
-      ];
-      const next = cloneEvents(currentEvents());
-      const requiredShift = nextEvent
-        ? Math.max(
-            0,
-            inserted[1] + insertionDuration + 0.001 - nextEvent[1],
-          )
-        : 0;
-      for (let index = selectedIndex + 1; index < next.length; index += 1) {
-        next[index][1] = rounded(next[index][1] + requiredShift);
-      }
-      next.splice(selectedIndex + 1, 0, inserted);
-      return commit(next, selectedIndex + 1);
     },
     get events() {
       return cloneEvents(currentEvents());
@@ -256,6 +223,9 @@ export function createPhraseEditor({
   const undo = documentObject.querySelector("#phrase-editor-undo");
   const redo = documentObject.querySelector("#phrase-editor-redo");
   const restore = documentObject.querySelector("#phrase-editor-restore");
+  const addAfter = documentObject.querySelector(
+    '[data-phrase-editor-action="add-after"]',
+  );
   const remove = documentObject.querySelector("#phrase-editor-delete");
   const closeButtons = documentObject.querySelectorAll(
     "#phrase-editor-close, #phrase-editor-cancel",
@@ -308,6 +278,7 @@ export function createPhraseEditor({
     undo.disabled = !model.canUndo;
     redo.disabled = !model.canRedo;
     restore.disabled = model.isOriginal;
+    addAfter.disabled = !model.canAddAfter;
     remove.disabled = model.events.length <= MIN_EDITED_PHRASE_NOTES;
   }
 
@@ -459,7 +430,6 @@ export function createPhraseEditor({
       model.changeDuration(-PHRASE_EDITOR_TIME_STEP),
     "duration-increase": () =>
       model.changeDuration(PHRASE_EDITOR_TIME_STEP),
-    duplicate: () => model.duplicateSelected(),
     "onset-decrease": () => model.shiftOnset(-PHRASE_EDITOR_TIME_STEP),
     "onset-increase": () => model.shiftOnset(PHRASE_EDITOR_TIME_STEP),
     "pitch-decrease": () => model.changePitch(-1),

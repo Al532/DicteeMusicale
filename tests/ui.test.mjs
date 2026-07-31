@@ -148,6 +148,12 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
     "phraseEditor.playSelected",
   );
   assert.equal(document.querySelector("#phrase-editor-save").dataset.i18n, "phraseEditor.save");
+  assert.deepEqual(
+    [...document.querySelectorAll(".phrase-editor-note-actions button")].map(
+      ({ dataset }) => dataset.phraseEditorAction,
+    ),
+    ["add-after", "delete"],
+  );
   assert.equal(elements.exerciseRating.id, "exercise-rating");
   assert.equal(document.querySelector("#completion-rating"), null);
   assert.equal(elements.setPhraseEnd.dataset.i18nAriaLabel, "rating.setEndAria");

@@ -118,6 +118,10 @@ test("les corrections MIDI sont validées, triées et fusionnées", () => {
     [60, 0, 0.01, 1],
   ]);
   assert.deepEqual(
+    normalizeEditedPhraseEvents([[60, 0, 0.0054, 1]]),
+    [[60, 0, 0.0054, 1]],
+  );
+  assert.deepEqual(
     phraseEventsWithEdits([[60, 0, 0.2, 1], [62, 1, 0.2, 1]], {
       editedEvents,
     }),

@@ -38,7 +38,7 @@ export function normalizeEditedPhraseEvents(value) {
       event: [
         midi,
         rounded(onset),
-        rounded(Math.max(0.01, duration)),
+        rounded(duration > 0 ? duration : 0.01),
         Number.isFinite(bar) ? Math.round(bar) : null,
       ],
       sourceIndex,
