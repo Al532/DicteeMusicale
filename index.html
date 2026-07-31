@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=54" />
-    <script type="module" src="./src/app.js?v=54"></script>
+    <link rel="stylesheet" href="./styles.css?v=55" />
+    <script type="module" src="./src/app.js?v=55"></script>
   </head>
   <body>
     <div
@@ -317,12 +317,20 @@
             >Stop</button>
           </div>
 
-          <label class="lick-explorer-randomize">
-            <input id="lick-explorer-auto-random" type="checkbox" />
-            <span data-i18n="lickExplorer.autoRandom">
-              New random key on every play
-            </span>
-          </label>
+          <div class="lick-explorer-options">
+            <label class="lick-explorer-option">
+              <input id="lick-explorer-auto-random" type="checkbox" />
+              <span data-i18n="lickExplorer.autoRandom">
+                New random key on every play
+              </span>
+            </label>
+            <label class="lick-explorer-option">
+              <input id="lick-explorer-typical-only" type="checkbox" />
+              <span data-i18n="lickExplorer.typicalOnly">
+                Typical licks only
+              </span>
+            </label>
+          </div>
           <p
             class="lick-explorer-status"
             id="lick-explorer-status"

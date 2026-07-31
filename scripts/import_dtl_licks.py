@@ -113,6 +113,9 @@ def read_occurrence_table(path: Path):
         "start",
         "ioiclass",
         "beat13",
+        "performer",
+        "log_excess_prob",
+        "cross_phrase",
     }
     missing = required.difference(map(str, table.columns))
     if missing:
@@ -192,6 +195,44 @@ def rounded(value: Any) -> float | int:
     return int(number) if math.isfinite(number) and number.is_integer() else number
 
 
+def occurrence_statistics(
+    occurrences: list[Any],
+) -> dict[str, float | int]:
+    performers = {
+        performer
+        for row in occurrences
+        if (performer := optional_text(row["performer"]))
+    }
+    solo_ids = {int(row["melid"]) for row in occurrences}
+    phrase_contained_count = sum(
+        optional_text(row["cross_phrase"]) == "Yes"
+        for row in occurrences
+    )
+    log_excess_probabilities = [
+        float(row["log_excess_prob"])
+        for row in occurrences
+    ]
+    reference_log_excess_probability = log_excess_probabilities[0]
+    if any(
+        not math.isclose(
+            value,
+            reference_log_excess_probability,
+            rel_tol=0,
+            abs_tol=1e-9,
+        )
+        for value in log_excess_probabilities[1:]
+    ):
+        raise ValueError("Inconsistent DTL log excess probability")
+    return {
+        "soloCount": len(solo_ids),
+        "performerCount": len(performers),
+        "phraseContainedRatio": rounded(
+            phrase_contained_count / len(occurrences),
+        ),
+        "logExcessProb": rounded(reference_log_excess_probability),
+    }
+
+
 def build_licks(
     catalog: list[dict[str, Any]],
     table,
@@ -219,6 +260,7 @@ def build_licks(
         first_onset = float(events[0][1])
         lick = {
             **pattern,
+            **occurrence_statistics(occurrences),
             "notes": [int(event[0]) for event in events],
             "timings": [
                 [

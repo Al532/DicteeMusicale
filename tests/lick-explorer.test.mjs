@@ -8,8 +8,10 @@ import {
   DTL_LICKS,
 } from "../data/dtl-licks.js";
 import {
+  adjustedLickSalience,
   createLickExplorer,
   createLickSequence,
+  isTypicalLick,
   moveLickIndex,
   randomLickTransposition,
 } from "../src/lick-explorer.js";
@@ -37,6 +39,11 @@ test("le corpus compact importe les 653 motifs DTL", () => {
     assert.equal(lick.timings[0][0], 0);
     assert.equal(Number.isFinite(lick.tempo), true);
     assert.equal(lick.tempo > 0, true);
+    assert.equal(Number.isInteger(lick.soloCount), true);
+    assert.equal(Number.isInteger(lick.performerCount), true);
+    assert.equal(lick.phraseContainedRatio >= 0, true);
+    assert.equal(lick.phraseContainedRatio <= 1, true);
+    assert.equal(Number.isFinite(lick.logExcessProb), true);
     assert.equal(typeof lick.reference.soloId, "string");
     assert.equal(Number.isInteger(lick.reference.eventIndex), true);
     assert.deepEqual(
@@ -46,6 +53,29 @@ test("le corpus compact importe les 653 motifs DTL", () => {
       lick.intervals,
     );
   }
+});
+
+test("le filtre typique conserve les motifs diffusés, phrasés et saillants", () => {
+  const typicalLicks = DTL_LICKS.filter(isTypicalLick);
+
+  assert.equal(typicalLicks.length, 117);
+  assert.equal(
+    typicalLicks.every(
+      (lick) =>
+        lick.occurrenceCount >= 10 &&
+        lick.soloCount >= 3 &&
+        lick.performerCount >= 3 &&
+        lick.phraseContainedRatio >= 0.9 &&
+        adjustedLickSalience(lick) >= 1.35,
+    ),
+    true,
+  );
+  assert.equal(
+    DTL_LICKS.some(
+      (lick) => !isTypicalLick(lick) && lick.occurrenceCount < 10,
+    ),
+    true,
+  );
 });
 
 test("l'explorateur écarte les motifs sans saut supérieur à deux demi-tons", () => {
@@ -173,6 +203,38 @@ test("la navigation joue automatiquement le nouveau lick", async () => {
     assert.equal(audio.calls.contexts, 1);
     assert.deepEqual(audio.calls.preloads[0], DTL_LICKS[1].notes);
     assert.equal(audio.calls.tones.length, DTL_LICKS[1].notes.length);
+  } finally {
+    explorer.destroy();
+    dom.window.close();
+  }
+});
+
+test("le filtre typique est activable sans perdre le catalogue complet", () => {
+  const dom = new JSDOM(html, { pretendToBeVisual: true });
+  const audio = createAudioHarness();
+  const explorer = createLickExplorer({
+    audioRuntime: audio.runtime,
+    documentObject: dom.window.document,
+    licks: DTL_LICKS,
+    windowObject: dom.window,
+  });
+
+  try {
+    explorer.open();
+    assert.equal(explorer.snapshot().total, 364);
+    assert.equal(explorer.snapshot().typicalOnly, false);
+
+    assert.equal(explorer.setTypicalOnly(true), true);
+    assert.equal(explorer.snapshot().total, 117);
+    assert.equal(explorer.snapshot().sourceTotal, 364);
+    assert.equal(explorer.snapshot().typicalOnly, true);
+    assert.equal(isTypicalLick(DTL_LICKS.find(
+      (lick) => lick.id === explorer.snapshot().id,
+    )), true);
+
+    assert.equal(explorer.setTypicalOnly(false), true);
+    assert.equal(explorer.snapshot().total, 364);
+    assert.equal(explorer.snapshot().typicalOnly, false);
   } finally {
     explorer.destroy();
     dom.window.close();

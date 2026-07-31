@@ -651,7 +651,12 @@ output {
   font-size: 0.72rem;
 }
 
-.lick-explorer-randomize {
+.lick-explorer-options {
+  display: grid;
+  gap: 10px;
+}
+
+.lick-explorer-option {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -660,7 +665,7 @@ output {
   cursor: pointer;
 }
 
-.lick-explorer-randomize input {
+.lick-explorer-option input {
   width: 16px;
   height: 16px;
   margin: 0;

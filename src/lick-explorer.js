@@ -1,6 +1,37 @@
 import { DTL_LICKS } from "../data/dtl-licks.js";
 import { jazzTranspositionRangeForNotes } from "./engine.js";
 
+export const TYPICAL_LICK_FILTER = Object.freeze({
+  minOccurrences: 10,
+  minPerformers: 3,
+  minSolos: 3,
+  minPhraseContainedRatio: 0.9,
+  minAdjustedLogExcessProb: 1.35,
+  extraIntervalPenalty: 0.5,
+});
+
+export function adjustedLickSalience(lick) {
+  const extraIntervals = Math.max(0, lick.intervals.length - 6);
+  return (
+    Number(lick.logExcessProb) -
+    extraIntervals * TYPICAL_LICK_FILTER.extraIntervalPenalty
+  );
+}
+
+export function isTypicalLick(lick) {
+  return Boolean(
+    lick &&
+      Number(lick.occurrenceCount) >=
+        TYPICAL_LICK_FILTER.minOccurrences &&
+      Number(lick.performerCount) >= TYPICAL_LICK_FILTER.minPerformers &&
+      Number(lick.soloCount) >= TYPICAL_LICK_FILTER.minSolos &&
+      Number(lick.phraseContainedRatio) >=
+        TYPICAL_LICK_FILTER.minPhraseContainedRatio &&
+      adjustedLickSalience(lick) >=
+        TYPICAL_LICK_FILTER.minAdjustedLogExcessProb,
+  );
+}
+
 function normalizeTiming(timing) {
   if (Array.isArray(timing)) {
     return {
@@ -96,6 +127,9 @@ function queryLickExplorerElements(documentObject) {
     playRandom: documentObject.querySelector("#lick-explorer-play-random"),
     stop: documentObject.querySelector("#lick-explorer-stop"),
     autoRandom: documentObject.querySelector("#lick-explorer-auto-random"),
+    typicalOnly: documentObject.querySelector(
+      "#lick-explorer-typical-only",
+    ),
     status: documentObject.querySelector("#lick-explorer-status"),
   };
 }
@@ -118,6 +152,17 @@ export function createLickExplorer({
     throw new Error("The Lick Explorer DOM is incomplete.");
   }
 
+  const allLicks = licks;
+  const sourceIndex = new Map(
+    allLicks.map((lick, lickIndex) => [lick, lickIndex]),
+  );
+  let typicalOnly = elements.typicalOnly.checked;
+  let visibleLicks = typicalOnly
+    ? allLicks.filter(isTypicalLick)
+    : allLicks;
+  if (!visibleLicks.length) {
+    throw new TypeError("The typical DTL lick selection is empty.");
+  }
   let index = 0;
   let transposition = 0;
   let playbackTimer = null;
@@ -126,7 +171,7 @@ export function createLickExplorer({
   const removers = [];
 
   function currentLick() {
-    return licks[index];
+    return visibleLicks[index];
   }
 
   function setPlaying(nextPlaying) {
@@ -154,7 +199,7 @@ export function createLickExplorer({
     const lick = currentLick();
     elements.progress.textContent = translate("lickExplorer.progress", {
       current: index + 1,
-      total: licks.length,
+      total: visibleLicks.length,
     });
     elements.occurrences.textContent = translate(
       "lickExplorer.occurrenceCount",
@@ -167,7 +212,7 @@ export function createLickExplorer({
     elements.rhythmRow.hidden = !lick.rhythmClass;
     elements.rhythmClass.textContent = lick.rhythmClass ?? "";
     elements.previous.disabled = index === 0;
-    elements.next.disabled = index === licks.length - 1;
+    elements.next.disabled = index === visibleLicks.length - 1;
     renderStatus();
   }
 
@@ -239,7 +284,7 @@ export function createLickExplorer({
   }
 
   function move(delta) {
-    const nextIndex = moveLickIndex(index, delta, licks.length);
+    const nextIndex = moveLickIndex(index, delta, visibleLicks.length);
     if (nextIndex === index) return false;
     stop();
     index = nextIndex;
@@ -255,6 +300,39 @@ export function createLickExplorer({
 
   function next() {
     return move(1);
+  }
+
+  function setTypicalOnly(enabled) {
+    const nextTypicalOnly = Boolean(enabled);
+    elements.typicalOnly.checked = nextTypicalOnly;
+    if (nextTypicalOnly === typicalOnly) return false;
+
+    const previousLick = currentLick();
+    const previousSourceIndex = sourceIndex.get(previousLick) ?? 0;
+    const nextLicks = nextTypicalOnly
+      ? allLicks.filter(isTypicalLick)
+      : allLicks;
+    if (!nextLicks.length) {
+      elements.typicalOnly.checked = typicalOnly;
+      return false;
+    }
+
+    stop();
+    typicalOnly = nextTypicalOnly;
+    visibleLicks = nextLicks;
+    const preservedIndex = visibleLicks.indexOf(previousLick);
+    const followingIndex = visibleLicks.findIndex(
+      (lick) => (sourceIndex.get(lick) ?? 0) >= previousSourceIndex,
+    );
+    index =
+      preservedIndex >= 0
+        ? preservedIndex
+        : followingIndex >= 0
+          ? followingIndex
+          : visibleLicks.length - 1;
+    transposition = 0;
+    render();
+    return true;
   }
 
   function open() {
@@ -281,6 +359,9 @@ export function createLickExplorer({
   listen(elements.playOriginal, "click", () => void playOriginal());
   listen(elements.playRandom, "click", () => void playRandom());
   listen(elements.stop, "click", () => stop({ announce: true }));
+  listen(elements.typicalOnly, "change", () => {
+    setTypicalOnly(elements.typicalOnly.checked);
+  });
   listen(documentObject, "keydown", (event) => {
     if (event.key === "Escape" && !elements.panel.hidden) {
       event.preventDefault();
@@ -303,13 +384,16 @@ export function createLickExplorer({
     playOriginal,
     playRandom,
     previous,
+    setTypicalOnly,
     snapshot: () => ({
       autoRandom: elements.autoRandom.checked,
       id: currentLick().id,
       index,
       playing,
-      total: licks.length,
+      sourceTotal: allLicks.length,
+      total: visibleLicks.length,
       transposition,
+      typicalOnly,
     }),
     stop,
   });

@@ -69,6 +69,7 @@ const messages = {
     "lickExplorer.originalKey": "Original key",
     "lickExplorer.randomKey": "Random key",
     "lickExplorer.autoRandom": "New random key on every play",
+    "lickExplorer.typicalOnly": "Typical licks only",
     "lickExplorer.status.original": "Original key selected.",
     "lickExplorer.status.transposed": ({ value }) =>
       `Transposition ${value > 0 ? "+" : ""}${value} selected.`,
@@ -403,6 +404,7 @@ const messages = {
     "lickExplorer.randomKey": "Tonalité aléatoire",
     "lickExplorer.autoRandom":
       "Nouvelle tonalité aléatoire à chaque lecture",
+    "lickExplorer.typicalOnly": "Licks typiques uniquement",
     "lickExplorer.status.original": "Tonalité originale sélectionnée.",
     "lickExplorer.status.transposed": ({ value }) =>
       `Transposition ${value > 0 ? "+" : ""}${value} sélectionnée.`,

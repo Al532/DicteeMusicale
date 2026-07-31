@@ -119,7 +119,11 @@ jamais affichée. Les identifiants `dtl-ph-NNNN` suivent l’ordre du catalogue
 DTL ; aucun clustering ni « lick moyen » n’est ajouté. L’explorateur écarte
 ensuite les 289 motifs uniquement composés de répétitions, demi-tons et tons :
 les 364 motifs parcourus contiennent donc tous au moins un saut supérieur à
-deux demi-tons.
+deux demi-tons. Un filtre facultatif « Licks typiques » réduit cette liste à
+117 motifs : au moins dix occurrences, trois solos et trois interprètes, 90 %
+d’occurrences entièrement contenues dans une phrase, puis une saillance DTL
+`log_excess_prob` minimale corrigée selon la longueur du motif. Ces statistiques
+restent internes et aucune identité supplémentaire n’est exposée dans l’écran.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :
