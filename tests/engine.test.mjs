@@ -532,6 +532,37 @@ test("la séquence jouée retire ces notes sans refermer les silences", () => {
   );
 });
 
+test("une séquence MIDI corrigée remplace la transcription sans modifier le corpus", () => {
+  const solo = WJAZZD_SOLOS.find(({ phrases }) =>
+    phrases.some(([start, end]) => end - start + 1 >= 4),
+  );
+  const phrase = solo.phrases.find(
+    ([start, end]) => end - start + 1 >= 4,
+  );
+  const phraseKey = phraseRatingKey(solo.id, phrase[2]);
+  const original = solo.events.slice(phrase[0], phrase[1] + 1);
+  const editedEvents = original
+    .filter((_, index) => index !== 1)
+    .map((event) => [...event]);
+  editedEvents[0][0] += 1;
+  const result = makeSequence({
+    selectedPerformers: [solo.performer],
+    targetPhraseKey: phraseKey,
+    phraseSettings: {
+      [phraseKey]: {
+        editedEvents,
+        notesMax: editedEvents.length,
+      },
+    },
+    transpositionOverride: 0,
+  });
+
+  assert.deepEqual(result.notes, editedEvents.map(([midi]) => midi));
+  assert.equal(result.meta.source.fullPhraseNoteCount, editedEvents.length);
+  assert.equal(original.length, phrase[1] - phrase[0] + 1);
+  assert.notEqual(original[0][0], editedEvents[0][0]);
+});
+
 test("la longueur effective du catalogue tient compte des réglages par phrase", () => {
   const solo = WJAZZD_SOLOS.find(({ phrases }) =>
     phrases.some(([start, end]) => end - start + 1 >= 8),

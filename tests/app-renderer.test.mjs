@@ -53,9 +53,7 @@ function createFixture() {
       <button id="phrase-length-decrease"></button>
       <output id="phrase-length-output"></output>
       <button id="phrase-length-increase"></button>
-      <button id="short-notes-decrease"></button>
-      <output id="short-notes-output"></output>
-      <button id="short-notes-increase"></button>
+      <button id="open-phrase-editor"></button>
     </div>
   `);
   const { document } = dom.window;
@@ -82,9 +80,7 @@ function createFixture() {
       "#phrase-length-increase",
     ),
     phraseLengthOutput: document.querySelector("#phrase-length-output"),
-    shortNotesDecrease: document.querySelector("#short-notes-decrease"),
-    shortNotesIncrease: document.querySelector("#short-notes-increase"),
-    shortNotesOutput: document.querySelector("#short-notes-output"),
+    openPhraseEditor: document.querySelector("#open-phrase-editor"),
     ratingCoverageSummary: document.querySelector(
       "#rating-coverage-summary",
     ),
@@ -282,11 +278,9 @@ test("les réglages de phrase conservent sorties et bornes", () => {
   });
   assert.equal(elements.phraseAdjustments.hidden, false);
   assert.equal(elements.phraseLengthOutput.value, "12/20");
-  assert.equal(elements.shortNotesOutput.value, "2");
   assert.equal(elements.phraseLengthDecrease.disabled, false);
   assert.equal(elements.phraseLengthIncrease.disabled, false);
-  assert.equal(elements.shortNotesDecrease.disabled, false);
-  assert.equal(elements.shortNotesIncrease.disabled, false);
+  assert.equal(elements.openPhraseEditor.disabled, false);
 
   renderer.renderPhraseControls({
     visible: true,
@@ -295,8 +289,7 @@ test("les réglages de phrase conservent sorties et bornes", () => {
   });
   assert.equal(elements.phraseLengthDecrease.disabled, true);
   assert.equal(elements.phraseLengthIncrease.disabled, true);
-  assert.equal(elements.shortNotesDecrease.disabled, true);
-  assert.equal(elements.shortNotesIncrease.disabled, true);
+  assert.equal(elements.openPhraseEditor.disabled, true);
 
   renderer.renderPhraseControls({
     visible: true,
@@ -308,8 +301,7 @@ test("les réglages de phrase conservent sorties et bornes", () => {
   });
   assert.equal(elements.phraseLengthDecrease.disabled, true);
   assert.equal(elements.phraseLengthIncrease.disabled, false);
-  assert.equal(elements.shortNotesDecrease.disabled, true);
-  assert.equal(elements.shortNotesIncrease.disabled, true);
+  assert.equal(elements.openPhraseEditor.disabled, false);
 
   renderer.renderPhraseControls({ visible: false });
   assert.equal(elements.phraseAdjustments.hidden, true);

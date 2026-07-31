@@ -33,9 +33,13 @@ import {
 import { createRatingWorkflow } from "./rating-workflow.js";
 import {
   DEFAULT_PHRASE_MAX_NOTES,
+  materializeLegacyPhraseEvents,
   mergePhraseSettings,
+  normalizeEditedPhraseEvents,
   resolvePhraseSettings,
 } from "./phrase-settings.js";
+import { loadPhraseCorpus } from "./corpus-loader.js";
+import { createPhraseEditor } from "./phrase-editor.js";
 import {
   applyDocumentTranslations,
   locale,
@@ -100,6 +104,18 @@ const appRenderer = createAppRenderer({
   noteName,
   pitchClass,
   translate: t,
+});
+const phraseEditor = createPhraseEditor({
+  documentObject: document,
+  noteLabel: appRenderer.noteLabel,
+  onClose: () => {
+    if (exercise) restoreExerciseInput();
+  },
+  onPreview: previewPhraseEditorEvents,
+  onSave: saveCurrentPhraseEvents,
+  onStopPreview: () => stopAllTones(),
+  translate: t,
+  windowObject: window,
 });
 const audioRuntime = createAudioRuntime({
   baseUrl: document.baseURI,
@@ -177,6 +193,7 @@ const appShell = createAppShell({
   elements,
   navigatorObject: navigator,
   onFullscreenExit: () => {
+    phraseEditor.close({ restoreFocus: false });
     stopAllTones();
     cancelPhraseAdjustmentReload();
     acceptingInput = false;
@@ -786,6 +803,29 @@ function scheduleSequenceAudio(
   }
 }
 
+function previewPhraseEditorEvents(events) {
+  const normalized = normalizeEditedPhraseEvents(events);
+  if (!normalized) return 0;
+  stopAllTones();
+  acceptingInput = false;
+  const firstOnset = normalized[0][1];
+  const sequence = {
+    notes: normalized.map(([midi]) => midi),
+    timings: normalized.map((event) => ({
+      offset: Math.max(0, event[1] - firstOnset),
+      duration: event[2],
+    })),
+  };
+  scheduleSequenceAudio(sequence, realSpeedPercent);
+  const lastTiming = sequence.timings.at(-1);
+  return Math.ceil(
+    (lastTiming.offset + lastTiming.duration) *
+      (100 / realSpeedPercent) *
+      1000 +
+      80,
+  );
+}
+
 function playSequence({ guardInputBurst = false } = {}) {
   if (!exercise) return;
   stopAllTones();
@@ -883,23 +923,76 @@ function renderPhraseControls() {
   });
 }
 
-function saveCurrentPhraseSettings(nextSettings) {
+async function openCurrentPhraseEditor() {
   const source = exercise?.source;
   if (
     !developerMode ||
     !source?.phraseKey ||
-    !Number.isFinite(source.fullPhraseNoteCount) ||
+    source.kind !== "transcription" ||
+    phraseSettingsLocked()
+  ) {
+    return;
+  }
+  const phraseKey = source.phraseKey;
+  stopAllTones();
+  acceptingInput = false;
+  elements.openPhraseEditor.disabled = true;
+  try {
+    const loaded = await loadPhraseCorpus(phraseKey);
+    if (exercise?.source?.phraseKey !== phraseKey || !developerMode) return;
+    const originalEvents = loaded.solo.events.slice(
+      loaded.phrase[0],
+      loaded.phrase[1] + 1,
+    );
+    const materialized = materializeLegacyPhraseEvents(
+      originalEvents,
+      phraseSettings[phraseKey],
+    );
+    phraseEditor.open({
+      editedEvents: materialized.events,
+      originalEvents,
+      performer: loaded.solo.performer,
+      phrase: loaded.phrase[2],
+      title: loaded.solo.title,
+    });
+  } catch (error) {
+    elements.feedback.className = "feedback error";
+    elements.feedback.textContent = localizeError(
+      error instanceof Error ? error.message : t("phrase.unavailable"),
+    );
+    restoreExerciseInput();
+  } finally {
+    renderPhraseControls();
+  }
+}
+
+function saveCurrentPhraseSettings(
+  nextSettings,
+  {
+    editedEvents = phraseSettings[exercise?.source?.phraseKey]?.editedEvents,
+    fullPhraseNoteCount = exercise?.source?.fullPhraseNoteCount,
+  } = {},
+) {
+  const source = exercise?.source;
+  if (
+    !developerMode ||
+    !source?.phraseKey ||
+    !Number.isFinite(fullPhraseNoteCount) ||
     phraseSettingsLocked()
   ) {
     return false;
   }
   const normalized = resolvePhraseSettings(
     nextSettings,
-    source.fullPhraseNoteCount,
+    fullPhraseNoteCount,
   );
+  const normalizedEditedEvents = normalizeEditedPhraseEvents(editedEvents);
   localPhraseSettings[source.phraseKey] = {
     notesMax: normalized.notesMax,
     ignoredShortestNotes: normalized.ignoredShortestNotes,
+    ...(normalizedEditedEvents
+      ? { editedEvents: normalizedEditedEvents }
+      : {}),
     updatedAt: new Date().toISOString(),
   };
   refreshPhraseSettingsFromLocal();
@@ -907,6 +1000,33 @@ function saveCurrentPhraseSettings(nextSettings) {
   renderPhraseControls();
   schedulePhraseSettingsReload();
   return true;
+}
+
+function saveCurrentPhraseEvents(editedEvents, originalEvents) {
+  const normalizedOriginal = normalizeEditedPhraseEvents(originalEvents);
+  const normalizedEdited = normalizeEditedPhraseEvents(editedEvents);
+  const current = currentResolvedPhraseSettings();
+  if (!normalizedOriginal || !current) return false;
+  const fullPhraseNoteCount =
+    normalizedEdited?.length ?? normalizedOriginal.length;
+  const wasUsingFullPhrase =
+    current.notesMax >= current.fullPhraseNoteCount;
+  const notesMax = wasUsingFullPhrase
+    ? fullPhraseNoteCount
+    : Math.min(
+        current.notesMax - current.ignoredShortestNotes,
+        fullPhraseNoteCount,
+      );
+  return saveCurrentPhraseSettings(
+    {
+      notesMax,
+      ignoredShortestNotes: 0,
+    },
+    {
+      editedEvents: normalizedEdited,
+      fullPhraseNoteCount,
+    },
+  );
 }
 
 function adjustCurrentPhraseSettings(field, delta) {
@@ -1783,6 +1903,7 @@ function exportData() {
       "mise_a_jour",
       "notes_max",
       "notes_courtes_ignorees",
+      "evenements_midi_corriges",
       "reglages_mise_a_jour",
     ],
   ];
@@ -1817,6 +1938,9 @@ function exportData() {
       hasRating ? entry.updatedAt : null,
       settings?.notesMax,
       settings?.ignoredShortestNotes,
+      settings?.editedEvents
+        ? JSON.stringify(settings.editedEvents)
+        : null,
       settings?.updatedAt,
     ]);
   }
@@ -1838,6 +1962,7 @@ function exportData() {
       null,
       null,
       null,
+      null,
     ]);
   }
   download(
@@ -1856,6 +1981,7 @@ async function enterGameMode() {
 async function leaveGameMode(
   destination = currentMode === "free" ? "favorites" : "home",
 ) {
+  phraseEditor.close({ restoreFocus: false });
   cancelPhraseAdjustmentReload();
   stopAllTones();
   elements.suddenDeathModal.hidden = true;
@@ -1880,6 +2006,7 @@ bindAppEvents(
   {
     adjustCurrentPhraseSettings,
     adjustRecordingOffset,
+    closePhraseEditor: () => phraseEditor.close(),
     closeRecordingWorkshop,
     closeRecordingPlayer: originalPlayer.close,
     copyCurrentPhraseId,
@@ -1891,6 +2018,7 @@ bindAppEvents(
     leaveGameMode,
     markRecordingUnavailable,
     moveReviewPhrase,
+    openCurrentPhraseEditor,
     openRecordingWorkshop,
     playSelectedRecordingWorkshopPhrase,
     previewRecordingWorkshop,
@@ -1953,5 +2081,6 @@ if (
       : null,
     isOriginalPlaying: originalPlayer.isPlaying(),
     isPlaying,
+    phraseEditorOpen: phraseEditor.isOpen,
   });
 }

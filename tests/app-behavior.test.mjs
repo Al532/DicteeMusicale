@@ -244,6 +244,145 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
+  await t.test("l’éditeur MIDI corrige, ajoute et restaure une note", async () => {
+    const phraseKey = "wjazzd-v2.1-55:3";
+    const app = await bootApp({
+      favorites: [phraseKey],
+      storage: {
+        [SETTINGS_KEY]: {
+          realSpeed: 100,
+          developerMode: true,
+          transposeOriginal: false,
+        },
+      },
+    });
+    try {
+      await app.click("#open-favorites");
+      await app.click(".favorite-row-main");
+      await app.waitFor(
+        () => app.snapshot().exercise,
+        "phrase à corriger",
+      );
+
+      await app.click("#open-phrase-editor");
+      await app.waitFor(
+        () => app.snapshot().phraseEditorOpen,
+        "éditeur MIDI ouvert",
+      );
+      const originalCount = app.document.querySelectorAll(
+        ".phrase-editor-note",
+      ).length;
+      const originalFirstMidi = Number(
+        app.element('.phrase-editor-note[data-index="0"]').dataset.midi,
+      );
+      await app.click('[data-phrase-editor-action="pitch-increase"]');
+      await app.click('[data-phrase-editor-action="add-after"]');
+      assert.equal(
+        app.document.querySelectorAll(".phrase-editor-note").length,
+        originalCount + 1,
+      );
+      await app.click("#phrase-editor-save");
+
+      const saved = app.storageJson(PHRASE_SETTINGS_KEY)[phraseKey];
+      assert.equal(saved.ignoredShortestNotes, 0);
+      assert.equal(saved.editedEvents.length, originalCount + 1);
+      assert.equal(saved.editedEvents[0][0], originalFirstMidi + 1);
+      await app.clock.tick(140);
+      await app.waitFor(
+        () =>
+          app.snapshot().exercise?.source?.fullPhraseNoteCount ===
+          originalCount + 1,
+        "phrase corrigée rechargée",
+      );
+      assert.equal(
+        app.snapshot().exercise.notes[0] -
+          app.snapshot().exercise.transposition,
+        originalFirstMidi + 1,
+      );
+
+      await app.click("#open-phrase-editor");
+      await app.waitFor(
+        () => app.snapshot().phraseEditorOpen,
+        "éditeur rouvert",
+      );
+      await app.click('[data-phrase-editor-action="restore"]');
+      await app.click("#phrase-editor-save");
+      assert.equal(
+        "editedEvents" in app.storageJson(PHRASE_SETTINGS_KEY)[phraseKey],
+        false,
+      );
+      await app.clock.tick(140);
+      await app.waitFor(
+        () =>
+          app.snapshot().exercise?.source?.fullPhraseNoteCount ===
+          originalCount,
+        "transcription originale restaurée",
+      );
+      assert.equal(
+        app.snapshot().exercise.notes[0] -
+          app.snapshot().exercise.transposition,
+        originalFirstMidi,
+      );
+    } finally {
+      app.close();
+    }
+  });
+
+  await t.test("une ancienne suppression de note brève devient une correction MIDI", async () => {
+    const phraseKey = "wjazzd-v2.1-55:3";
+    const app = await bootApp({
+      favorites: [phraseKey],
+      storage: {
+        [SETTINGS_KEY]: {
+          realSpeed: 100,
+          developerMode: true,
+          transposeOriginal: false,
+        },
+        [PHRASE_SETTINGS_KEY]: {
+          [phraseKey]: {
+            notesMax: 8,
+            ignoredShortestNotes: 1,
+          },
+        },
+      },
+    });
+    try {
+      await app.click("#open-favorites");
+      await app.click(".favorite-row-main");
+      await app.waitFor(
+        () => app.snapshot().exercise,
+        "phrase avec ancien réglage",
+      );
+      const originalCount = app.snapshot().exercise.source.fullPhraseNoteCount;
+
+      await app.click("#open-phrase-editor");
+      await app.waitFor(
+        () => app.snapshot().phraseEditorOpen,
+        "ancien réglage matérialisé",
+      );
+      assert.equal(
+        app.document.querySelectorAll(".phrase-editor-note").length,
+        originalCount - 1,
+      );
+      await app.click("#phrase-editor-save");
+
+      const saved = app.storageJson(PHRASE_SETTINGS_KEY)[phraseKey];
+      assert.equal(saved.ignoredShortestNotes, 0);
+      assert.equal(saved.editedEvents.length, originalCount - 1);
+      assert.equal(saved.notesMax, 7);
+      await app.clock.tick(140);
+      await app.waitFor(
+        () =>
+          app.snapshot().exercise?.source?.fullPhraseNoteCount ===
+          originalCount - 1,
+        "correction explicite rechargée",
+      );
+      assert.equal(app.snapshot().exercise.notes.length, 7);
+    } finally {
+      app.close();
+    }
+  });
+
   await t.test("un réglage local hydrate l’ambitus avant le premier ton", async () => {
     const phraseKey = "wjazzd-v2.1-1:1";
     const app = await bootApp({

@@ -47,6 +47,43 @@ function objectFromRow(headers, cells) {
   );
 }
 
+function parseEditedEvents(value) {
+  if (!value) return null;
+  try {
+    const events = JSON.parse(value);
+    if (!Array.isArray(events) || events.length < 1) return null;
+    const normalized = events.map((event) => {
+      if (!Array.isArray(event)) return null;
+      const midi = Math.round(Number(event[0]));
+      const onset = Number(event[1]);
+      const duration = Number(event[2]);
+      const bar = event[3] === null || event[3] === undefined
+        ? null
+        : Number(event[3]);
+      if (
+        !Number.isFinite(midi) ||
+        midi < 0 ||
+        midi > 127 ||
+        !Number.isFinite(onset) ||
+        onset < 0 ||
+        !Number.isFinite(duration) ||
+        duration <= 0
+      ) {
+        return null;
+      }
+      return [
+        midi,
+        Number(onset.toFixed(4)),
+        Number(duration.toFixed(4)),
+        Number.isFinite(bar) ? Math.round(bar) : null,
+      ];
+    });
+    return normalized.some((event) => !event) ? null : normalized;
+  } catch {
+    return null;
+  }
+}
+
 const [
   inputPath,
   outputPath = "data/default-ratings.js",
@@ -77,6 +114,9 @@ for (const cells of rows) {
     if (!phraseKey) continue;
     const notesMax = Number(entry.notes_max);
     const ignoredShortestNotes = Number(entry.notes_courtes_ignorees);
+    const editedEvents = parseEditedEvents(
+      entry.evenements_midi_corriges,
+    );
     const hasNotesMax =
       entry.notes_max !== "" &&
       Number.isFinite(notesMax) &&
@@ -85,12 +125,13 @@ for (const cells of rows) {
       entry.notes_courtes_ignorees !== "" &&
       Number.isFinite(ignoredShortestNotes) &&
       ignoredShortestNotes >= 0;
-    if (hasNotesMax || hasIgnoredShortestNotes) {
+    if (hasNotesMax || hasIgnoredShortestNotes || editedEvents) {
       phraseSettings[phraseKey] = {
         notesMax: hasNotesMax ? Math.round(notesMax) : 20,
         ignoredShortestNotes: hasIgnoredShortestNotes
           ? Math.round(ignoredShortestNotes)
           : 0,
+        ...(editedEvents ? { editedEvents } : {}),
         updatedAt:
           entry.reglages_mise_a_jour || entry.mise_a_jour || null,
       };

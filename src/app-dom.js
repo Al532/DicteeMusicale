@@ -142,6 +142,8 @@ export function queryAppElements(documentObject) {
     closeRecording: documentObject.querySelector("#close-recording"),
     exerciseRating: documentObject.querySelector("#exercise-rating"),
     phraseAdjustments: documentObject.querySelector("#phrase-adjustments"),
+    openPhraseEditor: documentObject.querySelector("#open-phrase-editor"),
+    phraseEditorModal: documentObject.querySelector("#phrase-editor-modal"),
     phraseLengthDecrease: documentObject.querySelector(
       "#phrase-length-decrease",
     ),
@@ -149,13 +151,6 @@ export function queryAppElements(documentObject) {
       "#phrase-length-increase",
     ),
     phraseLengthOutput: documentObject.querySelector("#phrase-length-output"),
-    shortNotesDecrease: documentObject.querySelector(
-      "#short-notes-decrease",
-    ),
-    shortNotesIncrease: documentObject.querySelector(
-      "#short-notes-increase",
-    ),
-    shortNotesOutput: documentObject.querySelector("#short-notes-output"),
     reviewNavigation: documentObject.querySelector("#review-navigation"),
     reviewPrevious: documentObject.querySelector("#review-previous"),
     reviewNext: documentObject.querySelector("#review-next"),
@@ -261,11 +256,8 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.phraseLengthIncrease, "click", () =>
     actions.adjustCurrentPhraseSettings("notesMax", 1),
   );
-  listen(elements.shortNotesDecrease, "click", () =>
-    actions.adjustCurrentPhraseSettings("ignoredShortestNotes", -1),
-  );
-  listen(elements.shortNotesIncrease, "click", () =>
-    actions.adjustCurrentPhraseSettings("ignoredShortestNotes", 1),
+  listen(elements.openPhraseEditor, "click", () =>
+    actions.openCurrentPhraseEditor(),
   );
   listen(elements.reviewPrevious, "click", () => actions.moveReviewPhrase(-1));
   listen(elements.reviewNext, "click", () => actions.moveReviewPhrase(1));
@@ -299,6 +291,13 @@ export function bindAppEvents(elements, actions, documentObject) {
   }
 
   listen(documentObject, "keydown", (event) => {
+    if (!elements.phraseEditorModal.hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        actions.closePhraseEditor();
+      }
+      return;
+    }
     if (event.key === "Escape" && !elements.recordingModal.hidden) {
       event.preventDefault();
       actions.closeRecordingPlayer();

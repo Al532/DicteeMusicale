@@ -1491,6 +1491,300 @@ body.game-mode {
   font-weight: 760;
 }
 
+.phrase-editor-open-button {
+  min-height: 34px;
+  padding-inline: 12px;
+  font-size: 0.68rem;
+}
+
+body.phrase-editor-open {
+  overflow: hidden;
+}
+
+.phrase-editor-layer {
+  position: fixed;
+  z-index: 500;
+  inset: 0;
+  background: var(--bg);
+}
+
+.phrase-editor-layer:not([hidden]) {
+  display: block;
+}
+
+.phrase-editor-card {
+  display: grid;
+  width: 100%;
+  height: 100vh;
+  height: var(--game-viewport-height, 100dvh);
+  min-height: 0;
+  padding:
+    max(9px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(9px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  grid-template-rows: auto auto minmax(110px, 1fr) auto auto;
+  gap: 8px;
+  background:
+    radial-gradient(circle at 80% -20%, rgba(216, 229, 109, 0.1), transparent 38rem),
+    var(--bg);
+}
+
+.phrase-editor-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.phrase-editor-header > div {
+  min-width: 0;
+}
+
+.phrase-editor-header .eyebrow {
+  margin-bottom: 1px;
+}
+
+.phrase-editor-header h2 {
+  margin: 0;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: clamp(0.82rem, 2.4vw, 1.08rem);
+  font-weight: 760;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phrase-editor-toolbar,
+.phrase-editor-footer,
+.phrase-editor-note-actions,
+.phrase-editor-save-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.phrase-editor-toolbar {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.phrase-editor-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.phrase-editor-toolbar button,
+.phrase-editor-footer button {
+  min-height: 40px;
+  padding-inline: 14px;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+}
+
+.phrase-editor-toolbar .text-button {
+  margin-left: auto;
+}
+
+.phrase-editor-scroll {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #121510;
+  scrollbar-color: var(--line-strong) transparent;
+  touch-action: pan-x pan-y;
+}
+
+.phrase-editor-roll {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--phrase-editor-row-height) - 1px),
+      rgba(255, 255, 255, 0.055) calc(var(--phrase-editor-row-height) - 1px),
+      rgba(255, 255, 255, 0.055) var(--phrase-editor-row-height)
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--phrase-editor-second-width) - 1px),
+      rgba(216, 229, 109, 0.12) calc(var(--phrase-editor-second-width) - 1px),
+      rgba(216, 229, 109, 0.12) var(--phrase-editor-second-width)
+    );
+}
+
+.phrase-editor-note {
+  position: absolute;
+  display: block;
+  height: calc(var(--phrase-editor-row-height) - 6px);
+  min-width: 28px;
+  padding: 0 13px 0 7px;
+  overflow: hidden;
+  color: var(--accent-ink);
+  border: 1px solid rgba(216, 229, 109, 0.75);
+  border-radius: 7px;
+  background: #b5c254;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.24);
+  font-size: 0.66rem;
+  font-weight: 850;
+  line-height: 1;
+  text-align: left;
+  text-overflow: clip;
+  white-space: nowrap;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.phrase-editor-note.selected {
+  z-index: 2;
+  border-color: var(--text);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(244, 241, 231, 0.72);
+}
+
+.phrase-editor-note:active {
+  cursor: grabbing;
+}
+
+.phrase-editor-resize {
+  position: absolute;
+  inset: 2px 0 2px auto;
+  width: 11px;
+  border-left: 1px solid rgba(27, 30, 16, 0.32);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.phrase-editor-inspector {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(150px, 1fr));
+  min-width: 0;
+  gap: 7px;
+}
+
+.phrase-editor-counter {
+  display: grid;
+  min-width: 58px;
+  min-height: 42px;
+  padding-inline: 9px;
+  place-items: center;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.phrase-editor-stepper {
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  grid-template-columns: auto 40px minmax(58px, 1fr) 40px;
+  align-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  font-size: 0.68rem;
+}
+
+.phrase-editor-stepper > span {
+  padding-left: 10px;
+}
+
+.phrase-editor-stepper button {
+  align-self: stretch;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  color: var(--text);
+  border: 0;
+  background: transparent;
+  font-size: 1.1rem;
+}
+
+.phrase-editor-stepper button:hover:not(:disabled) {
+  color: var(--accent);
+  background: rgba(216, 229, 109, 0.07);
+}
+
+.phrase-editor-stepper output {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 760;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phrase-editor-footer {
+  justify-content: space-between;
+}
+
+.phrase-editor-note-actions,
+.phrase-editor-save-actions {
+  overflow-x: auto;
+}
+
+.danger-button {
+  min-height: 40px;
+  padding-inline: 14px;
+  color: var(--danger);
+  font-weight: 780;
+  border: 1px solid rgba(255, 128, 120, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 128, 120, 0.07);
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .phrase-editor-inspector {
+    grid-template-columns: auto repeat(3, minmax(125px, 1fr));
+    overflow-x: auto;
+  }
+
+  .phrase-editor-stepper {
+    grid-template-columns: 40px minmax(62px, 1fr) 40px;
+  }
+
+  .phrase-editor-stepper > span {
+    display: none;
+  }
+}
+
+@media (orientation: portrait) {
+  .phrase-editor-card {
+    grid-template-rows: auto auto minmax(180px, 1fr) auto auto;
+  }
+
+  .phrase-editor-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .phrase-editor-note-actions,
+  .phrase-editor-save-actions {
+    justify-content: center;
+  }
+
+  .phrase-editor-save-actions .primary-button {
+    min-width: 130px;
+  }
+}
+
 .developer-mode .game-controls {
   grid-template-columns:
     minmax(135px, 0.65fr)

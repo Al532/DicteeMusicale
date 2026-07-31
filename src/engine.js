@@ -6,6 +6,8 @@ import {
 } from "./corpus-loader.js";
 import {
   DEFAULT_PHRASE_MAX_NOTES,
+  normalizeEditedPhraseEvents,
+  phraseEventsWithEdits,
   resolvePhraseSettings,
 } from "./phrase-settings.js";
 
@@ -383,9 +385,14 @@ export function jazzPhraseCatalog({
       );
     })
     .map((entry) => {
+      const editedEvents = normalizeEditedPhraseEvents(
+        phraseSettings[entry.phraseKey]?.editedEvents,
+      );
+      const fullPhraseNoteCount =
+        editedEvents?.length ?? entry.fullPhraseNoteCount;
       const settings = resolvePhraseSettings(
         phraseSettings[entry.phraseKey],
-        entry.fullPhraseNoteCount,
+        fullPhraseNoteCount,
       );
       const override = catalogOverrides[entry.phraseKey];
       return {
@@ -397,9 +404,14 @@ export function jazzPhraseCatalog({
         noteCount:
           Number(override?.noteCount) ||
           settings.playedNoteCount,
-        fullPhraseNoteCount: entry.fullPhraseNoteCount,
+        fullPhraseNoteCount,
         transpositionRange:
           override?.transpositionRange ??
+          (editedEvents
+            ? jazzTranspositionRangeForNotes(
+                editedEvents.map(([midi]) => midi),
+              )
+            : null) ??
           entry.transpositionRange,
         sourceUrl: entry.sourceUrl,
       };
@@ -407,7 +419,7 @@ export function jazzPhraseCatalog({
 }
 
 export function applyPhraseSettingsToEvents(events, stored = {}) {
-  const sourceEvents = Array.isArray(events) ? events : [];
+  const sourceEvents = phraseEventsWithEdits(events, stored);
   if (!sourceEvents.length) {
     return {
       events: [],
@@ -473,7 +485,7 @@ export async function loadPhraseCatalogEntry(
     title: loaded.solo.title,
     phrase: loaded.phrase[2],
     noteCount: adjusted.events.length,
-    fullPhraseNoteCount: events.length,
+    fullPhraseNoteCount: adjusted.settings.fullPhraseNoteCount,
     transpositionRange: jazzTranspositionRangeForNotes(
       adjusted.events.map(([midi]) => midi),
     ),
@@ -536,7 +548,8 @@ function jazzSequence(
   );
   const configuredSettings = fullPhrase
     ? {
-        notesMax: selectedPhrase.notes.length,
+        ...(phraseSettings[selectedPhraseKey] ?? {}),
+        notesMax: Number.MAX_SAFE_INTEGER,
         ignoredShortestNotes: 0,
       }
     : {
@@ -555,7 +568,7 @@ function jazzSequence(
     notes: events.map(([midi]) => midi),
   };
   const wasTruncated =
-    adjusted.settings.notesMax < selectedPhrase.events.length;
+    adjusted.settings.notesMax < adjusted.settings.fullPhraseNoteCount;
   const transpositionRange = jazzTranspositionRangeForNotes(excerpt.notes);
   const transposition = Number.isFinite(transpositionOverride)
     ? jazzTranspositionInRange(
@@ -630,7 +643,7 @@ function jazzSequence(
           phraseRatingRecord(phraseRatings, excerpt.solo, excerpt.phrase)
             ?.scope ?? null,
         noteCount: transposedNotes.length,
-        fullPhraseNoteCount: selectedPhrase.notes.length,
+        fullPhraseNoteCount: adjusted.settings.fullPhraseNoteCount,
         maxNotes: adjusted.settings.notesMax,
         ignoredShortestNotes: adjusted.settings.ignoredShortestNotes,
         ignoredNoteIndexes: adjusted.ignoredIndexes,

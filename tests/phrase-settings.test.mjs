@@ -8,7 +8,10 @@ import { promisify } from "node:util";
 
 import {
   DEFAULT_PHRASE_MAX_NOTES,
+  materializeLegacyPhraseEvents,
   mergePhraseSettings,
+  normalizeEditedPhraseEvents,
+  phraseEventsWithEdits,
   resolvePhraseSettings,
 } from "../src/phrase-settings.js";
 import { DEFAULT_PHRASE_SETTINGS } from "../data/default-phrase-settings.js";
@@ -101,6 +104,59 @@ test("la fusion conserve le réglage le plus récent sans le mêler aux étoiles
   );
 });
 
+test("les corrections MIDI sont validées, triées et fusionnées", () => {
+  const editedEvents = [
+    [64, 2, 0.2, 1],
+    [61, 1, 0.1, 1],
+  ];
+  assert.deepEqual(normalizeEditedPhraseEvents(editedEvents), [
+    [61, 1, 0.1, 1],
+    [64, 2, 0.2, 1],
+  ]);
+  assert.equal(normalizeEditedPhraseEvents([]), null);
+  assert.deepEqual(
+    phraseEventsWithEdits([[60, 0, 0.2, 1], [62, 1, 0.2, 1]], {
+      editedEvents,
+    }),
+    [
+      [61, 1, 0.1, 1],
+      [64, 2, 0.2, 1],
+    ],
+  );
+
+  const merged = mergePhraseSettings({
+    "solo:1": {
+      notesMax: 2,
+      editedEvents,
+      updatedAt: "2026-07-31T12:00:00.000Z",
+    },
+  });
+  assert.deepEqual(merged["solo:1"].editedEvents, [
+    [61, 1, 0.1, 1],
+    [64, 2, 0.2, 1],
+  ]);
+});
+
+test("l’ancien retrait de notes brèves devient une correction explicite", () => {
+  const original = [
+    [60, 1, 0.2, 1],
+    [61, 1.25, 0.03, 1],
+    [62, 1.5, 0.12, 1],
+    [63, 1.75, 0.02, 1],
+    [64, 2, 0.4, 1],
+  ];
+  assert.deepEqual(
+    materializeLegacyPhraseEvents(original, {
+      notesMax: 4,
+      ignoredShortestNotes: 1,
+    }),
+    {
+      events: [original[0], original[1], original[2], original[4]],
+      notesMax: 3,
+    },
+  );
+});
+
 test("l’importeur accepte les anciens CSV et les nouveaux réglages", async () => {
   const directory = await mkdtemp(join(tmpdir(), "dictee-settings-"));
   const oldInput = join(directory, "old.csv");
@@ -137,9 +193,9 @@ test("l’importeur accepte les anciens CSV et les nouveaux réglages", async ()
   await writeFile(
     newInput,
     [
-      "portee;identifiant;etoiles;musicien;morceau;phrase;mise_a_jour;notes_max;notes_courtes_ignorees;reglages_mise_a_jour",
-      "phrase;solo:1;3;Musicien;Morceau;1;2026-07-30T10:00:00.000Z;12;2;2026-07-30T11:00:00.000Z",
-      "phrase;solo:2;;;;;;5;0;2026-07-30T12:00:00.000Z",
+      "portee;identifiant;etoiles;musicien;morceau;phrase;mise_a_jour;notes_max;notes_courtes_ignorees;evenements_midi_corriges;reglages_mise_a_jour",
+      'phrase;solo:1;3;Musicien;Morceau;1;2026-07-30T10:00:00.000Z;12;2;"[[60,1,0.2,1],[62,1.3,0.2,1]]";2026-07-30T11:00:00.000Z',
+      "phrase;solo:2;;;;;;5;0;;2026-07-30T12:00:00.000Z",
     ].join("\n"),
   );
   await execFileAsync(
@@ -163,6 +219,10 @@ test("l’importeur accepte les anciens CSV et les nouveaux réglages", async ()
   assert.deepEqual(importedSettings.DEFAULT_PHRASE_SETTINGS["solo:1"], {
     notesMax: 12,
     ignoredShortestNotes: 2,
+    editedEvents: [
+      [60, 1, 0.2, 1],
+      [62, 1.3, 0.2, 1],
+    ],
     updatedAt: "2026-07-30T11:00:00.000Z",
   });
   assert.deepEqual(importedSettings.DEFAULT_PHRASE_SETTINGS["solo:2"], {

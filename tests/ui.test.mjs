@@ -133,11 +133,16 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
       "phrase-length-decrease",
       "phrase-length-output",
       "phrase-length-increase",
-      "short-notes-decrease",
-      "short-notes-output",
-      "short-notes-increase",
+      "open-phrase-editor",
     ],
   );
+  assert.equal(elements.phraseEditorModal.hidden, true);
+  assert.equal(
+    elements.openPhraseEditor.dataset.i18n,
+    "phraseEditor.open",
+  );
+  assert.equal(document.querySelector("#phrase-editor-play").textContent.trim(), "Play phrase");
+  assert.equal(document.querySelector("#phrase-editor-save").dataset.i18n, "phraseEditor.save");
   assert.equal(elements.exerciseRating.id, "exercise-rating");
   assert.equal(document.querySelector("#completion-rating"), null);
   assert.equal(elements.setPhraseEnd.dataset.i18nAriaLabel, "rating.setEndAria");
@@ -402,6 +407,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./src/audio.js",
     "./src/original-player.js",
     "./src/persistence.js",
+    "./src/phrase-editor.js",
     "./src/recording.js",
     "./src/recording-workshop.js",
     "./src/engine.js",

@@ -23,6 +23,8 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
   );
   assert.equal(elements.developerOnly.length, 1);
   assert.equal(elements.quickRatingButtons.length, 3);
+  assert.equal(elements.openPhraseEditor.id, "open-phrase-editor");
+  assert.equal(elements.phraseEditorModal.id, "phrase-editor-modal");
 
   dom.window.close();
 });
@@ -36,11 +38,17 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     closeRecordingPlayer() {
       calls.push(["closeRecordingPlayer"]);
     },
+    closePhraseEditor() {
+      calls.push(["closePhraseEditor"]);
+    },
     isRatingModeActive() {
       return true;
     },
     playSelectedRecordingWorkshopPhrase() {
       calls.push(["playSelectedRecordingWorkshopPhrase"]);
+    },
+    openCurrentPhraseEditor() {
+      calls.push(["openCurrentPhraseEditor"]);
     },
     setDeveloperMode(enabled) {
       calls.push(["setDeveloperMode", enabled]);
@@ -69,6 +77,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
   elements.startRating.click();
   elements.playRecordingWorkshopPhrase.click();
+  elements.openPhraseEditor.click();
   elements.developerMode.checked = true;
   elements.developerMode.dispatchEvent(new dom.window.Event("change"));
 
@@ -87,6 +96,15 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   document.dispatchEvent(replayShortcut);
   assert.equal(replayShortcut.defaultPrevented, true);
 
+  elements.phraseEditorModal.hidden = false;
+  const editorEscape = new dom.window.KeyboardEvent("keydown", {
+    key: "Escape",
+    cancelable: true,
+  });
+  document.dispatchEvent(editorEscape);
+  assert.equal(editorEscape.defaultPrevented, true);
+  elements.phraseEditorModal.hidden = true;
+
   elements.recordingModal.hidden = false;
   const escape = new dom.window.KeyboardEvent("keydown", {
     key: "Escape",
@@ -99,9 +117,11 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     ["syncGameSpeed", "75"],
     ["startMode", "rating"],
     ["playSelectedRecordingWorkshopPhrase"],
+    ["openCurrentPhraseEditor"],
     ["setDeveloperMode", true],
     ["setQuickRating", 2],
     ["togglePlayback"],
+    ["closePhraseEditor"],
     ["closeRecordingPlayer"],
   ]);
 
@@ -109,7 +129,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 7);
+  assert.equal(calls.length, 9);
 
   dom.window.close();
 });

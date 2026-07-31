@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=48" />
-    <script type="module" src="./src/app.js?v=48"></script>
+    <link rel="stylesheet" href="./styles.css?v=49" />
+    <script type="module" src="./src/app.js?v=49"></script>
   </head>
   <body>
     <div
@@ -520,22 +520,12 @@
                   data-i18n-aria-label="phrase.lengthIncrease"
                 >+</button>
               </div>
-              <div class="phrase-stepper">
-                <span data-i18n="phrase.shortNotes">Short notes</span>
-                <button
-                  id="short-notes-decrease"
-                  type="button"
-                  aria-label="Restore one short note"
-                  data-i18n-aria-label="phrase.shortNotesDecrease"
-                >−</button>
-                <output id="short-notes-output">0</output>
-                <button
-                  id="short-notes-increase"
-                  type="button"
-                  aria-label="Ignore one more short note"
-                  data-i18n-aria-label="phrase.shortNotesIncrease"
-                >+</button>
-              </div>
+              <button
+                class="quiet-button phrase-editor-open-button"
+                id="open-phrase-editor"
+                type="button"
+                data-i18n="phraseEditor.open"
+              >Edit notes</button>
             </div>
             <button class="primary-button" id="free-transpose" hidden>
               <span data-i18n="free.otherKey">Another key</span>
@@ -567,6 +557,106 @@
         </div>
       </section>
     </main>
+
+    <div
+      class="phrase-editor-layer"
+      id="phrase-editor-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="phrase-editor-title"
+      hidden
+    >
+      <section class="phrase-editor-card">
+        <header class="phrase-editor-header">
+          <div>
+            <p class="eyebrow" data-i18n="phraseEditor.kicker">MIDI editor</p>
+            <h2 id="phrase-editor-title"></h2>
+          </div>
+          <button
+            class="icon-button compact"
+            id="phrase-editor-close"
+            type="button"
+            aria-label="Close editor"
+            data-i18n-aria-label="phraseEditor.close"
+          >×</button>
+        </header>
+
+        <div class="phrase-editor-toolbar">
+          <button
+            class="primary-button"
+            id="phrase-editor-play"
+            type="button"
+            aria-pressed="false"
+            data-i18n="phraseEditor.play"
+          >Play phrase</button>
+          <button
+            class="quiet-button"
+            id="phrase-editor-undo"
+            type="button"
+            data-phrase-editor-action="undo"
+            data-i18n="phraseEditor.undo"
+          >Undo</button>
+          <button
+            class="quiet-button"
+            id="phrase-editor-redo"
+            type="button"
+            data-phrase-editor-action="redo"
+            data-i18n="phraseEditor.redo"
+          >Redo</button>
+          <button
+            class="text-button"
+            id="phrase-editor-restore"
+            type="button"
+            data-phrase-editor-action="restore"
+            data-i18n="phraseEditor.restore"
+          >Restore original</button>
+        </div>
+
+        <div
+          class="phrase-editor-scroll"
+          id="phrase-editor-scroll"
+          tabindex="0"
+          aria-label="Phrase piano roll"
+          data-i18n-aria-label="phraseEditor.rollAria"
+        >
+          <div class="phrase-editor-roll" id="phrase-editor-roll"></div>
+        </div>
+
+        <div class="phrase-editor-inspector">
+          <output class="phrase-editor-counter" id="phrase-editor-counter">1/1</output>
+          <div class="phrase-editor-stepper">
+            <span data-i18n="phraseEditor.pitch">Pitch</span>
+            <button type="button" data-phrase-editor-action="pitch-decrease" aria-label="Lower one semitone" data-i18n-aria-label="phraseEditor.pitchDecrease">−</button>
+            <output id="phrase-editor-pitch">C4</output>
+            <button type="button" data-phrase-editor-action="pitch-increase" aria-label="Raise one semitone" data-i18n-aria-label="phraseEditor.pitchIncrease">+</button>
+          </div>
+          <div class="phrase-editor-stepper">
+            <span data-i18n="phraseEditor.onset">Start</span>
+            <button type="button" data-phrase-editor-action="onset-decrease" aria-label="Move note earlier" data-i18n-aria-label="phraseEditor.onsetDecrease">−</button>
+            <output id="phrase-editor-onset">0.000 s</output>
+            <button type="button" data-phrase-editor-action="onset-increase" aria-label="Move note later" data-i18n-aria-label="phraseEditor.onsetIncrease">+</button>
+          </div>
+          <div class="phrase-editor-stepper">
+            <span data-i18n="phraseEditor.duration">Duration</span>
+            <button type="button" data-phrase-editor-action="duration-decrease" aria-label="Shorten note" data-i18n-aria-label="phraseEditor.durationDecrease">−</button>
+            <output id="phrase-editor-duration">100 ms</output>
+            <button type="button" data-phrase-editor-action="duration-increase" aria-label="Lengthen note" data-i18n-aria-label="phraseEditor.durationIncrease">+</button>
+          </div>
+        </div>
+
+        <footer class="phrase-editor-footer">
+          <div class="phrase-editor-note-actions">
+            <button class="quiet-button" type="button" data-phrase-editor-action="add-after" data-i18n="phraseEditor.addAfter">Add after</button>
+            <button class="quiet-button" type="button" data-phrase-editor-action="duplicate" data-i18n="phraseEditor.duplicate">Duplicate</button>
+            <button class="danger-button" id="phrase-editor-delete" type="button" data-phrase-editor-action="delete" data-i18n="phraseEditor.delete">Delete</button>
+          </div>
+          <div class="phrase-editor-save-actions">
+            <button class="text-button" id="phrase-editor-cancel" type="button" data-i18n="phraseEditor.cancel">Cancel</button>
+            <button class="primary-button" id="phrase-editor-save" type="button" data-i18n="phraseEditor.save">Save</button>
+          </div>
+        </footer>
+      </section>
+    </div>
 
     <div
       class="modal-layer"

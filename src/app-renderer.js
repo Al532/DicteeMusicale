@@ -145,18 +145,11 @@ export function createAppRenderer({
 
     elements.phraseLengthOutput.value =
       `${settings.notesMax}/${settings.fullPhraseNoteCount}`;
-    elements.shortNotesOutput.value = String(
-      settings.ignoredShortestNotes,
-    );
     elements.phraseLengthDecrease.disabled =
       locked || settings.notesMax <= 1;
     elements.phraseLengthIncrease.disabled =
       locked || settings.notesMax >= settings.fullPhraseNoteCount;
-    elements.shortNotesDecrease.disabled =
-      locked || settings.ignoredShortestNotes <= 0;
-    elements.shortNotesIncrease.disabled =
-      locked ||
-      settings.ignoredShortestNotes >= settings.notesMax - 1;
+    elements.openPhraseEditor.disabled = locked;
   }
 
   function renderHomeState(session) {
