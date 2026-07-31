@@ -572,6 +572,108 @@ output {
   padding: 54px 0 40px;
 }
 
+.lick-explorer-panel {
+  width: min(100%, 820px);
+  margin-inline: auto;
+  padding: 46px 0 54px;
+}
+
+.lick-explorer-intro {
+  max-width: 700px;
+  margin: 20px 0 24px 62px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.lick-explorer-card {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 4vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(25, 29, 23, 0.72);
+}
+
+.lick-explorer-navigation {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 14px;
+}
+
+.lick-explorer-navigation strong {
+  text-align: center;
+  font-size: clamp(1rem, 2.8vw, 1.3rem);
+}
+
+.lick-explorer-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lick-explorer-summary > div,
+.lick-explorer-pattern {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+.lick-explorer-summary span,
+.lick-explorer-pattern span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 720;
+}
+
+.lick-explorer-pattern code {
+  overflow-x: auto;
+  padding-bottom: 2px;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: clamp(0.78rem, 2.2vw, 0.95rem);
+  white-space: nowrap;
+}
+
+.lick-explorer-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lick-explorer-actions button {
+  min-height: 44px;
+  padding-inline: 10px;
+  font-size: 0.72rem;
+}
+
+.lick-explorer-randomize {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.lick-explorer-randomize input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.lick-explorer-status {
+  min-height: 20px;
+  margin: -6px 0 0;
+  color: var(--faint);
+  font-size: 0.72rem;
+}
+
 .recording-workshop-panel {
   width: min(100%, 1080px);
   margin-inline: auto;
@@ -1939,13 +2041,19 @@ body.phrase-editor-open {
   }
 
   .favorites-intro,
+  .lick-explorer-intro,
   .recording-workshop-intro,
   .recording-workshop-progress {
     margin-left: 0;
   }
 
+  .lick-explorer-panel,
   .recording-workshop-panel {
     padding-top: 30px;
+  }
+
+  .lick-explorer-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .recording-workshop-grid {

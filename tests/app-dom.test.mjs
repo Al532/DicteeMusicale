@@ -25,6 +25,8 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
     elements.editRecordingWorkshopPhrase.id,
     "edit-recording-workshop-phrase",
   );
+  assert.equal(elements.openLickExplorer.id, "open-lick-explorer");
+  assert.equal(elements.lickExplorerPanel.id, "lick-explorer-panel");
   assert.equal(elements.developerOnly.length, 1);
   assert.equal(elements.quickRatingButtons.length, 3);
   assert.equal(elements.openPhraseEditor.id, "open-phrase-editor");
@@ -62,6 +64,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     openCurrentPhraseEditor() {
       calls.push(["openCurrentPhraseEditor"]);
     },
+    openLickExplorer() {
+      calls.push(["openLickExplorer"]);
+    },
     setDeveloperMode(enabled) {
       calls.push(["setDeveloperMode", enabled]);
     },
@@ -90,6 +95,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.startRating.click();
   elements.playRecordingWorkshopPhrase.click();
   elements.editRecordingWorkshopPhrase.click();
+  elements.openLickExplorer.click();
   elements.openPhraseEditor.click();
   elements.freeNext.click();
   elements.freePrevious.click();
@@ -133,6 +139,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     ["startMode", "rating"],
     ["playSelectedRecordingWorkshopPhrase"],
     ["editSelectedRecordingWorkshopPhrase"],
+    ["openLickExplorer"],
     ["openCurrentPhraseEditor"],
     ["moveFreePhrase", 1],
     ["moveFreePhrase", -1],
@@ -147,7 +154,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 12);
+  assert.equal(calls.length, 13);
 
   dom.window.close();
 });

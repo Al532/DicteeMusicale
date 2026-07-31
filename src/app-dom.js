@@ -45,6 +45,8 @@ export function queryAppElements(documentObject) {
     openRecordingWorkshop: documentObject.querySelector(
       "#open-recording-workshop",
     ),
+    openLickExplorer: documentObject.querySelector("#open-lick-explorer"),
+    lickExplorerPanel: documentObject.querySelector("#lick-explorer-panel"),
     recordingWorkshopPanel: documentObject.querySelector(
       "#recording-workshop-panel",
     ),
@@ -188,6 +190,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.startReview, "click", () => actions.startMode("review"));
   listen(elements.openRecordingWorkshop, "click", () =>
     actions.openRecordingWorkshop(),
+  );
+  listen(elements.openLickExplorer, "click", () =>
+    actions.openLickExplorer(),
   );
   listen(elements.closeRecordingWorkshop, "click", () =>
     actions.closeRecordingWorkshop(),

@@ -130,6 +130,7 @@ let recordingValidations = mergeRecordingValidations(
   localRecordingValidations,
 );
 let recordingWorkshop = null;
+let lickExplorer = null;
 const {
   getAudioContext,
   playBass,
@@ -280,6 +281,8 @@ async function ensureRecordingWorkshop() {
 
 async function openRecordingWorkshop() {
   if (!developerMode) return;
+  lickExplorer?.stop();
+  elements.lickExplorerPanel.hidden = true;
   const workshop = await ensureRecordingWorkshop();
   appRenderer.showHomePanel(false);
   elements.favoritesPanel.hidden = true;
@@ -340,9 +343,38 @@ function exportRecordingValidations() {
   recordingWorkshop?.exportData();
 }
 
+async function ensureLickExplorer() {
+  if (lickExplorer) return lickExplorer;
+  const { createLickExplorer } = await import("./lick-explorer.js");
+  lickExplorer = createLickExplorer({
+    audioRuntime,
+    documentObject: document,
+    onClose: showHome,
+    translate: t,
+    windowObject: window,
+  });
+  return lickExplorer;
+}
+
+async function openLickExplorer() {
+  if (!developerMode) return;
+  stopAllTones();
+  recordingWorkshop?.stopPreview();
+  elements.recordingWorkshopPanel.hidden = true;
+  const explorer = await ensureLickExplorer();
+  if (!developerMode) return;
+  appRenderer.showHomePanel(false);
+  elements.favoritesPanel.hidden = true;
+  elements.lickExplorerPanel.hidden = false;
+  explorer.open();
+}
+
 async function setDeveloperMode(enabled) {
   developerMode = Boolean(enabled);
   elements.developerMode.closest("details")?.removeAttribute("open");
+  if (!developerMode && !elements.lickExplorerPanel.hidden) {
+    lickExplorer?.close();
+  }
   if (
     !developerMode &&
     (currentMode === "rating" || currentMode === "review")
@@ -494,7 +526,9 @@ function renderHomeState() {
 
 function showHome() {
   recordingWorkshop?.stopPreview();
+  lickExplorer?.stop();
   elements.recordingWorkshopPanel.hidden = true;
+  elements.lickExplorerPanel.hidden = true;
   appRenderer.showHomePanel(true);
   renderHomeState();
 }
@@ -516,7 +550,9 @@ function renderFavorites() {
 
 function showFavorites() {
   recordingWorkshop?.stopPreview();
+  lickExplorer?.stop();
   elements.recordingWorkshopPanel.hidden = true;
+  elements.lickExplorerPanel.hidden = true;
   appRenderer.showHomePanel(false);
   renderFavorites();
 }
@@ -2138,6 +2174,7 @@ bindAppEvents(
     moveFreePhrase,
     moveReviewPhrase,
     openCurrentPhraseEditor,
+    openLickExplorer,
     openRecordingWorkshop,
     playSelectedRecordingWorkshopPhrase,
     previewRecordingWorkshop,
@@ -2200,6 +2237,7 @@ if (
       : null,
     isOriginalPlaying: originalPlayer.isPlaying(),
     isPlaying,
+    lickExplorer: lickExplorer?.snapshot() ?? null,
     phraseEditorOpen: phraseEditor.isOpen,
   });
 }

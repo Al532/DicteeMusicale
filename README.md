@@ -73,6 +73,8 @@ Le menu discret en bas de l’accueil permet d’activer les outils de maintenan
 - comparaison directe entre la phrase jouée par l’application et l’extrait
   YouTube ;
 - correction MIDI de la phrase sélectionnée directement depuis l’atelier ;
+- explorateur indépendant des 653 motifs du Pattern History Explorer de
+  Dig That Lick, avec lecture originale ou transposée ;
 - export du protocole.
 
 L’atelier mémorise les vidéos validées, les mauvaises versions et les solos
@@ -104,6 +106,28 @@ demande par le runtime, puis préchauffés en arrière-plan par le service worke
 pour garantir le corpus hors ligne. Les mesures reproductibles de démarrage
 sont disponibles avec `npm run measure:startup` et documentées dans
 [`docs/startup-performance.md`](docs/startup-performance.md).
+
+### Corpus Dig That Lick
+
+`data/dtl-licks.js` reprend sans nouveau calcul les 653 motifs et les 11 630
+occurrences du
+[Pattern History Explorer](https://jazzomat.hfm-weimar.de/pattern_history/).
+Pour chaque motif, le corpus ne conserve qu’une occurrence WJD interne afin de
+restituer ses notes et son rythme réels. L’identité de cette occurrence n’est
+jamais affichée. Les identifiants `dtl-ph-NNNN` suivent l’ordre du catalogue
+DTL ; aucun clustering ni « lick moyen » n’est ajouté.
+
+Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
+« Download data as RDS » de l’explorateur, puis lancer :
+
+```bash
+python -m pip install -r scripts/requirements-dtl.txt
+npm run dtl:import -- /chemin/vers/pattern_stats.RDS
+```
+
+Le script lit la liste officielle des occurrences, choisit la première encore
+compatible avec l’export WJazzD local, puis extrait les hauteurs, timings et
+tempo dans le corpus compact.
 
 Pour intégrer le dernier export du protocole :
 

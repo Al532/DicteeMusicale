@@ -46,6 +46,37 @@ const messages = {
     "developer.quickRating": "Quick rating",
     "developer.threeStarReview": "Review 3-star phrases",
     "developer.recordingWorkshop": "Recording workshop",
+    "developer.lickExplorer": "Lick Explorer",
+    "lickExplorer.back": "Back",
+    "lickExplorer.kicker": "Developer browser",
+    "lickExplorer.title": "Lick Explorer",
+    "lickExplorer.intro":
+      "Browse Dig That Lick patterns using the organic timing of one hidden WJD occurrence.",
+    "lickExplorer.navigation": "Lick navigation",
+    "lickExplorer.previous": "Previous lick",
+    "lickExplorer.next": "Next lick",
+    "lickExplorer.progress": ({ current, total }) =>
+      `Lick ${current} of ${total}`,
+    "lickExplorer.occurrences": "Occurrences",
+    "lickExplorer.occurrenceCount": ({ count }) =>
+      `${count} ${plural(count, "occurrence", "occurrences")}`,
+    "lickExplorer.length": "Length",
+    "lickExplorer.noteCount": ({ count }) =>
+      `${count} ${plural(count, "note", "notes")}`,
+    "lickExplorer.intervals": "Intervals",
+    "lickExplorer.rhythmClass": "Rhythm class",
+    "lickExplorer.play": "Play",
+    "lickExplorer.originalKey": "Original key",
+    "lickExplorer.randomKey": "Random key",
+    "lickExplorer.autoRandom": "New random key on every play",
+    "lickExplorer.status.original": "Original key selected.",
+    "lickExplorer.status.transposed": ({ value }) =>
+      `Transposition ${value > 0 ? "+" : ""}${value} selected.`,
+    "lickExplorer.status.playing": ({ value }) =>
+      value === 0
+        ? "Playing in the original key."
+        : `Playing transposition ${value > 0 ? "+" : ""}${value}.`,
+    "lickExplorer.status.stopped": "Playback stopped.",
     "recordingWorkshop.back": "Back",
     "recordingWorkshop.kicker": "Developer workshop",
     "recordingWorkshop.title": "Original recordings",
@@ -348,6 +379,38 @@ const messages = {
     "developer.quickRating": "Notation rapide",
     "developer.threeStarReview": "Revue des phrases 3 étoiles",
     "developer.recordingWorkshop": "Atelier enregistrements",
+    "developer.lickExplorer": "Explorateur de licks",
+    "lickExplorer.back": "Retour",
+    "lickExplorer.kicker": "Explorateur développeur",
+    "lickExplorer.title": "Lick Explorer",
+    "lickExplorer.intro":
+      "Parcours les motifs Dig That Lick avec le rythme organique d’une occurrence WJD qui reste masquée.",
+    "lickExplorer.navigation": "Navigation entre les licks",
+    "lickExplorer.previous": "Lick précédent",
+    "lickExplorer.next": "Lick suivant",
+    "lickExplorer.progress": ({ current, total }) =>
+      `Lick ${current} sur ${total}`,
+    "lickExplorer.occurrences": "Occurrences",
+    "lickExplorer.occurrenceCount": ({ count }) =>
+      `${count} occurrence${count > 1 ? "s" : ""}`,
+    "lickExplorer.length": "Longueur",
+    "lickExplorer.noteCount": ({ count }) =>
+      `${count} note${count > 1 ? "s" : ""}`,
+    "lickExplorer.intervals": "Intervalles",
+    "lickExplorer.rhythmClass": "Classe rythmique",
+    "lickExplorer.play": "Lire",
+    "lickExplorer.originalKey": "Tonalité originale",
+    "lickExplorer.randomKey": "Tonalité aléatoire",
+    "lickExplorer.autoRandom":
+      "Nouvelle tonalité aléatoire à chaque lecture",
+    "lickExplorer.status.original": "Tonalité originale sélectionnée.",
+    "lickExplorer.status.transposed": ({ value }) =>
+      `Transposition ${value > 0 ? "+" : ""}${value} sélectionnée.`,
+    "lickExplorer.status.playing": ({ value }) =>
+      value === 0
+        ? "Lecture dans la tonalité originale."
+        : `Lecture avec la transposition ${value > 0 ? "+" : ""}${value}.`,
+    "lickExplorer.status.stopped": "Lecture arrêtée.",
     "recordingWorkshop.back": "Retour",
     "recordingWorkshop.kicker": "Atelier développeur",
     "recordingWorkshop.title": "Enregistrements originaux",

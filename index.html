@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=52" />
-    <script type="module" src="./src/app.js?v=52"></script>
+    <link rel="stylesheet" href="./styles.css?v=53" />
+    <script type="module" src="./src/app.js?v=53"></script>
   </head>
   <body>
     <div
@@ -165,6 +165,9 @@
               <button class="quiet-button" id="open-recording-workshop" type="button">
                 <span data-i18n="developer.recordingWorkshop">Recording workshop</span>
               </button>
+              <button class="quiet-button" id="open-lick-explorer" type="button">
+                <span data-i18n="developer.lickExplorer">Lick Explorer</span>
+              </button>
               <button class="quiet-button" id="export-data" type="button">
                 <span data-i18n="developer.exportData">Export data</span>
               </button>
@@ -214,6 +217,118 @@
           <p data-i18n="favorites.empty.body">
             Add favorites during a challenge to find them here.
           </p>
+        </div>
+      </section>
+
+      <section
+        class="lick-explorer-panel"
+        id="lick-explorer-panel"
+        aria-labelledby="lick-explorer-title"
+        hidden
+      >
+        <div class="page-heading">
+          <button
+            class="icon-button"
+            id="close-lick-explorer"
+            type="button"
+            aria-label="Back"
+            data-i18n-aria-label="lickExplorer.back"
+          >←</button>
+          <div>
+            <p class="eyebrow" data-i18n="lickExplorer.kicker">Developer browser</p>
+            <h1 id="lick-explorer-title" data-i18n="lickExplorer.title">
+              Lick Explorer
+            </h1>
+          </div>
+        </div>
+        <p class="lick-explorer-intro" data-i18n="lickExplorer.intro">
+          Browse Dig That Lick patterns using the organic timing of one hidden
+          WJD occurrence.
+        </p>
+
+        <div class="lick-explorer-card">
+          <nav
+            class="lick-explorer-navigation"
+            aria-label="Lick navigation"
+            data-i18n-aria-label="lickExplorer.navigation"
+          >
+            <button
+              class="icon-button"
+              id="lick-explorer-previous"
+              type="button"
+              aria-label="Previous lick"
+              data-i18n-aria-label="lickExplorer.previous"
+            >←</button>
+            <strong id="lick-explorer-progress"></strong>
+            <button
+              class="icon-button"
+              id="lick-explorer-next"
+              type="button"
+              aria-label="Next lick"
+              data-i18n-aria-label="lickExplorer.next"
+            >→</button>
+          </nav>
+
+          <div class="lick-explorer-summary">
+            <div>
+              <span data-i18n="lickExplorer.occurrences">Occurrences</span>
+              <strong id="lick-explorer-occurrences"></strong>
+            </div>
+            <div>
+              <span data-i18n="lickExplorer.length">Length</span>
+              <strong id="lick-explorer-length"></strong>
+            </div>
+          </div>
+
+          <div class="lick-explorer-pattern">
+            <span data-i18n="lickExplorer.intervals">Intervals</span>
+            <code id="lick-explorer-intervals"></code>
+          </div>
+          <div class="lick-explorer-pattern" id="lick-explorer-rhythm-row">
+            <span data-i18n="lickExplorer.rhythmClass">Rhythm class</span>
+            <code id="lick-explorer-rhythm-class"></code>
+          </div>
+
+          <div class="lick-explorer-actions">
+            <button
+              class="primary-button"
+              id="lick-explorer-play"
+              type="button"
+              aria-pressed="false"
+              data-i18n="lickExplorer.play"
+            >Play</button>
+            <button
+              class="quiet-button"
+              id="lick-explorer-play-original"
+              type="button"
+              data-i18n="lickExplorer.originalKey"
+            >Original key</button>
+            <button
+              class="quiet-button"
+              id="lick-explorer-play-random"
+              type="button"
+              data-i18n="lickExplorer.randomKey"
+            >Random key</button>
+            <button
+              class="quiet-button"
+              id="lick-explorer-stop"
+              type="button"
+              data-i18n="audio.stop"
+            >Stop</button>
+          </div>
+
+          <label class="lick-explorer-randomize">
+            <input id="lick-explorer-auto-random" type="checkbox" />
+            <span data-i18n="lickExplorer.autoRandom">
+              New random key on every play
+            </span>
+          </label>
+          <p
+            class="lick-explorer-status"
+            id="lick-explorer-status"
+            role="status"
+            aria-live="polite"
+          ></p>
         </div>
       </section>
 
