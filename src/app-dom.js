@@ -74,6 +74,9 @@ export function queryAppElements(documentObject) {
     previewRecordingWorkshop: documentObject.querySelector(
       "#preview-recording-workshop",
     ),
+    playRecordingWorkshopPhrase: documentObject.querySelector(
+      "#play-recording-workshop-phrase",
+    ),
     recordingWorkshopPreview: documentObject.querySelector(
       "#recording-workshop-preview",
     ),
@@ -210,6 +213,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   }
   listen(elements.previewRecordingWorkshop, "click", () =>
     actions.previewRecordingWorkshop(),
+  );
+  listen(elements.playRecordingWorkshopPhrase, "click", () =>
+    actions.playSelectedRecordingWorkshopPhrase(),
   );
   listen(elements.verifyRecordingWorkshop, "click", () =>
     actions.verifyRecordingWorkshop(),

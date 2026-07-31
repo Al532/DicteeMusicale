@@ -8,11 +8,14 @@ import {
   recordingsAtPhrase,
   youtubeIdFromValue,
 } from "../src/recording.js";
+import { DEFAULT_PHRASE_RATINGS } from "../data/default-ratings.js";
 import { RECORDING_VALIDATIONS } from "../data/recording-validations.js";
-import { WJAZZTUBE_RECORDINGS } from "../data/wjazztube-recordings.js";
-import { WJAZZD_SOLOS } from "../data/wjazzd-solos.js";
+import { WJAZZD_SOLO_INDEX } from "../data/wjazzd-index.js";
+import {
+  YOUTUBE_SEARCH_RECORDINGS,
+} from "../data/youtube-search-recordings.js";
 
-test("les anciennes sources directes et JazzTube restent invisibles", () => {
+test("les sources directes et résultats de recherche non validés restent invisibles", () => {
   assert.deepEqual(
     recordingsAtPhrase({
       soloId: "wjazzd-v2.1-10",
@@ -158,17 +161,29 @@ test("l’export produit le module canonique trié", () => {
   );
 });
 
-test("les correspondances JazzTube restent un corpus de candidats compact", () => {
-  const soloIds = new Set(WJAZZD_SOLOS.map(({ id }) => id));
-  const entries = Object.entries(WJAZZTUBE_RECORDINGS);
-  assert.equal(entries.length, 329);
-  assert.equal(
-    entries.reduce((total, [, videos]) => total + videos.length, 0),
-    988,
+test("la base YouTube couvre exactement les solos avec phrases 3 étoiles", () => {
+  const threeStarPhraseKeys = new Set(
+    Object.entries(DEFAULT_PHRASE_RATINGS)
+      .filter(([, value]) => Number(value?.rating ?? value) === 3)
+      .map(([phraseKey]) => phraseKey),
+  );
+  const reviewedSoloIds = new Set(
+    WJAZZD_SOLO_INDEX
+      .filter((solo) =>
+        solo.phrases.some((phrase) =>
+          threeStarPhraseKeys.has(`${solo.id}:${phrase[0]}`)
+        )
+      )
+      .map(({ id }) => id),
+  );
+  const entries = Object.entries(YOUTUBE_SEARCH_RECORDINGS);
+  assert.equal(entries.length, 112);
+  assert.deepEqual(
+    new Set(entries.map(([soloId]) => soloId)),
+    reviewedSoloIds,
   );
   for (const [soloId, videos] of entries) {
-    assert.equal(soloIds.has(soloId), true, soloId);
-    assert.ok(videos.length > 0, soloId);
+    assert.equal(videos.length, 1, soloId);
     for (const [youtubeId, offset] of videos) {
       assert.match(youtubeId, /^[A-Za-z0-9_-]{11}$/);
       assert.ok(Number.isFinite(offset), `${soloId}:${youtubeId}`);

@@ -17,6 +17,10 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
   assert.equal(elements.homePanel.id, "home-panel");
   assert.equal(elements.gameSpeed.id, "game-speed");
   assert.equal(elements.recordingModal.id, "recording-modal");
+  assert.equal(
+    elements.playRecordingWorkshopPhrase.id,
+    "play-recording-workshop-phrase",
+  );
   assert.equal(elements.developerOnly.length, 1);
   assert.equal(elements.quickRatingButtons.length, 3);
 
@@ -34,6 +38,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     },
     isRatingModeActive() {
       return true;
+    },
+    playSelectedRecordingWorkshopPhrase() {
+      calls.push(["playSelectedRecordingWorkshopPhrase"]);
     },
     setDeveloperMode(enabled) {
       calls.push(["setDeveloperMode", enabled]);
@@ -61,6 +68,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.gameSpeed.value = "75";
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
   elements.startRating.click();
+  elements.playRecordingWorkshopPhrase.click();
   elements.developerMode.checked = true;
   elements.developerMode.dispatchEvent(new dom.window.Event("change"));
 
@@ -90,6 +98,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   assert.deepEqual(calls, [
     ["syncGameSpeed", "75"],
     ["startMode", "rating"],
+    ["playSelectedRecordingWorkshopPhrase"],
     ["setDeveloperMode", true],
     ["setQuickRating", 2],
     ["togglePlayback"],
@@ -100,7 +109,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 7);
 
   dom.window.close();
 });

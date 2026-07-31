@@ -492,7 +492,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       await youtube.click(".favorite-row-main");
       await youtube.waitFor(
         () => youtube.snapshot().exercise,
-        "phrase JazzTube",
+        "phrase YouTube",
       );
       const source = youtube.snapshot().exercise.source;
       assert.equal(Boolean(source.audioFile), false);
@@ -515,7 +515,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       );
       assert.equal(
         youtube.element("#recording-workshop-youtube").value,
-        "7sVa_wDvUKs",
+        "wbU4zwhOGVg",
       );
       assert.equal(
         Number(youtube.element("#recording-workshop-offset").value),
@@ -527,6 +527,19 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         ].map(({ value }) => value),
         ["2", "6"],
       );
+
+      const sourceCountBeforePhrase = youtube.audio.sources.length;
+      await youtube.click("#play-recording-workshop-phrase");
+      await youtube.waitFor(
+        () => youtube.audio.sources.length > sourceCountBeforePhrase,
+        "lecture de la phrase dans l’atelier",
+      );
+      assert.ok(
+        youtube.audio.sources
+          .slice(sourceCountBeforePhrase)
+          .some(({ kind }) => kind === "oscillator"),
+      );
+
       await youtube.click("#preview-recording-workshop");
       await youtube.waitFor(
         () =>
@@ -540,6 +553,14 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       );
       assert.equal(preview.hostname, "www.youtube-nocookie.com");
       assert.equal(preview.searchParams.get("enablejsapi"), "1");
+      assert.equal(
+        preview.searchParams.get("start"),
+        String(Math.floor(58.1878 + source.onsetStart)),
+      );
+      assert.equal(
+        preview.searchParams.get("end"),
+        String(Math.ceil(58.1878 + source.onsetEnd + 0.25)),
+      );
 
       await youtube.click('[data-recording-offset="0.1"]');
       assert.equal(
@@ -553,13 +574,23 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         ],
         {
           status: "verified",
-          youtubeId: "7sVa_wDvUKs",
+          youtubeId: "wbU4zwhOGVg",
           offset: 58.2878,
           updatedAt:
             youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
               "wjazzd-v2.1-14"
             ].updatedAt,
         },
+      );
+      assert.notEqual(
+        youtube.element("#recording-workshop-solo").value,
+        "wjazzd-v2.1-14",
+      );
+      assert.equal(
+        youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+          youtube.element("#recording-workshop-solo").value
+        ],
+        undefined,
       );
 
       await youtube.click("#close-recording-workshop");
@@ -627,16 +658,28 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         ].status,
         "wrong-version",
       );
+      const soloAfterRejection =
+        youtube.element("#recording-workshop-solo").value;
       assert.notEqual(
-        youtube.element("#recording-workshop-youtube").value,
-        rejectedId,
+        soloAfterRejection,
+        "wjazzd-v2.1-15",
+      );
+      assert.equal(
+        youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
+          soloAfterRejection
+        ],
+        undefined,
       );
       await youtube.click("#unavailable-recording-workshop");
       assert.equal(
         youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
-          "wjazzd-v2.1-15"
+          soloAfterRejection
         ].status,
         "unavailable",
+      );
+      assert.notEqual(
+        youtube.element("#recording-workshop-solo").value,
+        soloAfterRejection,
       );
     } finally {
       youtube.close();

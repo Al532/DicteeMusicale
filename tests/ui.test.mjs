@@ -414,7 +414,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./data/recording-validations.js",
     "./data/wjazzd-index.js",
     "./data/wjazzd-blocks/manifest.json",
-    "./data/wjazztube-recordings.js",
+    "./data/youtube-search-recordings.js",
     "./manifest.webmanifest",
     "./manifest-fr.webmanifest",
   ]) {

@@ -45,8 +45,8 @@ détaillé sur son chemin critique ; le bloc utile est demandé lorsqu’une phr
 est choisie. Les anciens monolithes restent uniquement comme source de
 génération et comme référence de parité dans les tests.
 
-Les correspondances JazzTube, potentiellement volumineuses, ne sont désormais
-chargées qu’à l’ouverture de l’atelier développeur de validation.
+Les candidats issus des recherches YouTube ne sont chargés qu’à l’ouverture
+de l’atelier développeur de validation.
 
 Le service worker installe d’abord le cœur de l’interface et l’index. Son
 installation continue ensuite en arrière-plan, sans bloquer la page déjà

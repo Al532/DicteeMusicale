@@ -56,13 +56,11 @@ validés dans `data/recording-validations.js`. L’interface publique ne propose
 ni lien externe ni recherche de secours. Les extraits locaux des six solos de
 Charlie Parker restent prioritaires et disponibles hors ligne.
 
-Les anciennes correspondances JazzTube restent disponibles uniquement comme
-candidats dans l’atelier développeur. Elles ne deviennent jamais publiques
-sans validation manuelle. La liste des candidats peut être régénérée avec :
-
-```bash
-npm run recordings:generate
-```
+`data/youtube-search-recordings.js` contient un candidat pour chacun des 112
+solos actuellement représentés par une phrase 3★. Chaque candidat correspond
+au premier résultat de la recherche YouTube « musicien + morceau » effectuée
+le 31 juillet 2026. Ces résultats ne deviennent jamais publics sans validation
+manuelle.
 
 ## Mode développeur
 
@@ -72,11 +70,14 @@ Le menu discret en bas de l’accueil permet d’activer les outils de maintenan
 - revue et ajustement des phrases trois étoiles ;
 - validation des enregistrements, du minutage et de plusieurs phrases d’un
   même solo, uniquement parmi les phrases trois étoiles ;
+- comparaison directe entre la phrase jouée par l’application et l’extrait
+  YouTube ;
 - export du protocole.
 
 L’atelier mémorise les vidéos validées, les mauvaises versions et les solos
-indisponibles. Son export produit un fichier `recording-validations.js` prêt à
-remplacer celui du dossier `data/`.
+indisponibles, puis avance automatiquement au prochain solo sans décision. Son
+export produit un fichier `recording-validations.js` prêt à remplacer celui du
+dossier `data/`.
 
 Les rejets structurels et les inférences globales à 1★ restent gérés par le
 protocole existant. Une note directe demeure toujours prioritaire.

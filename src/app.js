@@ -236,10 +236,10 @@ async function ensureRecordingWorkshop() {
   recordingWorkshop = createRecordingWorkshop({
     documentObject: document,
     elements,
-    fetchImpl: (...args) => globalThis.fetch(...args),
     getReviewPhraseKeys: () =>
       threeStarReviewCatalog().map(({ phraseKey }) => phraseKey),
     initialLocalValidations: localRecordingValidations,
+    loadPhrasePreview: loadRecordingWorkshopPhrase,
     onChange(nextLocalValidations) {
       localRecordingValidations = nextLocalValidations;
       writeJson(
@@ -255,6 +255,8 @@ async function ensureRecordingWorkshop() {
       }
     },
     onDownload: download,
+    onPlayPhrase: playRecordingWorkshopPhrase,
+    onStopPhrase: stopAllTones,
     translate: t,
     windowObject: window,
   });
@@ -294,6 +296,10 @@ function adjustRecordingOffset(delta) {
 
 function previewRecordingWorkshop() {
   void recordingWorkshop?.preview();
+}
+
+function playSelectedRecordingWorkshopPhrase() {
+  void recordingWorkshop?.playPhrase();
 }
 
 function verifyRecordingWorkshop() {
@@ -749,6 +755,37 @@ function flashPlayedKey(midi, delayMs, durationMs) {
   window.setTimeout(() => key.classList.remove("active"), delayMs + durationMs);
 }
 
+function scheduleSequenceAudio(
+  sequence,
+  speedPercent,
+  { flashFirstNote = false } = {},
+) {
+  const timeScale = 100 / speedPercent;
+  sequence.notes.forEach((midi, index) => {
+    const timing = sequence.timings[index];
+    const startSeconds = timing.offset * timeScale;
+    const durationSeconds = timing.duration * timeScale;
+    playTone(midi, startSeconds, durationSeconds, index === 0);
+    if (flashFirstNote && index === 0) {
+      flashPlayedKey(
+        midi,
+        startSeconds * 1000,
+        durationSeconds * 1000,
+      );
+    }
+  });
+  for (const chick of sequence.chicks ?? []) {
+    playChick(chick.offset * timeScale);
+  }
+  for (const bassHit of sequence.bassHits ?? []) {
+    playBass(
+      bassHit.midi,
+      bassHit.offset * timeScale,
+      bassHit.duration * timeScale,
+    );
+  }
+}
+
 function playSequence({ guardInputBurst = false } = {}) {
   if (!exercise) return;
   stopAllTones();
@@ -765,26 +802,9 @@ function playSequence({ guardInputBurst = false } = {}) {
   elements.feedback.className = "feedback";
   elements.feedback.textContent = t("audio.listenCarefully");
   exercise.speedPercent = realSpeedPercent;
-  const timeScale = 100 / exercise.speedPercent;
-  exercise.notes.forEach((midi, index) => {
-    const timing = exercise.timings[index];
-    const startSeconds = timing.offset * timeScale;
-    const durationSeconds = timing.duration * timeScale;
-    playTone(midi, startSeconds, durationSeconds, index === 0);
-    if (index === 0) {
-      flashPlayedKey(midi, startSeconds * 1000, durationSeconds * 1000);
-    }
+  scheduleSequenceAudio(exercise, exercise.speedPercent, {
+    flashFirstNote: true,
   });
-  for (const chick of exercise.chicks ?? []) {
-    playChick(chick.offset * timeScale);
-  }
-  for (const bassHit of exercise.bassHits ?? []) {
-    playBass(
-      bassHit.midi,
-      bassHit.offset * timeScale,
-      bassHit.duration * timeScale,
-    );
-  }
   const playbackDuration = exercisePlaybackDurationMs(exercise);
 
   playbackTimer = window.setTimeout(() => {
@@ -1140,6 +1160,32 @@ async function preloadExerciseAssets(generated) {
   } catch {
     // La mélodie reste jouable si un sample de basse manque.
   }
+}
+
+function loadRecordingWorkshopPhrase(phraseKey) {
+  return loadSequence({
+    maxNotes: REAL_MAX_NOTES,
+    selectedPerformers: ALL_PERFORMER_NAMES,
+    phraseRatings: effectivePhraseRatings(),
+    phraseSettings,
+    minimumRating: 3,
+    targetPhraseKey: phraseKey,
+    transpositionOverride: 0,
+  });
+}
+
+async function playRecordingWorkshopPhrase(generated) {
+  const playbackVersion = exerciseLaunchVersion;
+  getAudioContext();
+  await preloadExerciseAssets(generated);
+  if (
+    playbackVersion !== exerciseLaunchVersion ||
+    elements.recordingWorkshopPanel.hidden
+  ) {
+    return false;
+  }
+  scheduleSequenceAudio(generated, 100);
+  return true;
 }
 
 function scheduleInitialExercisePlayback(enteringGameMode) {
@@ -1846,6 +1892,7 @@ bindAppEvents(
     markRecordingUnavailable,
     moveReviewPhrase,
     openRecordingWorkshop,
+    playSelectedRecordingWorkshopPhrase,
     previewRecordingWorkshop,
     rejectRecordingWorkshop,
     resumeChallenge,

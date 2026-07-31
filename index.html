@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=47" />
-    <script type="module" src="./src/app.js?v=47"></script>
+    <link rel="stylesheet" href="./styles.css?v=48" />
+    <script type="module" src="./src/app.js?v=48"></script>
   </head>
   <body>
     <div
@@ -239,9 +239,9 @@
           </div>
         </div>
         <p class="recording-workshop-intro" data-i18n="recordingWorkshop.intro">
-          Check one recording per solo using only 3-star phrases. Nothing
-          appears in the public player until it has been explicitly validated
-          here.
+          Check the first YouTube result for performer and title using only
+          3-star phrases. Nothing appears in the public player until it has
+          been explicitly validated here.
         </p>
         <p
           class="recording-workshop-progress"
@@ -299,13 +299,22 @@
                 <span data-i18n="recordingWorkshop.phrase">Test phrase</span>
                 <select id="recording-workshop-phrase"></select>
               </label>
-              <button
-                class="primary-button"
-                id="preview-recording-workshop"
-                type="button"
-              >
-                <span data-i18n="recordingWorkshop.preview">Preview</span>
-              </button>
+              <div class="recording-phrase-actions">
+                <button
+                  class="quiet-button"
+                  id="play-recording-workshop-phrase"
+                  type="button"
+                >
+                  <span data-i18n="recordingWorkshop.playPhrase">Play phrase</span>
+                </button>
+                <button
+                  class="primary-button"
+                  id="preview-recording-workshop"
+                  type="button"
+                >
+                  <span data-i18n="recordingWorkshop.preview">Preview</span>
+                </button>
+              </div>
             </div>
           </div>
 

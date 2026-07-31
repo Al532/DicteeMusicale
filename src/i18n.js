@@ -50,7 +50,7 @@ const messages = {
     "recordingWorkshop.kicker": "Developer workshop",
     "recordingWorkshop.title": "Original recordings",
     "recordingWorkshop.intro":
-      "Check one recording per solo using only 3-star phrases. Nothing appears in the public player until it has been explicitly validated here.",
+      "Check the first YouTube result for performer and title using only 3-star phrases. Nothing appears in the public player until it has been explicitly validated here.",
     "recordingWorkshop.progress": ({
       total,
       unavailable,
@@ -66,7 +66,7 @@ const messages = {
     "recordingWorkshop.status.unavailable": "Unavailable",
     "recordingWorkshop.candidate": "Candidate",
     "recordingWorkshop.candidateNumber": ({ current, id }) =>
-      `JazzTube ${current} · ${id}`,
+      `YouTube result ${current} · ${id}`,
     "recordingWorkshop.candidateRejected": ({ current, id }) =>
       `Rejected ${current} · ${id}`,
     "recordingWorkshop.manualCandidate": "Paste another video",
@@ -75,6 +75,7 @@ const messages = {
     "recordingWorkshop.adjustOffset": "Adjust solo offset",
     "recordingWorkshop.phrase": "Test phrase",
     "recordingWorkshop.phraseNumber": ({ phrase }) => `Phrase ${phrase}`,
+    "recordingWorkshop.playPhrase": "Play phrase",
     "recordingWorkshop.preview": "Preview",
     "recordingWorkshop.player": "Recording validation preview",
     "recordingWorkshop.verify": "Validated",
@@ -85,10 +86,10 @@ const messages = {
     "recordingWorkshop.loading": "Loading phrase…",
     "recordingWorkshop.previewReady": ({ phrase, start }) =>
       `Phrase ${phrase} starts at ${start} s.`,
+    "recordingWorkshop.phrasePlaying": "Playing the app phrase.",
     "recordingWorkshop.loadError": "Unable to load this phrase.",
     "recordingWorkshop.saved": "Recording validated.",
-    "recordingWorkshop.rejected":
-      "Candidate rejected. The next candidate is ready.",
+    "recordingWorkshop.rejected": "Candidate rejected.",
     "recordingWorkshop.unavailableSaved":
       "This solo is marked unavailable.",
     "favorites.back": "Back",
@@ -330,7 +331,7 @@ const messages = {
     "recordingWorkshop.kicker": "Atelier développeur",
     "recordingWorkshop.title": "Enregistrements originaux",
     "recordingWorkshop.intro":
-      "Vérifie un enregistrement par solo en utilisant uniquement les phrases 3 étoiles. Rien n’apparaît dans le lecteur public avant une validation explicite ici.",
+      "Vérifie le premier résultat YouTube pour le musicien et le morceau, uniquement avec les phrases 3 étoiles. Rien n’apparaît dans le lecteur public avant une validation explicite ici.",
     "recordingWorkshop.progress": ({
       total,
       unavailable,
@@ -346,7 +347,7 @@ const messages = {
     "recordingWorkshop.status.unavailable": "Indisponible",
     "recordingWorkshop.candidate": "Candidat",
     "recordingWorkshop.candidateNumber": ({ current, id }) =>
-      `JazzTube ${current} · ${id}`,
+      `Résultat YouTube ${current} · ${id}`,
     "recordingWorkshop.candidateRejected": ({ current, id }) =>
       `Rejeté ${current} · ${id}`,
     "recordingWorkshop.manualCandidate": "Coller une autre vidéo",
@@ -355,6 +356,7 @@ const messages = {
     "recordingWorkshop.adjustOffset": "Ajuster le décalage du solo",
     "recordingWorkshop.phrase": "Phrase de test",
     "recordingWorkshop.phraseNumber": ({ phrase }) => `Phrase ${phrase}`,
+    "recordingWorkshop.playPhrase": "Écouter la phrase",
     "recordingWorkshop.preview": "Tester",
     "recordingWorkshop.player": "Aperçu de validation de l’enregistrement",
     "recordingWorkshop.verify": "Validé",
@@ -366,11 +368,12 @@ const messages = {
     "recordingWorkshop.loading": "Chargement de la phrase…",
     "recordingWorkshop.previewReady": ({ phrase, start }) =>
       `La phrase ${phrase} commence à ${start} s.`,
+    "recordingWorkshop.phrasePlaying":
+      "Lecture de la phrase dans l’application.",
     "recordingWorkshop.loadError":
       "Impossible de charger cette phrase.",
     "recordingWorkshop.saved": "Enregistrement validé.",
-    "recordingWorkshop.rejected":
-      "Candidat rejeté. Le candidat suivant est prêt.",
+    "recordingWorkshop.rejected": "Candidat rejeté.",
     "recordingWorkshop.unavailableSaved":
       "Ce solo est marqué indisponible.",
     "favorites.back": "Retour",

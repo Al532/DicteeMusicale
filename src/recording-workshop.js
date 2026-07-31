@@ -1,7 +1,8 @@
 import { RECORDING_VALIDATIONS } from "../data/recording-validations.js";
-import { WJAZZTUBE_RECORDINGS } from "../data/wjazztube-recordings.js";
 import {
-  loadPhraseCorpus,
+  YOUTUBE_SEARCH_RECORDINGS,
+} from "../data/youtube-search-recordings.js";
+import {
   WJAZZD_SOLO_INDEX,
 } from "./corpus-loader.js";
 import {
@@ -24,26 +25,18 @@ function roundedOffset(value) {
   return Math.round(Number(value) * 10_000) / 10_000;
 }
 
-function phraseSource(loaded) {
-  const startIndex = Number(loaded?.phrase?.[0]);
-  const endIndex = Number(loaded?.phrase?.[1]);
-  const first = loaded?.solo?.events?.[startIndex];
-  const last = loaded?.solo?.events?.[endIndex];
-  if (!first || !last) return null;
-  return {
-    onsetStart: Number(first[1]),
-    onsetEnd: Number(last[1]) + Number(last[2]),
-  };
-}
-
 export function createRecordingWorkshop({
   documentObject = globalThis.document,
   elements,
-  fetchImpl = (...args) => globalThis.fetch(...args),
   getReviewPhraseKeys = () => [],
   initialLocalValidations = {},
+  loadPhrasePreview = async () => {
+    throw new Error("Phrase preview loader unavailable");
+  },
   onChange = () => {},
   onDownload = () => {},
+  onPlayPhrase = async () => {},
+  onStopPhrase = () => {},
   translate = (key) => key,
   windowObject = globalThis.window,
 } = {}) {
@@ -83,7 +76,7 @@ export function createRecordingWorkshop({
   }
 
   function candidateEntries(soloId) {
-    return (WJAZZTUBE_RECORDINGS[soloId] ?? [])
+    return (YOUTUBE_SEARCH_RECORDINGS[soloId] ?? [])
       .map(([youtubeId, offset]) => ({
         youtubeId: youtubeIdFromValue(youtubeId),
         offset: Number(offset),
@@ -96,6 +89,7 @@ export function createRecordingWorkshop({
 
   function stopPreview({ clearStatus = true } = {}) {
     previewVersion += 1;
+    onStopPhrase();
     elements.recordingWorkshopPlayer.removeAttribute("src");
     elements.recordingWorkshopPreview.hidden = true;
     if (clearStatus) {
@@ -103,6 +97,18 @@ export function createRecordingWorkshop({
       elements.recordingWorkshopMessage.className =
         "recording-workshop-message";
     }
+  }
+
+  function pausePreview() {
+    if (elements.recordingWorkshopPreview.hidden) return;
+    elements.recordingWorkshopPlayer.contentWindow?.postMessage?.(
+      JSON.stringify({
+        event: "command",
+        func: "pauseVideo",
+        args: [],
+      }),
+      "https://www.youtube-nocookie.com",
+    );
   }
 
   function renderProgress() {
@@ -176,6 +182,32 @@ export function createRecordingWorkshop({
     renderCurrentStatus();
     updateSoloOption();
     renderProgress();
+  }
+
+  function advanceToNextPendingSolo() {
+    const soloIds = [...elements.recordingWorkshopSolo.options].map(
+      ({ value }) => value,
+    );
+    const currentIndex = soloIds.indexOf(
+      elements.recordingWorkshopSolo.value,
+    );
+    for (let distance = 1; distance <= soloIds.length; distance += 1) {
+      const soloId = soloIds[
+        (currentIndex + distance + soloIds.length) % soloIds.length
+      ];
+      if (!validations()[soloId]) {
+        elements.recordingWorkshopSolo.value = soloId;
+        selectSolo();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function finishDecision() {
+    if (!advanceToNextPendingSolo()) {
+      stopPreview({ clearStatus: false });
+    }
   }
 
   function renderCandidates({ preferStored = true } = {}) {
@@ -287,6 +319,12 @@ export function createRecordingWorkshop({
     stopPreview();
   }
 
+  function selectedPhraseKey() {
+    const solo = selectedSolo();
+    const phrase = elements.recordingWorkshopPhrase.value;
+    return solo && phrase ? `${solo.id}:${phrase}` : null;
+  }
+
   async function preview() {
     const solo = selectedSolo();
     const youtubeId = youtubeIdFromValue(
@@ -303,6 +341,8 @@ export function createRecordingWorkshop({
       return;
     }
 
+    onStopPhrase();
+    pausePreview();
     const version = ++previewVersion;
     elements.recordingWorkshopMessage.textContent = translate(
       "recordingWorkshop.loading",
@@ -310,11 +350,9 @@ export function createRecordingWorkshop({
     elements.recordingWorkshopMessage.className =
       "recording-workshop-message";
     try {
-      const loaded = await loadPhraseCorpus(`${solo.id}:${phrase}`, {
-        fetch: fetchImpl,
-      });
+      const generated = await loadPhrasePreview(`${solo.id}:${phrase}`);
       if (version !== previewVersion) return;
-      const source = phraseSource(loaded);
+      const source = generated?.meta?.source;
       const choice = recordingChoiceAtPhrase(youtubeId, offset, source);
       if (!choice) throw new Error("Invalid recording");
       elements.recordingWorkshopPlayer.src = choice.embedUrl;
@@ -340,6 +378,43 @@ export function createRecordingWorkshop({
     } catch {
       if (version !== previewVersion) return;
       stopPreview({ clearStatus: false });
+      elements.recordingWorkshopMessage.textContent = translate(
+        "recordingWorkshop.loadError",
+      );
+      elements.recordingWorkshopMessage.className =
+        "recording-workshop-message error";
+    }
+  }
+
+  async function playPhrase() {
+    const phraseKey = selectedPhraseKey();
+    if (!phraseKey) {
+      elements.recordingWorkshopMessage.textContent = translate(
+        "recordingWorkshop.loadError",
+      );
+      elements.recordingWorkshopMessage.className =
+        "recording-workshop-message error";
+      return;
+    }
+
+    onStopPhrase();
+    pausePreview();
+    const version = ++previewVersion;
+    elements.recordingWorkshopMessage.textContent = translate(
+      "recordingWorkshop.loading",
+    );
+    elements.recordingWorkshopMessage.className =
+      "recording-workshop-message";
+    try {
+      const generated = await loadPhrasePreview(phraseKey);
+      if (version !== previewVersion) return;
+      const played = await onPlayPhrase(generated);
+      if (version !== previewVersion || played === false) return;
+      elements.recordingWorkshopMessage.textContent = translate(
+        "recordingWorkshop.phrasePlaying",
+      );
+    } catch {
+      if (version !== previewVersion) return;
       elements.recordingWorkshopMessage.textContent = translate(
         "recordingWorkshop.loadError",
       );
@@ -381,6 +456,7 @@ export function createRecordingWorkshop({
       rejectedYoutubeIds: currentRejectedIds(),
       updatedAt: new Date().toISOString(),
     });
+    finishDecision();
     elements.recordingWorkshopMessage.textContent = translate(
       "recordingWorkshop.saved",
     );
@@ -407,8 +483,7 @@ export function createRecordingWorkshop({
       ],
       updatedAt: new Date().toISOString(),
     });
-    stopPreview({ clearStatus: false });
-    renderCandidates({ preferStored: false });
+    finishDecision();
     elements.recordingWorkshopMessage.textContent = translate(
       "recordingWorkshop.rejected",
     );
@@ -422,7 +497,7 @@ export function createRecordingWorkshop({
       rejectedYoutubeIds: currentRejectedIds(),
       updatedAt: new Date().toISOString(),
     });
-    stopPreview({ clearStatus: false });
+    finishDecision();
     elements.recordingWorkshopMessage.textContent = translate(
       "recordingWorkshop.unavailableSaved",
     );
@@ -473,6 +548,7 @@ export function createRecordingWorkshop({
     exportData,
     markUnavailable,
     open,
+    playPhrase,
     preview,
     reject,
     selectCandidate,
