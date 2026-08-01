@@ -301,10 +301,8 @@ export function createAppRenderer({
   }
 
   function renderLickExerciseProgress({
-    harmonicFunction,
     index,
     patternId,
-    startDegree,
     total,
   }) {
     elements.challengeProgress.hidden = false;
@@ -315,10 +313,7 @@ export function createAppRenderer({
       "lickExercise.progress",
       { current: index + 1, total },
     );
-    elements.progressDetail.textContent = translate(
-      "lickExercise.pattern",
-      { harmonicFunction, patternId, startDegree },
-    );
+    elements.progressDetail.textContent = patternId;
   }
 
   function renderRatingSession({

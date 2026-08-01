@@ -18,8 +18,8 @@ import { DEFAULT_PHRASE_SETTINGS } from "../data/default-phrase-settings.js";
 
 const execFileAsync = promisify(execFile);
 
-test("les 56 réglages de phrase exportés sont intégrés en dur", () => {
-  assert.equal(Object.keys(DEFAULT_PHRASE_SETTINGS).length, 56);
+test("les 57 réglages de phrase exportés sont intégrés en dur", () => {
+  assert.equal(Object.keys(DEFAULT_PHRASE_SETTINGS).length, 57);
   assert.deepEqual(DEFAULT_PHRASE_SETTINGS["wjazzd-v2.1-122:12"], {
     notesMax: 25,
     ignoredShortestNotes: 0,

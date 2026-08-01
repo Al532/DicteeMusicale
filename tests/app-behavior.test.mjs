@@ -153,15 +153,13 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
   });
 
   await t.test("l’exercice de licks parcourt une pioche aléatoire sans remise", async () => {
-    const app = await bootApp({
-      storage: {
-        [SETTINGS_KEY]: {
-          developerMode: true,
-          realSpeed: 100,
-        },
-      },
-    });
+    const app = await bootApp();
     try {
+      const trainerButton = app.element("#start-lick-exercise");
+      assert.equal(trainerButton.isConnected, true);
+      assert.equal(trainerButton.closest("[hidden]"), null);
+      assert.equal(trainerButton.textContent.trim(), "Lick trainer");
+
       await app.click("#start-lick-exercise");
       await app.waitFor(
         () => app.snapshot().exercise?.source?.kind === "dtl-lick-exercise",
@@ -169,7 +167,12 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       );
 
       const first = app.snapshot();
+      assert.equal(first.developerMode, false);
       assert.equal(first.currentMode, "lick-exercise");
+      assert.equal(
+        app.document.body.classList.contains("lick-exercise-mode"),
+        true,
+      );
       assert.equal(first.lickExercise.index, 0);
       assert.equal(first.lickExercise.total, 19);
       assert.equal(
@@ -184,9 +187,9 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(app.element("#next-exercise").disabled, false);
       assert.equal(app.element("#free-transpose").hidden, false);
       assert.match(app.element("#progress-title").textContent, /1.*19/);
-      assert.match(
+      assert.equal(
         app.element("#progress-detail").textContent,
-        /^P\d{2} · /,
+        first.exercise.source.patternId,
       );
       assert.equal(
         app.fetchCalls.some((url) => url.includes("/data/wjazzd-blocks/")),

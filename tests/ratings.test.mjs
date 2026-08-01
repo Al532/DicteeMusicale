@@ -25,7 +25,7 @@ test("les 763 notes exportées sont intégrées en dur", () => {
       }),
       { 1: 0, 2: 0, 3: 0 },
     ),
-    { 1: 333, 2: 220, 3: 210 },
+    { 1: 333, 2: 222, 3: 208 },
   );
 });
 
@@ -39,7 +39,7 @@ test("le protocole couvre les notes et les exclusions structurelles", () => {
   assert.equal(summary.structuralExcluded, 3_416);
   assert.equal(summary.covered, 4_185);
   assert.equal(summary.remaining, 6_897);
-  assert.deepEqual(summary.distribution, { 1: 3_755, 2: 220, 3: 210 });
+  assert.deepEqual(summary.distribution, { 1: 3_755, 2: 222, 3: 208 });
   assert.deepEqual(
     summary.structuralRules.map(({ scopeId, sampleSize }) => ({
       scopeId,

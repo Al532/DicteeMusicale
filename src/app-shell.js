@@ -176,6 +176,7 @@ export function createAppShell({
       "rating-mode",
       "challenge-mode",
       "free-mode",
+      "lick-exercise-mode",
       "sudden-death-mode",
       "review-mode",
     );

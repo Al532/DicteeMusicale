@@ -1,14 +1,13 @@
 const CACHE_PREFIX = "dictee-musicale-";
-const SHELL_CACHE = `${CACHE_PREFIX}shell-v66`;
+const SHELL_CACHE = `${CACHE_PREFIX}shell-v67`;
 const CORPUS_CACHE = `${CACHE_PREFIX}corpus-0bebff94`;
 const CORPUS_MANIFEST = "./data/wjazzd-blocks/manifest.json";
 const CORPUS_BLOCK_PATH = "/data/wjazzd-blocks/block-";
 
 const CORE_SHELL = [
   "./index.html",
-  "./styles.css?v=64",
-  "./src/app.js?v=64",
-  "./src/app-core.js?v=64",
+  "./styles.css?v=67",
+  "./src/app.js?v=67",
   "./src/app-dom.js",
   "./src/app-renderer.js",
   "./src/app-shell.js",
@@ -20,7 +19,6 @@ const CORE_SHELL = [
   "./src/exercise.js",
   "./src/i18n.js",
   "./src/lick-explorer.js",
-  "./src/lick-trainer-integration.js",
   "./src/original-player.js",
   "./src/persistence.js",
   "./src/phrase-editor.js",

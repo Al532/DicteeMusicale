@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
 const workerSource = await readFile(
   new URL("../sw.js", import.meta.url),
@@ -21,6 +21,14 @@ const CORPUS_CACHE_NAME =
   workerSource.match(
     /const CORPUS_CACHE = `\$\{CACHE_PREFIX\}corpus-([^`]+)`/,
   )?.[1];
+const SHELL_CACHE_NAME = `dictee-musicale-shell-v${
+  workerSource.match(
+    /const SHELL_CACHE = `\$\{CACHE_PREFIX\}shell-v(\d+)`/,
+  )?.[1]
+}`;
+const CORE_SHELL_RESOURCES = vm.runInNewContext(
+  workerSource.match(/const CORE_SHELL = (\[[\s\S]*?\]);/)?.[1] ?? "[]",
+);
 
 function requestUrl(request) {
   return new URL(
@@ -173,7 +181,7 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
 
   assert.equal(worker.skipWaitingCalls, 1);
   const shell = worker.cacheStores.get(
-    "dictee-musicale-shell-v65",
+    SHELL_CACHE_NAME,
   );
   const corpus = worker.cacheStores.get(
     `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
@@ -209,7 +217,6 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
     "/data/default-phrase-settings-base.js",
     "/data/default-ratings-base.js",
     "/data/imported-data-2026-08-01.js",
-    "/src/lick-trainer-integration.js",
   ]) {
     assert.equal(
       [...shell.keys()].some((url) => url.endsWith(path)),
@@ -222,6 +229,16 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
     ),
     false,
   );
+});
+
+test("chaque ressource du shell précaché existe dans l’application", async () => {
+  for (const resource of CORE_SHELL_RESOURCES) {
+    const path = resource.replace(/^\.\//, "").split("?")[0];
+    await assert.doesNotReject(
+      access(new URL(`../${path}`, import.meta.url)),
+      resource,
+    );
+  }
 });
 
 test("un échec de préchauffage conserve l’ancien worker actif", async () => {
@@ -270,6 +287,7 @@ test("l’activation ne supprime que les anciennes caches de l’application", a
   await worker.caches.open("dictee-musicale-shell-v63");
   await worker.caches.open("dictee-musicale-shell-v64");
   await worker.caches.open("dictee-musicale-shell-v65");
+  await worker.caches.open(SHELL_CACHE_NAME);
   await worker.caches.open(
     `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
   );
@@ -280,7 +298,7 @@ test("l’activation ne supprime que les anciennes caches de l’application", a
   assert.deepEqual(
     new Set(await worker.caches.keys()),
     new Set([
-      "dictee-musicale-shell-v65",
+      SHELL_CACHE_NAME,
       `dictee-musicale-corpus-${CORPUS_CACHE_NAME}`,
       "autre-application-v1",
     ]),

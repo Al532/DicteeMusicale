@@ -85,6 +85,11 @@ test("l’accueil public conserve son contenu et ses actions", () => {
     elements.openFavorites.querySelector("[data-i18n]")?.dataset.i18n,
     "home.freeMode",
   );
+  assert.equal(elements.startLickExercise.closest("[hidden]"), null);
+  assert.equal(
+    elements.startLickExercise.querySelector("[data-i18n]")?.dataset.i18n,
+    "home.lickTrainer",
+  );
 
   const localeBootstrap = document.querySelector("head script:not([src])");
   assert.ok(localeBootstrap);
@@ -107,12 +112,15 @@ test("le contrat HTML expose uniquement les outils développeur actuels", () => 
       "start-rating",
       "start-review",
       "open-recording-workshop",
-      "start-lick-exercise",
       "open-lick-explorer",
       "export-data",
     ],
   );
   assert.equal(elements.developerMode.type, "checkbox");
+  assert.match(
+    styles,
+    /\.lick-exercise-mode\.game-mode #next-exercise:not\(\[hidden\]\)/,
+  );
 
   for (const selector of [
     "#developer-lab",

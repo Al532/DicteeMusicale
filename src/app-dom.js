@@ -1,5 +1,3 @@
-import "./lick-trainer-integration.js";
-
 /**
  * Resolve every DOM node used by the application.
  *

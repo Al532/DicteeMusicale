@@ -435,20 +435,15 @@ test("les vues défi, review et session de notation restent stateless", () => {
   assert.equal(elements.freeNext.disabled, false);
 
   renderer.renderLickExerciseProgress({
-    harmonicFunction: "V–I",
     index: 4,
     patternId: "P13",
-    startDegree: "1",
     total: 19,
   });
   assert.equal(elements.progressDots.hidden, true);
   assert.equal(elements.reviewNavigation.hidden, true);
   assert.equal(elements.freeNavigation.hidden, true);
   assert.equal(elements.progressTitle.textContent, "Lick 5 of 19");
-  assert.equal(
-    elements.progressDetail.textContent,
-    "P13 · V–I · starts on 1",
-  );
+  assert.equal(elements.progressDetail.textContent, "P13");
 
   renderer.renderRatingSession({
     count: 2,
