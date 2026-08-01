@@ -134,10 +134,12 @@ fonction puis par degré de départ ; les 39 cas ambigus sont écartés.
 Le rythme interprété est volontairement uniforme : croches à 156 BPM avec un
 swing léger de 1,4:1. Un motif à une harmonie place sa dernière note sur 1 ; un
 motif à deux harmonies place la note de bascule sur le temps fort retenu. La
-lecture commence directement sur le pattern, sans mesure de basse/batterie à
-vide. Ensuite, la basse ne joue que sur les temps 1 et sur le changement
-d’harmonie, tandis que le hi-hat marque 2 et 4. L’occurrence WJD de référence
-reste disponible pour comparaison.
+lecture commence au début de la mesure où entre le pattern : il peut donc y
+avoir une introduction partielle, mais jamais une mesure entière à vide. La
+basse ne joue que sur les temps 1 et sur le changement d’harmonie ; chaque
+note tient jusqu’à la suivante et la dernière dépasse légèrement l’arrivée.
+Le hi-hat marque 2 et 4. L’occurrence WJD de référence reste disponible pour
+comparaison.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :

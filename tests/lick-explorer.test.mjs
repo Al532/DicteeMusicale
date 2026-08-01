@@ -333,7 +333,8 @@ test("le pilote joue les croches swinguées avec basse rare et 2 et 4", async ()
     assert.equal(audio.calls.bassPreloads.length, 1);
     assert.ok(audio.calls.bass.length >= 1);
     assert.ok(audio.calls.chicks.length >= 1);
-    assert.equal(audio.calls.tones[0][1], 0);
+    assert.ok(audio.calls.tones[0][1] > 0);
+    assert.equal(audio.calls.bass[0][1], 0);
     assert.equal(
       audio.calls.bass.every(([, offset]) => offset >= 0) &&
         audio.calls.chicks.every(([offset]) => offset >= 0),
@@ -453,11 +454,11 @@ function swungBeatPosition(tick) {
     : beat + withinBeat / ticksPerBeat;
 }
 
-function offsetForTick(tick, firstNoteTick) {
+function offsetForTick(tick, timelineStartTick) {
   const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
   return Number(
     (
-      (swungBeatPosition(tick) - swungBeatPosition(firstNoteTick)) *
+      (swungBeatPosition(tick) - swungBeatPosition(timelineStartTick)) *
       secondsPerBeat
     ).toFixed(4),
   );
@@ -470,17 +471,27 @@ test("toutes les reconstructions utilisent des croches et leur temps cible", () 
     const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
     const sequence = createSyntheticLickSequence(lick);
     const firstNoteTick = pilot.startTick;
+    const measureTicks =
+      pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat;
+    const timelineStartTick =
+      Math.floor(firstNoteTick / measureTicks) * measureTicks;
 
     sequence.timings.forEach((timing, noteIndex) => {
       const expectedOffset = offsetForTick(
         firstNoteTick +
           noteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks,
-        firstNoteTick,
+        timelineStartTick,
       );
       assert.equal(timing.offset, expectedOffset, lick.id);
       assert.ok(timing.duration > 0, lick.id);
     });
-    assert.equal(sequence.timings[0].offset, 0, lick.id);
+    assert.equal(sequence.meta.source.timelineStartTick, timelineStartTick);
+    assert.ok(sequence.timings[0].offset >= 0, lick.id);
+    assert.ok(
+      sequence.timings[0].offset <
+        (60 / DTL_RHYTHM_PILOT.tempo) * pilot.meter,
+      lick.id,
+    );
 
     const targetNoteIndex =
       pilot.harmonyCount === 1
@@ -498,11 +509,9 @@ test("toutes les reconstructions utilisent des croches et leur temps cible", () 
 
     const lastReleaseTick =
       firstNoteTick + lick.notes.length * DTL_RHYTHM_PILOT.eighthNoteTicks;
-    const measureTicks =
-      pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat;
     const bassTicks = new Set();
     for (
-      let tick = Math.ceil(firstNoteTick / measureTicks) * measureTicks;
+      let tick = timelineStartTick;
       tick < lastReleaseTick;
       tick += measureTicks
     ) {
@@ -513,9 +522,29 @@ test("toutes les reconstructions utilisent des croches et leur temps cible", () 
       sequence.bassHits.map(({ offset }) => offset),
       [...bassTicks]
         .sort((left, right) => left - right)
-        .map((tick) => offsetForTick(tick, firstNoteTick)),
+        .map((tick) => offsetForTick(tick, timelineStartTick)),
       lick.id,
     );
+    const orderedBassTicks = [...bassTicks].sort(
+      (left, right) => left - right,
+    );
+    const finalBassEndTick =
+      lastReleaseTick + DTL_RHYTHM_PILOT.ticksPerBeat;
+    sequence.bassHits.forEach((hit, index) => {
+      const startTick = orderedBassTicks[index];
+      const endTick = orderedBassTicks[index + 1] ?? finalBassEndTick;
+      assert.equal(
+        hit.duration,
+        Number(
+          (
+            offsetForTick(endTick, timelineStartTick) -
+            offsetForTick(startTick, timelineStartTick)
+          ).toFixed(4),
+        ),
+        lick.id,
+      );
+    });
+    assert.equal(sequence.bassHits[0].offset, 0, lick.id);
     assert.ok(
       sequence.bassHits.every(({ offset }) => offset >= 0),
       lick.id,
@@ -529,7 +558,7 @@ test("une harmonie finit sur 1 et la basse ne joue que sur les 1", () => {
   const sequence = createSyntheticLickSequence(lick, 5);
 
   assert.equal(pilot.harmonyCount, 1);
-  assert.equal(sequence.timings[0].offset, 0);
+  assert.ok(sequence.timings[0].offset > 0);
   assert.deepEqual(
     sequence.notes,
     lick.notes.map((midi) => midi + 5),
@@ -546,6 +575,10 @@ test("une harmonie finit sur 1 et la basse ne joue que sur les 1", () => {
   assert.equal(
     sequence.bassHits.at(-1).offset,
     sequence.timings.at(-1).offset,
+  );
+  assert.ok(
+    sequence.bassHits.at(-1).duration >
+      sequence.timings.at(-1).duration,
   );
 });
 
@@ -574,7 +607,8 @@ test("deux harmonies placent et font entendre la bascule sur 3", () => {
         midi % 12 === secondBassPitchClass,
     ),
   );
-  assert.equal(sequence.timings[0].offset, 0);
+  assert.ok(sequence.timings[0].offset > 0);
+  assert.equal(sequence.bassHits[0].offset, 0);
   assert.ok(sequence.bassHits.every(({ offset }) => offset >= 0));
 });
 

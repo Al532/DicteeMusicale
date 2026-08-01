@@ -142,8 +142,11 @@ export function createSyntheticLickSequence(
   const eighthNoteTicks = DTL_RHYTHM_PILOT.eighthNoteTicks;
   const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
   const firstNoteTick = pilot.startTick;
+  const measureTicks = pilot.meter * ticksPerBeat;
+  const timelineStartTick =
+    Math.floor(firstNoteTick / measureTicks) * measureTicks;
   const timelineStartBeat = swungBeatPosition(
-    firstNoteTick,
+    timelineStartTick,
     ticksPerBeat,
     DTL_RHYTHM_PILOT.swingRatio,
   );
@@ -184,37 +187,37 @@ export function createSyntheticLickSequence(
       ? firstNoteTick + pilot.changeNoteIndex * eighthNoteTicks
       : null;
   const bassTicks = new Set();
-  const measureTicks = pilot.meter * ticksPerBeat;
-  const firstBeatOneTick =
-    Math.ceil(firstNoteTick / measureTicks) * measureTicks;
   for (
-    let tick = firstBeatOneTick;
+    let tick = timelineStartTick;
     tick < playbackEndTick;
     tick += measureTicks
   ) {
     bassTicks.add(tick);
   }
   if (changeTick !== null) bassTicks.add(changeTick);
-  const bassTemplates = [...bassTicks]
-    .sort((left, right) => left - right)
-    .map((tick) => {
-      const harmony = changeTick !== null && tick >= changeTick ? 2 : 1;
-      const rootPitchClass =
-        harmony === 2
-          ? pitchClass(firstBassRootPitchClass + pilot.rootMotion)
-          : firstBassRootPitchClass;
-      return {
-        offset: offsetForTick(tick),
-        duration: Number((secondsPerBeat * 0.82).toFixed(4)),
-        rootPitchClass,
-        chord: `pilot-harmony-${harmony}`,
-      };
-    });
-  const firstWholeBeatTick =
-    Math.ceil(firstNoteTick / ticksPerBeat) * ticksPerBeat;
+  const orderedBassTicks = [...bassTicks].sort(
+    (left, right) => left - right,
+  );
+  const finalBassEndTick = playbackEndTick + ticksPerBeat;
+  const bassTemplates = orderedBassTicks.map((tick, index) => {
+    const nextTick = orderedBassTicks[index + 1] ?? finalBassEndTick;
+    const harmony = changeTick !== null && tick >= changeTick ? 2 : 1;
+    const rootPitchClass =
+      harmony === 2
+        ? pitchClass(firstBassRootPitchClass + pilot.rootMotion)
+        : firstBassRootPitchClass;
+    return {
+      offset: offsetForTick(tick),
+      duration: Number(
+        (offsetForTick(nextTick) - offsetForTick(tick)).toFixed(4),
+      ),
+      rootPitchClass,
+      chord: `pilot-harmony-${harmony}`,
+    };
+  });
   const chicks = [];
   for (
-    let tick = firstWholeBeatTick;
+    let tick = timelineStartTick;
     tick < playbackEndTick;
     tick += ticksPerBeat
   ) {
@@ -241,7 +244,7 @@ export function createSyntheticLickSequence(
         harmonyCount: pilot.harmonyCount,
         changeNoteIndex: pilot.changeNoteIndex ?? null,
         changeBeat: pilot.changeBeat ?? null,
-        timelineStartTick: firstNoteTick,
+        timelineStartTick,
       },
     },
   };
