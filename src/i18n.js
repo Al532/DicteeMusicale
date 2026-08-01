@@ -51,12 +51,15 @@ const messages = {
     "lickExplorer.kicker": "Developer browser",
     "lickExplorer.title": "Lick Explorer",
     "lickExplorer.intro":
-      "The 58 most typical patterns are played as lightly swung eighth notes. Bass sounds on beat 1 and at each harmony change; the WJD occurrence remains available for comparison.",
+      "Only very typical patterns with a clear harmonic function and starting degree are retained. They are grouped by function, then by starting degree, and played immediately as lightly swung eighth notes.",
     "lickExplorer.navigation": "Lick navigation",
     "lickExplorer.previous": "Previous lick",
     "lickExplorer.next": "Next lick",
     "lickExplorer.progress": ({ current, total }) =>
       `Lick ${current} of ${total}`,
+    "lickExplorer.patternId": "Pattern ID",
+    "lickExplorer.harmonicFunction": "Function",
+    "lickExplorer.startDegree": "Starting degree",
     "lickExplorer.occurrences": "Occurrences",
     "lickExplorer.occurrenceCount": ({ count }) =>
       `${count} ${plural(count, "occurrence", "occurrences")}`,
@@ -74,10 +77,6 @@ const messages = {
     "lickExplorer.originalKey": "Original key",
     "lickExplorer.randomKey": "Random key",
     "lickExplorer.autoRandom": "New random key on every play",
-    "lickExplorer.filter": "Selection",
-    "lickExplorer.filter.all": "All licks",
-    "lickExplorer.filter.typical": "Typical licks",
-    "lickExplorer.filter.veryTypical": "Very typical licks",
     "lickExplorer.rhythmMode": "Rhythm",
     "lickExplorer.rhythmMode.synthetic": "Swung eighth notes",
     "lickExplorer.rhythmMode.reference": "WJD occurrence",
@@ -394,12 +393,15 @@ const messages = {
     "lickExplorer.kicker": "Explorateur développeur",
     "lickExplorer.title": "Lick Explorer",
     "lickExplorer.intro":
-      "Les 58 motifs les plus typiques sont joués en croches légèrement swinguées. La basse joue sur le temps 1 et à chaque changement d’harmonie ; l’occurrence WJD reste disponible pour comparaison.",
+      "Seuls les motifs très typiques dont la fonction harmonique et le degré de départ sont nets sont conservés. Ils sont groupés par fonction, puis par degré de départ, et joués immédiatement en croches légèrement swinguées.",
     "lickExplorer.navigation": "Navigation entre les licks",
     "lickExplorer.previous": "Lick précédent",
     "lickExplorer.next": "Lick suivant",
     "lickExplorer.progress": ({ current, total }) =>
       `Lick ${current} sur ${total}`,
+    "lickExplorer.patternId": "ID du pattern",
+    "lickExplorer.harmonicFunction": "Fonction",
+    "lickExplorer.startDegree": "Degré de départ",
     "lickExplorer.occurrences": "Occurrences",
     "lickExplorer.occurrenceCount": ({ count }) =>
       `${count} occurrence${count > 1 ? "s" : ""}`,
@@ -418,10 +420,6 @@ const messages = {
     "lickExplorer.randomKey": "Tonalité aléatoire",
     "lickExplorer.autoRandom":
       "Nouvelle tonalité aléatoire à chaque lecture",
-    "lickExplorer.filter": "Sélection",
-    "lickExplorer.filter.all": "Tous les licks",
-    "lickExplorer.filter.typical": "Licks typiques",
-    "lickExplorer.filter.veryTypical": "Licks très typiques",
     "lickExplorer.rhythmMode": "Rythme",
     "lickExplorer.rhythmMode.synthetic": "Croches swinguées",
     "lickExplorer.rhythmMode.reference": "Occurrence WJD",

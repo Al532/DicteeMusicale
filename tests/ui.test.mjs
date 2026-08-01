@@ -182,15 +182,18 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
     elements.exportData.querySelector("[data-i18n]")?.dataset.i18n,
     "developer.exportData",
   );
+  assert.equal(document.querySelector("#lick-explorer-filter"), null);
   assert.deepEqual(
-    [...document.querySelector("#lick-explorer-filter").options].map(
-      ({ value }) => value,
-    ),
-    ["all", "typical", "very-typical"],
-  );
-  assert.equal(
-    document.querySelector("#lick-explorer-filter").value,
-    "very-typical",
+    [
+      "lick-explorer-pattern-id",
+      "lick-explorer-harmonic-function",
+      "lick-explorer-start-degree",
+    ].map((id) => document.querySelector(`#${id}`)?.id),
+    [
+      "lick-explorer-pattern-id",
+      "lick-explorer-harmonic-function",
+      "lick-explorer-start-degree",
+    ],
   );
   assert.deepEqual(
     [...document.querySelector("#lick-explorer-rhythm-mode").options].map(

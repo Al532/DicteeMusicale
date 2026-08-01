@@ -116,25 +116,28 @@ Pour chaque motif, le corpus ne conserve qu’une occurrence WJD interne afin de
 restituer ses notes et son rythme réels. L’identité de cette occurrence n’est
 jamais affichée. Les identifiants `dtl-ph-NNNN` suivent l’ordre du catalogue
 DTL ; aucun clustering ni « lick moyen » n’est ajouté. L’explorateur écarte
-ensuite les 289 motifs uniquement composés de répétitions, demi-tons et tons :
-les 364 motifs parcourus contiennent donc tous au moins un saut supérieur à
-deux demi-tons. Le sélecteur propose 117 « licks typiques » : au moins dix
-occurrences, trois solos et trois interprètes, 90 % d’occurrences entièrement
-contenues dans une phrase, puis une saillance DTL `log_excess_prob` minimale
-corrigée selon la longueur du motif. Le niveau « très typiques » conserve 58 de
-ces motifs en exigeant aussi `log_excess_prob >= 2`. Ces statistiques restent
-internes et aucune identité supplémentaire n’est exposée dans l’écran.
+ensuite les 289 motifs uniquement composés de répétitions, demi-tons et tons.
+Les seuils statistiques « typique » et « très typique » restent disponibles
+dans le code pour reconstruire le corpus : le second conserve 58 motifs et
+1 300 occurrences exactes, avec notamment `log_excess_prob >= 2`.
 
-Ces 58 motifs disposent aussi d’un pilote synthétique dans
-`data/dtl-rhythm-pilot.js`. Les 1 300 occurrences exactes sont retrouvées dans
-la WJazzD pour déterminer si le contexte dominant comporte une ou plusieurs
-harmonies, puis, dans le second cas, la première bascule harmonique et son
-placement dominant sur le temps 1 ou 3. Le rythme interprété est volontairement
-uniforme : croches à 156 BPM avec un swing léger de 1,4:1. Un motif à une
-harmonie place sa dernière note sur 1 ; un motif à deux harmonies place la note
-de bascule sur le temps fort retenu. La basse ne joue que sur les premiers temps
-et sur le changement d’harmonie, tandis que le hi-hat marque 2 et 4. Le
-sélecteur permet de comparer ce résultat à l’occurrence WJD de référence.
+L’explorateur n’affiche que les motifs très typiques dont le contexte est assez
+net pour un usage pédagogique. `data/dtl-rhythm-pilot.js` croise les 1 300
+occurrences avec les accords et la tonalité WJazzD, choisit une fonction
+harmonique majoritaire (`I`, `Im`, `V`, `II–V`, `V–I`, etc.) et le degré modal
+de la première note. Une fonction doit compter au moins trois observations,
+représenter au moins 20 % des contextes de même nombre d’accords et 55 % des
+fonctions identifiables ; le degré initial doit lui aussi atteindre 55 %. Il
+reste actuellement 19 patterns, identifiés de `P01` à `P19`, groupés par
+fonction puis par degré de départ ; les 39 cas ambigus sont écartés.
+
+Le rythme interprété est volontairement uniforme : croches à 156 BPM avec un
+swing léger de 1,4:1. Un motif à une harmonie place sa dernière note sur 1 ; un
+motif à deux harmonies place la note de bascule sur le temps fort retenu. La
+lecture commence directement sur le pattern, sans mesure de basse/batterie à
+vide. Ensuite, la basse ne joue que sur les temps 1 et sur le changement
+d’harmonie, tandis que le hi-hat marque 2 et 4. L’occurrence WJD de référence
+reste disponible pour comparaison.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :

@@ -6,10 +6,16 @@ WJazzD database.  It deliberately ignores performed rhythm and microtiming.
 For each lick it keeps only a compact harmonic consensus:
 
 - whether one harmony or several is the more common context;
+- a harmonic function that dominates the identifiable contexts;
+- the modal melodic degree of the first note over that function;
 - for a multi-harmony context, the first change and whether it falls most
   often on beat 1 or beat 3;
 - the note index that first belongs to the second harmony;
-- the modal chord-bass relation and root motion.
+- the root motion.
+
+Patterns whose function or starting degree is ambiguous are omitted.  The
+remaining catalog is ordered by harmonic function, then by starting degree,
+and receives stable display IDs in that order.
 
 The browser then plays every lick as swung eighth notes.  A one-harmony lick
 ends on beat 1; a two-harmony lick is shifted so its change note lands on the
@@ -53,6 +59,43 @@ NATURAL_PITCH_CLASSES = {
     "A": 9,
     "B": 11,
 }
+
+DEGREE_LABELS = (
+    "1",
+    "b2",
+    "2",
+    "b3",
+    "3",
+    "4",
+    "b5",
+    "5",
+    "b6",
+    "6",
+    "b7",
+    "7",
+)
+
+FUNCTION_ORDER = {
+    "I": 0,
+    "Im": 1,
+    "II": 2,
+    "IIø": 3,
+    "III": 4,
+    "IV": 5,
+    "IVm": 6,
+    "V": 7,
+    "VI": 8,
+    "II–V": 9,
+    "IIø–V": 10,
+    "V–I": 11,
+    "V–Im": 12,
+    "V–V": 13,
+}
+
+MIN_FUNCTION_OBSERVATIONS = 3
+MIN_FUNCTION_CONTEXT_RATIO = 0.2
+MIN_FUNCTION_CLASSIFIED_RATIO = 0.55
+MIN_START_DEGREE_RATIO = 0.55
 
 
 def parse_args() -> argparse.Namespace:
@@ -124,16 +167,114 @@ def mode_with_count(values: Iterable[int]) -> tuple[int, int]:
     return choice, maximum
 
 
-def chord_bass_pitch_class(chord: str | None) -> int | None:
+def parsed_chord(
+    chord: str | None,
+) -> tuple[int, str] | None:
     symbol = str(chord or "").strip()
     if not symbol or symbol == "NC":
         return None
-    bass_symbol = symbol.split("/")[-1]
-    match = re.match(r"^([A-G])([b#]?)", bass_symbol)
+    match = re.match(
+        r"^([A-G])([b#]?)(.*?)(?:/[A-G][b#]?)?$",
+        symbol,
+    )
     if not match:
         return None
     accidental = {"b": -1, "#": 1}.get(match.group(2), 0)
-    return (NATURAL_PITCH_CLASSES[match.group(1)] + accidental) % 12
+    root = (NATURAL_PITCH_CLASSES[match.group(1)] + accidental) % 12
+    suffix = match.group(3)
+    if "m7b5" in suffix:
+        quality = "half-diminished"
+    elif suffix.startswith("-"):
+        quality = "minor"
+    elif suffix.startswith("o"):
+        quality = "diminished"
+    elif suffix.startswith("+") and "7" not in suffix:
+        quality = "augmented"
+    elif (
+        "sus" in suffix
+        or suffix.startswith("7")
+        or suffix.startswith("+7")
+    ):
+        quality = "dominant"
+    elif not suffix or suffix.startswith("j") or suffix.startswith("6"):
+        quality = "major"
+    else:
+        quality = "other"
+    return root, quality
+
+
+def parsed_key(key: str | None) -> tuple[int, str] | None:
+    match = re.match(
+        r"^([A-G])([b#]?)-(maj|min)$",
+        str(key or "").strip(),
+    )
+    if not match:
+        return None
+    accidental = {"b": -1, "#": 1}.get(match.group(2), 0)
+    root = (NATURAL_PITCH_CLASSES[match.group(1)] + accidental) % 12
+    return root, match.group(3)
+
+
+def single_harmonic_function(
+    chord: tuple[int, str],
+    key: tuple[int, str] | None,
+) -> str | None:
+    if key is None:
+        return None
+    root, quality = chord
+    root_degree = (root - key[0]) % 12
+    if root_degree == 0 and quality in {"major", "dominant"}:
+        return "I"
+    if root_degree == 0 and quality == "minor":
+        return "Im"
+    if root_degree == 2 and quality == "minor":
+        return "II"
+    if root_degree == 2 and quality == "half-diminished":
+        return "IIø"
+    if root_degree == 4 and quality == "minor":
+        return "III"
+    if root_degree == 5 and quality in {"major", "dominant"}:
+        return "IV"
+    if root_degree == 5 and quality == "minor":
+        return "IVm"
+    if root_degree == 7 and quality == "dominant":
+        return "V"
+    if root_degree == 9 and quality == "minor":
+        return "VI"
+    return None
+
+
+def progression_harmonic_function(
+    first: tuple[int, str],
+    second: tuple[int, str],
+) -> str | None:
+    root_motion = (second[0] - first[0]) % 12
+    if root_motion != 5:
+        return None
+    if first[1] == "minor" and second[1] == "dominant":
+        return "II–V"
+    if first[1] == "half-diminished" and second[1] == "dominant":
+        return "IIø–V"
+    if first[1] == "dominant" and second[1] == "major":
+        return "V–I"
+    if first[1] == "dominant" and second[1] == "minor":
+        return "V–Im"
+    if first[1] == "dominant" and second[1] == "dominant":
+        return "V–V"
+    return None
+
+
+def harmonic_function(
+    chords: list[str],
+    key: tuple[int, str] | None,
+    harmony_count: int,
+) -> str | None:
+    parsed = [parsed_chord(chord) for chord in chords[:harmony_count]]
+    if len(parsed) < harmony_count or any(chord is None for chord in parsed):
+        return None
+    if harmony_count == 1:
+        return single_harmonic_function(parsed[0], key)
+    return progression_harmonic_function(parsed[0], parsed[1])
 
 
 def measurements_for_occurrences(
@@ -149,10 +290,12 @@ def measurements_for_occurrences(
         ] = lick
 
     matches: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    solo_ids = connection.execute(
-        "SELECT melid FROM solo_info ORDER BY melid",
+    solos = connection.execute(
+        "SELECT melid, key FROM solo_info ORDER BY melid",
     ).fetchall()
-    for (melid,) in solo_ids:
+    for solo in solos:
+        melid = solo["melid"]
+        solo_key = parsed_key(solo["key"])
         events = connection.execute(
             """
             SELECT CAST(ROUND(pitch) AS INTEGER) AS pitch,
@@ -232,18 +375,22 @@ def measurements_for_occurrences(
                     if change["chord"] != harmony_runs[-1]["chord"]:
                         harmony_runs.append(change)
 
-                first_root = chord_bass_pitch_class(
-                    harmony_runs[0]["chord"],
-                )
-                first_bass_interval = (
-                    (int(first["pitch"]) - first_root) % 12
-                    if first_root is not None
-                    else None
-                )
+                first_chord = parsed_chord(harmony_runs[0]["chord"])
+                first_root = first_chord[0] if first_chord else None
+                collapsed_harmony_count = 1 if len(harmony_runs) == 1 else 2
                 measurement: dict[str, Any] = {
                     "meter": int(first["num"]),
-                    "harmonyCount": len(harmony_runs),
-                    "firstNoteBassInterval": first_bass_interval,
+                    "harmonyCount": collapsed_harmony_count,
+                    "harmonicFunction": harmonic_function(
+                        [run["chord"] for run in harmony_runs],
+                        solo_key,
+                        collapsed_harmony_count,
+                    ),
+                    "startDegreePitchClass": (
+                        (int(first["pitch"]) - first_root) % 12
+                        if first_root is not None
+                        else None
+                    ),
                 }
 
                 if len(harmony_runs) >= 2:
@@ -253,7 +400,8 @@ def measurements_for_occurrences(
                         for index, position in enumerate(positions)
                         if position >= change["position"]
                     )
-                    second_root = chord_bass_pitch_class(change["chord"])
+                    second_chord = parsed_chord(change["chord"])
+                    second_root = second_chord[0] if second_chord else None
                     measurement.update(
                         {
                             "changeBeat": int(change["beat"]),
@@ -275,10 +423,27 @@ def rounded_ratio(count: int, total: int) -> float:
     return round(count / total, 4)
 
 
+def dominant_function(
+    observations: list[dict[str, Any]],
+) -> tuple[str, int, int] | None:
+    counts = Counter(
+        observation["harmonicFunction"]
+        for observation in observations
+        if observation.get("harmonicFunction") in FUNCTION_ORDER
+    )
+    if not counts:
+        return None
+    function = min(
+        counts,
+        key=lambda value: (-counts[value], FUNCTION_ORDER[value]),
+    )
+    return function, counts[function], sum(counts.values())
+
+
 def build_pilot_entry(
     lick: dict[str, Any],
     observations: list[dict[str, Any]],
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     expected = int(lick["occurrenceCount"])
     if len(observations) != expected:
         raise ValueError(
@@ -301,28 +466,67 @@ def build_pilot_entry(
     harmonic = [
         observation
         for observation in metrical
-        if (1 if observation["harmonyCount"] <= 1 else 2)
-        == harmony_count
+        if observation["harmonyCount"] == harmony_count
     ]
 
-    bass_observations = [
-        observation["firstNoteBassInterval"]
+    function_consensus = dominant_function(harmonic)
+    if function_consensus is None:
+        return None
+    function, function_count, classified_count = function_consensus
+    if (
+        function_count < MIN_FUNCTION_OBSERVATIONS
+        or function_count / len(harmonic) < MIN_FUNCTION_CONTEXT_RATIO
+        or function_count / classified_count
+        < MIN_FUNCTION_CLASSIFIED_RATIO
+    ):
+        return None
+
+    function_observations = [
+        observation
         for observation in harmonic
-        if observation["firstNoteBassInterval"] is not None
+        if observation.get("harmonicFunction") == function
     ]
-    first_bass_interval, bass_count = mode_with_count(bass_observations)
+    start_degree_observations = [
+        observation["startDegreePitchClass"]
+        for observation in function_observations
+        if observation.get("startDegreePitchClass") is not None
+    ]
+    if not start_degree_observations:
+        return None
+    start_degree, start_degree_count = mode_with_count(
+        start_degree_observations,
+    )
+    if (
+        start_degree_count / len(start_degree_observations)
+        < MIN_START_DEGREE_RATIO
+    ):
+        return None
 
     entry: dict[str, Any] = {
         "meter": meter,
         "harmonyCount": harmony_count,
-        "firstNoteBassInterval": first_bass_interval,
+        "harmonicFunction": function,
+        "startDegree": DEGREE_LABELS[start_degree],
+        "startDegreePitchClass": start_degree,
         "observations": len(observations),
         "meterSupport": rounded_ratio(meter_count, len(observations)),
         "harmonySupport": rounded_ratio(
             harmony_count_support,
             len(metrical),
         ),
-        "bassSupport": rounded_ratio(bass_count, len(bass_observations)),
+        "functionObservations": function_count,
+        "functionContextSupport": rounded_ratio(
+            function_count,
+            len(harmonic),
+        ),
+        "functionClassifiedSupport": rounded_ratio(
+            function_count,
+            classified_count,
+        ),
+        "startDegreeSupport": rounded_ratio(
+            start_degree_count,
+            len(start_degree_observations),
+        ),
     }
 
     if harmony_count == 1:
@@ -334,9 +538,11 @@ def build_pilot_entry(
 
     strong_change_observations = [
         observation
-        for observation in harmonic
+        for observation in function_observations
         if observation.get("changeBeat") in (1, 3)
     ]
+    if not strong_change_observations:
+        return None
     change_beat, change_beat_count = mode_with_count(
         observation["changeBeat"]
         for observation in strong_change_observations
@@ -352,9 +558,11 @@ def build_pilot_entry(
     )
     root_motion_observations = [
         observation["rootMotion"]
-        for observation in harmonic
+        for observation in function_observations
         if observation.get("rootMotion") is not None
     ]
+    if not root_motion_observations:
+        return None
     root_motion, root_motion_count = mode_with_count(
         root_motion_observations,
     )
@@ -369,7 +577,7 @@ def build_pilot_entry(
             "rootMotion": root_motion,
             "changeBeatSupport": rounded_ratio(
                 change_beat_count,
-                len(harmonic),
+                len(function_observations),
             ),
             "changeNoteSupport": rounded_ratio(
                 change_note_count,
@@ -384,8 +592,12 @@ def build_pilot_entry(
     return entry
 
 
-def javascript_module(entries: dict[str, dict[str, Any]]) -> str:
-    occurrence_count = sum(
+def javascript_module(
+    entries: dict[str, dict[str, Any]],
+    analyzed_lick_count: int,
+    analyzed_occurrence_count: int,
+) -> str:
+    selected_occurrence_count = sum(
         entry["observations"] for entry in entries.values()
     )
     single_harmony_count = sum(
@@ -395,13 +607,16 @@ def javascript_module(entries: dict[str, dict[str, Any]]) -> str:
         "// Generated by scripts/generate_dtl_rhythm_pilot.py from exact",
         "// DTL interval matches and WJazzD chord annotations.",
         "export const DTL_RHYTHM_PILOT = Object.freeze({",
-        '  source: "DTL patterns × WJazzD harmonic consensus",',
+        '  source: "Very typical DTL patterns × WJazzD harmonic consensus",',
         f"  ticksPerBeat: {TICKS_PER_BEAT},",
         f"  eighthNoteTicks: {EIGHTH_NOTE_TICKS},",
         f"  tempo: {PILOT_TEMPO},",
         f"  swingRatio: {SWING_RATIO},",
+        f"  analyzedLickCount: {analyzed_lick_count},",
+        f"  analyzedOccurrenceCount: {analyzed_occurrence_count},",
         f"  lickCount: {len(entries)},",
-        f"  occurrenceCount: {occurrence_count},",
+        f"  occurrenceCount: {selected_occurrence_count},",
+        f"  excludedAmbiguousCount: {analyzed_lick_count - len(entries)},",
         f"  singleHarmonyCount: {single_harmony_count},",
         f"  twoHarmonyCount: {len(entries) - single_harmony_count},",
         "  licks: Object.freeze({",
@@ -431,16 +646,40 @@ def main() -> int:
     finally:
         connection.close()
 
-    entries = {
-        lick["id"]: build_pilot_entry(lick, measurements[lick["id"]])
-        for lick in licks
-    }
+    generated_entries = []
+    for lick in licks:
+        entry = build_pilot_entry(lick, measurements[lick["id"]])
+        if entry is not None:
+            generated_entries.append((lick, entry))
+    generated_entries.sort(
+        key=lambda item: (
+            FUNCTION_ORDER[item[1]["harmonicFunction"]],
+            item[1]["startDegreePitchClass"],
+            item[0]["id"],
+        ),
+    )
+    entries: dict[str, dict[str, Any]] = {}
+    for index, (lick, entry) in enumerate(generated_entries, start=1):
+        entry["patternId"] = f"P{index:02d}"
+        entries[lick["id"]] = entry
+
+    analyzed_occurrence_count = sum(
+        len(measurements[lick["id"]]) for lick in licks
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(javascript_module(entries), encoding="utf-8")
+    args.output.write_text(
+        javascript_module(
+            entries,
+            analyzed_lick_count=len(licks),
+            analyzed_occurrence_count=analyzed_occurrence_count,
+        ),
+        encoding="utf-8",
+    )
     print(
-        f"Wrote {len(entries)} synthetic DTL harmony profiles "
-        f"({sum(entry['observations'] for entry in entries.values())} "
-        f"occurrences) to {args.output}",
+        f"Wrote {len(entries)} classified DTL harmony profiles; "
+        f"excluded {len(licks) - len(entries)} ambiguous patterns after "
+        f"analyzing {analyzed_occurrence_count} occurrences; "
+        f"output: {args.output}",
     )
     return 0
 

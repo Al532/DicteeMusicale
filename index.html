@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=61" />
-    <script type="module" src="./src/app.js?v=61"></script>
+    <link rel="stylesheet" href="./styles.css?v=62" />
+    <script type="module" src="./src/app.js?v=62"></script>
   </head>
   <body>
     <div
@@ -242,8 +242,8 @@
           </div>
         </div>
         <p class="lick-explorer-intro" data-i18n="lickExplorer.intro">
-          Test a quantized statistical rhythm for the 58 most typical Dig That
-          Lick patterns, with one bar of bass and a light swing.
+          Browse the very typical Dig That Lick patterns whose harmonic
+          function and starting degree have a clear statistical consensus.
         </p>
 
         <div class="lick-explorer-card">
@@ -270,6 +270,18 @@
           </nav>
 
           <div class="lick-explorer-summary">
+            <div>
+              <span data-i18n="lickExplorer.patternId">Pattern ID</span>
+              <strong id="lick-explorer-pattern-id"></strong>
+            </div>
+            <div>
+              <span data-i18n="lickExplorer.harmonicFunction">Function</span>
+              <strong id="lick-explorer-harmonic-function"></strong>
+            </div>
+            <div>
+              <span data-i18n="lickExplorer.startDegree">Starting degree</span>
+              <strong id="lick-explorer-start-degree"></strong>
+            </div>
             <div>
               <span data-i18n="lickExplorer.occurrences">Occurrences</span>
               <strong id="lick-explorer-occurrences"></strong>
@@ -331,24 +343,6 @@
               <span data-i18n="lickExplorer.autoRandom">
                 New random key on every play
               </span>
-            </label>
-            <label class="lick-explorer-option" for="lick-explorer-filter">
-              <span data-i18n="lickExplorer.filter">Selection</span>
-              <select id="lick-explorer-filter">
-                <option value="all" data-i18n="lickExplorer.filter.all">
-                  All licks
-                </option>
-                <option value="typical" data-i18n="lickExplorer.filter.typical">
-                  Typical licks
-                </option>
-                <option
-                  value="very-typical"
-                  data-i18n="lickExplorer.filter.veryTypical"
-                  selected
-                >
-                  Very typical licks
-                </option>
-              </select>
             </label>
             <label class="lick-explorer-option" for="lick-explorer-rhythm-mode">
               <span data-i18n="lickExplorer.rhythmMode">Rhythm</span>

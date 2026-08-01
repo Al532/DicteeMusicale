@@ -13,6 +13,7 @@ import {
   createLickExplorer,
   createLickSequence,
   createSyntheticLickSequence,
+  isClassifiedVeryTypicalLick,
   isTypicalLick,
   isVeryTypicalLick,
   moveLickIndex,
@@ -93,21 +94,52 @@ test("le filtre très typique exige aussi une forte surreprésentation", () => {
   );
 });
 
-test("le pilote harmonique reconstruit les 58 licks depuis 1 300 occurrences", () => {
+test("le catalogue garde les consensus nets parmi les 58 licks très typiques", () => {
   const veryTypicalLicks = DTL_LICKS.filter(isVeryTypicalLick);
-
-  assert.equal(DTL_RHYTHM_PILOT.lickCount, 58);
-  assert.equal(DTL_RHYTHM_PILOT.occurrenceCount, 1_300);
-  assert.equal(DTL_RHYTHM_PILOT.singleHarmonyCount, 25);
-  assert.equal(DTL_RHYTHM_PILOT.twoHarmonyCount, 33);
-  assert.equal(DTL_RHYTHM_PILOT.eighthNoteTicks, 6);
-  assert.deepEqual(
-    Object.keys(DTL_RHYTHM_PILOT.licks),
-    veryTypicalLicks.map(({ id }) => id),
+  const catalogIds = Object.keys(DTL_RHYTHM_PILOT.licks);
+  const catalogLicks = catalogIds.map((lickId) =>
+    DTL_LICKS.find(({ id }) => id === lickId),
   );
-  for (const lick of veryTypicalLicks) {
+
+  assert.equal(DTL_RHYTHM_PILOT.analyzedLickCount, 58);
+  assert.equal(DTL_RHYTHM_PILOT.analyzedOccurrenceCount, 1_300);
+  assert.equal(DTL_RHYTHM_PILOT.lickCount, 19);
+  assert.equal(DTL_RHYTHM_PILOT.occurrenceCount, 388);
+  assert.equal(DTL_RHYTHM_PILOT.excludedAmbiguousCount, 39);
+  assert.equal(DTL_RHYTHM_PILOT.singleHarmonyCount, 7);
+  assert.equal(DTL_RHYTHM_PILOT.twoHarmonyCount, 12);
+  assert.equal(DTL_RHYTHM_PILOT.eighthNoteTicks, 6);
+  assert.equal(
+    catalogLicks.every(isClassifiedVeryTypicalLick),
+    true,
+  );
+  assert.equal(
+    veryTypicalLicks.filter(isClassifiedVeryTypicalLick).length,
+    catalogLicks.length,
+  );
+
+  const functionOrder = [
+    "I",
+    "Im",
+    "II",
+    "V",
+    "II–V",
+    "IIø–V",
+    "V–I",
+    "V–Im",
+  ];
+  let previousSortKey = [-1, -1];
+  for (const [catalogIndex, lick] of catalogLicks.entries()) {
     const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
     assert.equal(pilot.observations, lick.occurrenceCount);
+    assert.equal(pilot.patternId, `P${String(catalogIndex + 1).padStart(2, "0")}`);
+    assert.ok(functionOrder.includes(pilot.harmonicFunction));
+    assert.equal(typeof pilot.startDegree, "string");
+    assert.ok(Number.isInteger(pilot.startDegreePitchClass));
+    assert.ok(pilot.functionObservations >= 3);
+    assert.ok(pilot.functionContextSupport >= 0.2);
+    assert.ok(pilot.functionClassifiedSupport >= 0.55);
+    assert.ok(pilot.startDegreeSupport >= 0.55);
     assert.equal(pilot.meter, 4);
     assert.equal(
       pilot.startTick % DTL_RHYTHM_PILOT.eighthNoteTicks,
@@ -116,7 +148,17 @@ test("le pilote harmonique reconstruit les 58 licks depuis 1 300 occurrences", (
     assert.ok([1, 2].includes(pilot.harmonyCount));
     assert.ok(pilot.meterSupport >= 0.8);
     assert.ok(pilot.harmonySupport >= 0.5);
-    assert.ok(pilot.bassSupport > 0);
+
+    const sortKey = [
+      functionOrder.indexOf(pilot.harmonicFunction),
+      pilot.startDegreePitchClass,
+    ];
+    assert.ok(
+      sortKey[0] > previousSortKey[0] ||
+        (sortKey[0] === previousSortKey[0] &&
+          sortKey[1] >= previousSortKey[1]),
+    );
+    previousSortKey = sortKey;
 
     const targetNoteIndex =
       pilot.harmonyCount === 1
@@ -213,19 +255,24 @@ function createAudioHarness() {
 
 function createReferenceDom() {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
-  dom.window.document.querySelector("#lick-explorer-filter").value = "all";
   dom.window.document.querySelector("#lick-explorer-rhythm-mode").value =
     "reference";
   return dom;
 }
 
+function catalogLicks() {
+  const byId = new Map(DTL_LICKS.map((lick) => [lick.id, lick]));
+  return Object.keys(DTL_RHYTHM_PILOT.licks).map((lickId) => byId.get(lickId));
+}
+
 test("le lecteur joue le premier lick avec ses timings WJD", async () => {
   const dom = createReferenceDom();
   const audio = createAudioHarness();
+  const licks = catalogLicks().slice(0, 3);
   const explorer = createLickExplorer({
     audioRuntime: audio.runtime,
     documentObject: dom.window.document,
-    licks: DTL_LICKS.slice(0, 3),
+    licks,
     translate: (key, values = {}) =>
       `${key}:${values.current ?? values.count ?? values.value ?? ""}`,
     windowObject: dom.window,
@@ -234,30 +281,30 @@ test("le lecteur joue le premier lick avec ses timings WJD", async () => {
   try {
     explorer.open();
     assert.equal(explorer.snapshot().index, 0);
-    assert.equal(explorer.snapshot().id, "dtl-ph-0003");
+    assert.equal(explorer.snapshot().id, licks[0].id);
     assert.equal(
       dom.window.document
         .querySelector("#lick-explorer-panel")
-        .textContent.includes(DTL_LICKS[0].reference.soloId),
+        .textContent.includes(licks[0].reference.soloId),
       false,
     );
     const played = await explorer.playOriginal();
     assert.equal(played, true);
     assert.equal(audio.calls.contexts, 1);
-    assert.deepEqual(audio.calls.preloads[0], DTL_LICKS[0].notes);
-    assert.equal(audio.calls.tones.length, DTL_LICKS[0].notes.length);
+    assert.deepEqual(audio.calls.preloads[0], licks[0].notes);
+    assert.equal(audio.calls.tones.length, licks[0].notes.length);
     assert.deepEqual(audio.calls.tones[0], [
-      DTL_LICKS[0].notes[0],
-      DTL_LICKS[0].timings[0][0],
-      DTL_LICKS[0].timings[0][1],
+      licks[0].notes[0],
+      licks[0].timings[0][0],
+      licks[0].timings[0][1],
       true,
     ]);
 
-    const sequence = createLickSequence(DTL_LICKS[0], 0);
-    assert.deepEqual(sequence.notes, DTL_LICKS[0].notes);
+    const sequence = createLickSequence(licks[0], 0);
+    assert.deepEqual(sequence.notes, licks[0].notes);
     assert.deepEqual(sequence.timings[0], {
-      offset: DTL_LICKS[0].timings[0][0],
-      duration: DTL_LICKS[0].timings[0][1],
+      offset: licks[0].timings[0][0],
+      duration: licks[0].timings[0][1],
     });
     assert.equal(sequence.meta.source.kind, "dtl-lick");
   } finally {
@@ -269,7 +316,7 @@ test("le lecteur joue le premier lick avec ses timings WJD", async () => {
 test("le pilote joue les croches swinguées avec basse rare et 2 et 4", async () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
   const audio = createAudioHarness();
-  const licks = DTL_LICKS.filter(isVeryTypicalLick);
+  const licks = catalogLicks();
   const explorer = createLickExplorer({
     audioRuntime: audio.runtime,
     documentObject: dom.window.document,
@@ -284,8 +331,14 @@ test("le pilote joue les croches swinguées avec basse rare et 2 et 4", async ()
     const played = await explorer.playOriginal();
     assert.equal(played, true);
     assert.equal(audio.calls.bassPreloads.length, 1);
-    assert.equal(audio.calls.bass.length, 3);
-    assert.ok(audio.calls.chicks.length >= 4);
+    assert.ok(audio.calls.bass.length >= 1);
+    assert.ok(audio.calls.chicks.length >= 1);
+    assert.equal(audio.calls.tones[0][1], 0);
+    assert.equal(
+      audio.calls.bass.every(([, offset]) => offset >= 0) &&
+        audio.calls.chicks.every(([offset]) => offset >= 0),
+      true,
+    );
     assert.equal(
       dom.window.document.querySelector("#lick-explorer-placement-row")
         .hidden,
@@ -300,10 +353,11 @@ test("le pilote joue les croches swinguées avec basse rare et 2 et 4", async ()
 test("la navigation joue automatiquement le nouveau lick", async () => {
   const dom = createReferenceDom();
   const audio = createAudioHarness();
+  const licks = catalogLicks().slice(0, 3);
   const explorer = createLickExplorer({
     audioRuntime: audio.runtime,
     documentObject: dom.window.document,
-    licks: DTL_LICKS.slice(0, 3),
+    licks,
     windowObject: dom.window,
   });
 
@@ -313,18 +367,18 @@ test("la navigation joue automatiquement le nouveau lick", async () => {
     assert.equal(explorer.next(), true);
     await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
 
-    assert.equal(explorer.snapshot().id, DTL_LICKS[1].id);
+    assert.equal(explorer.snapshot().id, licks[1].id);
     assert.equal(explorer.snapshot().playing, true);
     assert.equal(audio.calls.contexts, 1);
-    assert.deepEqual(audio.calls.preloads[0], DTL_LICKS[1].notes);
-    assert.equal(audio.calls.tones.length, DTL_LICKS[1].notes.length);
+    assert.deepEqual(audio.calls.preloads[0], licks[1].notes);
+    assert.equal(audio.calls.tones.length, licks[1].notes.length);
   } finally {
     explorer.destroy();
     dom.window.close();
   }
 });
 
-test("le sélecteur démarre sur le pilote puis retrouve tout le catalogue", () => {
+test("l’explorateur ne parcourt que les patterns classifiés", () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
   const audio = createAudioHarness();
   const explorer = createLickExplorer({
@@ -336,28 +390,27 @@ test("le sélecteur démarre sur le pilote puis retrouve tout le catalogue", () 
 
   try {
     explorer.open();
-    assert.equal(explorer.snapshot().total, 58);
-    assert.equal(explorer.snapshot().filter, "very-typical");
+    assert.equal(explorer.snapshot().total, 19);
     assert.equal(explorer.snapshot().rhythmMode, "synthetic");
-
-    assert.equal(explorer.setFilter("typical"), true);
-    assert.equal(explorer.snapshot().total, 117);
     assert.equal(explorer.snapshot().sourceTotal, 364);
-    assert.equal(explorer.snapshot().filter, "typical");
-    assert.equal(isTypicalLick(DTL_LICKS.find(
-      (lick) => lick.id === explorer.snapshot().id,
-    )), true);
-
-    assert.equal(explorer.setFilter("all"), true);
-    assert.equal(explorer.snapshot().total, 364);
-    assert.equal(explorer.snapshot().filter, "all");
-
-    assert.equal(explorer.setFilter("very-typical"), true);
-    assert.equal(explorer.snapshot().total, 58);
-    assert.equal(explorer.snapshot().filter, "very-typical");
-    assert.equal(isVeryTypicalLick(DTL_LICKS.find(
-      (lick) => lick.id === explorer.snapshot().id,
-    )), true);
+    assert.equal(explorer.snapshot().patternId, "P01");
+    assert.equal(explorer.snapshot().harmonicFunction, "I");
+    assert.equal(explorer.snapshot().startDegree, "2");
+    assert.equal(
+      dom.window.document.querySelector("#lick-explorer-pattern-id")
+        .textContent,
+      "P01",
+    );
+    assert.equal(
+      dom.window.document.querySelector("#lick-explorer-harmonic-function")
+        .textContent,
+      "I",
+    );
+    assert.equal(
+      dom.window.document.querySelector("#lick-explorer-start-degree")
+        .textContent,
+      "2",
+    );
   } finally {
     explorer.destroy();
     dom.window.close();
@@ -400,28 +453,34 @@ function swungBeatPosition(tick) {
     : beat + withinBeat / ticksPerBeat;
 }
 
-test("toutes les reconstructions utilisent des croches et leur temps cible", () => {
-  const licks = DTL_LICKS.filter(isVeryTypicalLick);
+function offsetForTick(tick, firstNoteTick) {
   const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
+  return Number(
+    (
+      (swungBeatPosition(tick) - swungBeatPosition(firstNoteTick)) *
+      secondsPerBeat
+    ).toFixed(4),
+  );
+}
+
+test("toutes les reconstructions utilisent des croches et leur temps cible", () => {
+  const licks = catalogLicks();
 
   for (const lick of licks) {
     const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
     const sequence = createSyntheticLickSequence(lick);
-    const firstNoteTick =
-      pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat + pilot.startTick;
+    const firstNoteTick = pilot.startTick;
 
     sequence.timings.forEach((timing, noteIndex) => {
-      const expectedOffset = Number(
-        (
-          swungBeatPosition(
-            firstNoteTick +
-              noteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks,
-          ) * secondsPerBeat
-        ).toFixed(4),
+      const expectedOffset = offsetForTick(
+        firstNoteTick +
+          noteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks,
+        firstNoteTick,
       );
       assert.equal(timing.offset, expectedOffset, lick.id);
       assert.ok(timing.duration > 0, lick.id);
     });
+    assert.equal(sequence.timings[0].offset, 0, lick.id);
 
     const targetNoteIndex =
       pilot.harmonyCount === 1
@@ -437,18 +496,30 @@ test("toutes les reconstructions utilisent des croches et leur temps cible", () 
       lick.id,
     );
 
-    const changeOffset =
-      pilot.harmonyCount === 2
-        ? sequence.timings[pilot.changeNoteIndex].offset
-        : null;
-    for (const { offset } of sequence.bassHits) {
-      const position = (offset / secondsPerBeat) % pilot.meter;
-      const onBeatOne =
-        Math.min(position, pilot.meter - position) < 0.001;
-      const onHarmonyChange =
-        changeOffset !== null && Math.abs(offset - changeOffset) < 0.001;
-      assert.ok(onBeatOne || onHarmonyChange, lick.id);
+    const lastReleaseTick =
+      firstNoteTick + lick.notes.length * DTL_RHYTHM_PILOT.eighthNoteTicks;
+    const measureTicks =
+      pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat;
+    const bassTicks = new Set();
+    for (
+      let tick = Math.ceil(firstNoteTick / measureTicks) * measureTicks;
+      tick < lastReleaseTick;
+      tick += measureTicks
+    ) {
+      bassTicks.add(tick);
     }
+    if (pilot.harmonyCount === 2) bassTicks.add(targetTick);
+    assert.deepEqual(
+      sequence.bassHits.map(({ offset }) => offset),
+      [...bassTicks]
+        .sort((left, right) => left - right)
+        .map((tick) => offsetForTick(tick, firstNoteTick)),
+      lick.id,
+    );
+    assert.ok(
+      sequence.bassHits.every(({ offset }) => offset >= 0),
+      lick.id,
+    );
   }
 });
 
@@ -456,9 +527,9 @@ test("une harmonie finit sur 1 et la basse ne joue que sur les 1", () => {
   const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0057");
   const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
   const sequence = createSyntheticLickSequence(lick, 5);
-  const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
 
   assert.equal(pilot.harmonyCount, 1);
+  assert.equal(sequence.timings[0].offset, 0);
   assert.deepEqual(
     sequence.notes,
     lick.notes.map((midi) => midi + 5),
@@ -466,35 +537,36 @@ test("une harmonie finit sur 1 et la basse ne joue que sur les 1", () => {
   assert.ok(sequence.chicks.every(({ beat }) => beat === 2 || beat === 4));
   assert.equal(sequence.meta.source.kind, "dtl-lick-synthetic");
   const expectedBassPitchClass =
-    ((lick.notes[0] + 5 - pilot.firstNoteBassInterval) % 12 + 12) % 12;
+    ((lick.notes[0] + 5 - pilot.startDegreePitchClass) % 12 + 12) % 12;
   assert.ok(
     sequence.bassHits.every(
-      ({ midi, offset }) => {
-        const position = (offset / secondsPerBeat) % pilot.meter;
-        return (
-          midi % 12 === expectedBassPitchClass &&
-          Math.min(position, pilot.meter - position) < 0.001
-        );
-      },
+      ({ midi }) => midi % 12 === expectedBassPitchClass,
     ),
+  );
+  assert.equal(
+    sequence.bassHits.at(-1).offset,
+    sequence.timings.at(-1).offset,
   );
 });
 
 test("deux harmonies placent et font entendre la bascule sur 3", () => {
-  const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0179");
+  const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0021");
   const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
   const sequence = createSyntheticLickSequence(lick, 0);
-  const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
   const changeOffset = sequence.timings[pilot.changeNoteIndex].offset;
-  const changeBeatPosition = changeOffset / secondsPerBeat;
   const firstBassPitchClass =
-    ((lick.notes[0] - pilot.firstNoteBassInterval) % 12 + 12) % 12;
+    ((lick.notes[0] - pilot.startDegreePitchClass) % 12 + 12) % 12;
   const secondBassPitchClass =
     (firstBassPitchClass + pilot.rootMotion) % 12;
 
   assert.equal(pilot.harmonyCount, 2);
   assert.equal(pilot.changeBeat, 3);
-  assert.ok(Math.abs(changeBeatPosition % pilot.meter - 2) < 0.001);
+  assert.equal(
+    (pilot.startTick +
+      pilot.changeNoteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks) %
+      (pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat),
+    2 * DTL_RHYTHM_PILOT.ticksPerBeat,
+  );
   assert.ok(
     sequence.bassHits.some(
       ({ midi, offset }) =>
@@ -502,16 +574,8 @@ test("deux harmonies placent et font entendre la bascule sur 3", () => {
         midi % 12 === secondBassPitchClass,
     ),
   );
-  assert.ok(
-    sequence.bassHits.every(({ offset }) => {
-      const beat = offset / secondsPerBeat;
-      const position = beat % pilot.meter;
-      return (
-        Math.min(position, pilot.meter - position) < 0.001 ||
-        Math.abs(offset - changeOffset) < 0.001
-      );
-    }),
-  );
+  assert.equal(sequence.timings[0].offset, 0);
+  assert.ok(sequence.bassHits.every(({ offset }) => offset >= 0));
 });
 
 test("la navigation précédent/suivant reste bornée au corpus", () => {
