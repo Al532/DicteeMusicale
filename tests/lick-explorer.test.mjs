@@ -7,10 +7,12 @@ import {
   DTL_LICK_CORPUS,
   DTL_LICKS,
 } from "../data/dtl-licks.js";
+import { DTL_RHYTHM_PILOT } from "../data/dtl-rhythm-pilot.js";
 import {
   adjustedLickSalience,
   createLickExplorer,
   createLickSequence,
+  createSyntheticLickSequence,
   isTypicalLick,
   isVeryTypicalLick,
   moveLickIndex,
@@ -91,6 +93,29 @@ test("le filtre très typique exige aussi une forte surreprésentation", () => {
   );
 });
 
+test("le pilote reconstruit les 58 licks depuis leurs 1 300 occurrences", () => {
+  const veryTypicalLicks = DTL_LICKS.filter(isVeryTypicalLick);
+
+  assert.equal(DTL_RHYTHM_PILOT.lickCount, 58);
+  assert.equal(DTL_RHYTHM_PILOT.occurrenceCount, 1_300);
+  assert.deepEqual(
+    Object.keys(DTL_RHYTHM_PILOT.licks),
+    veryTypicalLicks.map(({ id }) => id),
+  );
+  for (const lick of veryTypicalLicks) {
+    const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
+    assert.equal(pilot.observations, lick.occurrenceCount);
+    assert.equal(pilot.meter, 4);
+    assert.equal(pilot.startTick % DTL_RHYTHM_PILOT.startGridTicks, 0);
+    assert.equal(pilot.intervalTicks.length, lick.intervals.length);
+    assert.ok(pilot.intervalTicks.every((tick) => tick > 0));
+    assert.ok(pilot.meterSupport >= 0.8);
+    assert.ok(pilot.placementSupport > 0);
+    assert.ok(pilot.rhythmSupport > 0);
+    assert.ok(pilot.bassSupport > 0);
+  }
+});
+
 test("l'explorateur écarte les motifs sans saut supérieur à deux demi-tons", () => {
   const excluded = DTL_LICK_CORPUS.licks.filter(
     (lick) => !DTL_LICKS.includes(lick),
@@ -123,6 +148,9 @@ test("l'explorateur écarte les motifs sans saut supérieur à deux demi-tons", 
 
 function createAudioHarness() {
   const calls = {
+    bass: [],
+    bassPreloads: [],
+    chicks: [],
     contexts: 0,
     preloads: [],
     stops: 0,
@@ -138,8 +166,17 @@ function createAudioHarness() {
       async preloadMelodySamples(notes) {
         calls.preloads.push([...notes]);
       },
+      async preloadBassSamples(hits) {
+        calls.bassPreloads.push(hits.map((hit) => ({ ...hit })));
+      },
       playTone(...args) {
         calls.tones.push(args);
+      },
+      playChick(...args) {
+        calls.chicks.push(args);
+      },
+      playBass(...args) {
+        calls.bass.push(args);
       },
       stopActiveSources() {
         calls.stops += 1;
@@ -148,8 +185,16 @@ function createAudioHarness() {
   };
 }
 
-test("le lecteur joue le premier lick avec ses timings WJD", async () => {
+function createReferenceDom() {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
+  dom.window.document.querySelector("#lick-explorer-filter").value = "all";
+  dom.window.document.querySelector("#lick-explorer-rhythm-mode").value =
+    "reference";
+  return dom;
+}
+
+test("le lecteur joue le premier lick avec ses timings WJD", async () => {
+  const dom = createReferenceDom();
   const audio = createAudioHarness();
   const explorer = createLickExplorer({
     audioRuntime: audio.runtime,
@@ -195,8 +240,39 @@ test("le lecteur joue le premier lick avec ses timings WJD", async () => {
   }
 });
 
-test("la navigation joue automatiquement le nouveau lick", async () => {
+test("le pilote joue le consensus métrique avec basse, 2 et 4 et swing léger", async () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
+  const audio = createAudioHarness();
+  const licks = DTL_LICKS.filter(isVeryTypicalLick);
+  const explorer = createLickExplorer({
+    audioRuntime: audio.runtime,
+    documentObject: dom.window.document,
+    licks,
+    windowObject: dom.window,
+  });
+
+  try {
+    explorer.open();
+    assert.equal(explorer.snapshot().rhythmMode, "synthetic");
+    assert.equal(explorer.snapshot().pilotAvailable, true);
+    const played = await explorer.playOriginal();
+    assert.equal(played, true);
+    assert.equal(audio.calls.bassPreloads.length, 1);
+    assert.ok(audio.calls.bass.length >= 8);
+    assert.ok(audio.calls.chicks.length >= 4);
+    assert.equal(
+      dom.window.document.querySelector("#lick-explorer-placement-row")
+        .hidden,
+      false,
+    );
+  } finally {
+    explorer.destroy();
+    dom.window.close();
+  }
+});
+
+test("la navigation joue automatiquement le nouveau lick", async () => {
+  const dom = createReferenceDom();
   const audio = createAudioHarness();
   const explorer = createLickExplorer({
     audioRuntime: audio.runtime,
@@ -222,7 +298,7 @@ test("la navigation joue automatiquement le nouveau lick", async () => {
   }
 });
 
-test("le sélecteur passe du catalogue complet aux deux niveaux typiques", () => {
+test("le sélecteur démarre sur le pilote puis retrouve tout le catalogue", () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
   const audio = createAudioHarness();
   const explorer = createLickExplorer({
@@ -234,8 +310,9 @@ test("le sélecteur passe du catalogue complet aux deux niveaux typiques", () =>
 
   try {
     explorer.open();
-    assert.equal(explorer.snapshot().total, 364);
-    assert.equal(explorer.snapshot().filter, "all");
+    assert.equal(explorer.snapshot().total, 58);
+    assert.equal(explorer.snapshot().filter, "very-typical");
+    assert.equal(explorer.snapshot().rhythmMode, "synthetic");
 
     assert.equal(explorer.setFilter("typical"), true);
     assert.equal(explorer.snapshot().total, 117);
@@ -245,16 +322,16 @@ test("le sélecteur passe du catalogue complet aux deux niveaux typiques", () =>
       (lick) => lick.id === explorer.snapshot().id,
     )), true);
 
+    assert.equal(explorer.setFilter("all"), true);
+    assert.equal(explorer.snapshot().total, 364);
+    assert.equal(explorer.snapshot().filter, "all");
+
     assert.equal(explorer.setFilter("very-typical"), true);
     assert.equal(explorer.snapshot().total, 58);
     assert.equal(explorer.snapshot().filter, "very-typical");
     assert.equal(isVeryTypicalLick(DTL_LICKS.find(
       (lick) => lick.id === explorer.snapshot().id,
     )), true);
-
-    assert.equal(explorer.setFilter("all"), true);
-    assert.equal(explorer.snapshot().total, 364);
-    assert.equal(explorer.snapshot().filter, "all");
   } finally {
     explorer.destroy();
     dom.window.close();
@@ -284,6 +361,37 @@ test("la transposition aléatoire conserve le motif et change de ton", () => {
     ),
     lick.intervals,
   );
+});
+
+test("la reconstruction synthétique conserve motif, placement et basse transposée", () => {
+  const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0057");
+  const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
+  const sequence = createSyntheticLickSequence(lick, 5);
+  const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
+  const swungOffbeat =
+    DTL_RHYTHM_PILOT.swingRatio /
+    (DTL_RHYTHM_PILOT.swingRatio + 1);
+
+  assert.deepEqual(
+    sequence.notes,
+    lick.notes.map((midi) => midi + 5),
+  );
+  assert.equal(
+    sequence.timings[0].offset,
+    Number(((pilot.meter + swungOffbeat) * secondsPerBeat).toFixed(4)),
+  );
+  assert.ok(
+    sequence.timings.every(
+      (timing, index) =>
+        timing.duration > 0 &&
+        (index === 0 || timing.offset > sequence.timings[index - 1].offset),
+    ),
+  );
+  assert.ok(sequence.chicks.every(({ beat }) => beat === 2 || beat === 4));
+  assert.equal(sequence.meta.source.kind, "dtl-lick-synthetic");
+  const expectedBassPitchClass =
+    ((lick.notes[0] + 5 - pilot.firstNoteBassInterval) % 12 + 12) % 12;
+  assert.equal(sequence.bassHits[0].midi % 12, expectedBassPitchClass);
 });
 
 test("la navigation précédent/suivant reste bornée au corpus", () => {

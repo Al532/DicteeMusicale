@@ -673,6 +673,7 @@ output {
 }
 
 .lick-explorer-option select {
+  max-width: min(58%, 250px);
   min-height: 38px;
   margin-left: auto;
   padding: 0 10px;

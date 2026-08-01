@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=59" />
-    <script type="module" src="./src/app.js?v=59"></script>
+    <link rel="stylesheet" href="./styles.css?v=60" />
+    <script type="module" src="./src/app.js?v=60"></script>
   </head>
   <body>
     <div
@@ -242,8 +242,8 @@
           </div>
         </div>
         <p class="lick-explorer-intro" data-i18n="lickExplorer.intro">
-          Browse Dig That Lick patterns using the organic timing of one hidden
-          WJD occurrence.
+          Test a quantized statistical rhythm for the 58 most typical Dig That
+          Lick patterns, with one bar of bass and a light swing.
         </p>
 
         <div class="lick-explorer-card">
@@ -287,6 +287,14 @@
           <div class="lick-explorer-pattern" id="lick-explorer-rhythm-row">
             <span data-i18n="lickExplorer.rhythmClass">Rhythm class</span>
             <code id="lick-explorer-rhythm-class"></code>
+          </div>
+          <div
+            class="lick-explorer-pattern"
+            id="lick-explorer-placement-row"
+            hidden
+          >
+            <span data-i18n="lickExplorer.placement">Most common placement</span>
+            <code id="lick-explorer-placement"></code>
           </div>
 
           <div class="lick-explorer-actions">
@@ -333,8 +341,30 @@
                 <option value="typical" data-i18n="lickExplorer.filter.typical">
                   Typical licks
                 </option>
-                <option value="very-typical" data-i18n="lickExplorer.filter.veryTypical">
+                <option
+                  value="very-typical"
+                  data-i18n="lickExplorer.filter.veryTypical"
+                  selected
+                >
                   Very typical licks
+                </option>
+              </select>
+            </label>
+            <label class="lick-explorer-option" for="lick-explorer-rhythm-mode">
+              <span data-i18n="lickExplorer.rhythmMode">Rhythm</span>
+              <select id="lick-explorer-rhythm-mode">
+                <option
+                  value="synthetic"
+                  data-i18n="lickExplorer.rhythmMode.synthetic"
+                  selected
+                >
+                  Statistical pilot
+                </option>
+                <option
+                  value="reference"
+                  data-i18n="lickExplorer.rhythmMode.reference"
+                >
+                  WJD occurrence
                 </option>
               </select>
             </label>

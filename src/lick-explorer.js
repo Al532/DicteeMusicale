@@ -1,5 +1,10 @@
 import { DTL_LICKS } from "../data/dtl-licks.js";
-import { jazzTranspositionRangeForNotes } from "./engine.js";
+import { DTL_RHYTHM_PILOT } from "../data/dtl-rhythm-pilot.js";
+import {
+  jazzTranspositionRangeForNotes,
+  pitchClass,
+  voiceBassHits,
+} from "./engine.js";
 
 export const TYPICAL_LICK_FILTER = Object.freeze({
   minOccurrences: 10,
@@ -18,6 +23,11 @@ export const LICK_FILTER = Object.freeze({
   all: "all",
   typical: "typical",
   veryTypical: "very-typical",
+});
+
+export const LICK_RHYTHM_MODE = Object.freeze({
+  synthetic: "synthetic",
+  reference: "reference",
 });
 
 export function adjustedLickSalience(lick) {
@@ -79,13 +89,17 @@ function normalizeTiming(timing) {
   };
 }
 
+function normalizedTransposition(transposition) {
+  return Number.isFinite(Number(transposition))
+    ? Math.round(Number(transposition))
+    : 0;
+}
+
 export function createLickSequence(lick, transposition = 0) {
   if (!lick || !Array.isArray(lick.notes) || !Array.isArray(lick.timings)) {
     throw new TypeError("A DTL lick with notes and timings is required.");
   }
-  const semitones = Number.isFinite(Number(transposition))
-    ? Math.round(Number(transposition))
-    : 0;
+  const semitones = normalizedTransposition(transposition);
   return {
     notes: lick.notes.map((midi) => Number(midi) + semitones),
     timings: lick.timings.map(normalizeTiming),
@@ -95,6 +109,104 @@ export function createLickSequence(lick, transposition = 0) {
         id: lick.id,
         originalTempo: lick.tempo,
         transposition: semitones,
+      },
+    },
+  };
+}
+
+function swungBeatPosition(tick, ticksPerBeat, swingRatio) {
+  const beat = Math.floor(tick / ticksPerBeat);
+  const tickWithinBeat =
+    ((tick % ticksPerBeat) + ticksPerBeat) % ticksPerBeat;
+  if (tickWithinBeat === ticksPerBeat / 2) {
+    return beat + swingRatio / (swingRatio + 1);
+  }
+  return beat + tickWithinBeat / ticksPerBeat;
+}
+
+export function createSyntheticLickSequence(
+  lick,
+  transposition = 0,
+  pilot = DTL_RHYTHM_PILOT.licks[lick?.id],
+) {
+  if (!lick || !Array.isArray(lick.notes) || !pilot) {
+    throw new TypeError("A DTL lick with pilot rhythm data is required.");
+  }
+  if (pilot.intervalTicks.length !== lick.notes.length - 1) {
+    throw new RangeError("The DTL pilot rhythm length is inconsistent.");
+  }
+
+  const semitones = normalizedTransposition(transposition);
+  const ticksPerBeat = DTL_RHYTHM_PILOT.ticksPerBeat;
+  const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
+  const leadInTicks = pilot.meter * ticksPerBeat;
+  const firstNoteTick = leadInTicks + pilot.startTick;
+  const noteTicks = [firstNoteTick];
+  for (const intervalTick of pilot.intervalTicks) {
+    noteTicks.push(noteTicks.at(-1) + intervalTick);
+  }
+  const beatPositions = noteTicks.map((tick) =>
+    swungBeatPosition(
+      tick,
+      ticksPerBeat,
+      DTL_RHYTHM_PILOT.swingRatio,
+    ),
+  );
+  const lastIntervalTick = pilot.intervalTicks.at(-1) ?? ticksPerBeat / 2;
+  const lastReleaseBeat = swungBeatPosition(
+    noteTicks.at(-1) + lastIntervalTick,
+    ticksPerBeat,
+    DTL_RHYTHM_PILOT.swingRatio,
+  );
+  const timings = beatPositions.map((beatPosition, index) => {
+    const nextBeatPosition = beatPositions[index + 1] ?? lastReleaseBeat;
+    return {
+      offset: Number((beatPosition * secondsPerBeat).toFixed(4)),
+      duration: Number(
+        (Math.max(0.12, nextBeatPosition - beatPosition) *
+          secondsPerBeat *
+          0.88).toFixed(4),
+      ),
+    };
+  });
+
+  const playbackEndBeat = Math.max(
+    pilot.meter * 2,
+    lastReleaseBeat,
+  );
+  const bassRootPitchClass = pitchClass(
+    lick.notes[0] - pilot.firstNoteBassInterval,
+  );
+  const bassTemplates = Array.from(
+    { length: Math.ceil(playbackEndBeat) },
+    (_, beatIndex) => ({
+      offset: Number((beatIndex * secondsPerBeat).toFixed(4)),
+      duration: Number((secondsPerBeat * 0.82).toFixed(4)),
+      rootPitchClass: bassRootPitchClass,
+      chord: "pilot-pedal",
+    }),
+  );
+  const chicks = bassTemplates
+    .map((_, beatIndex) => ({
+      beat: (beatIndex % pilot.meter) + 1,
+      offset: Number((beatIndex * secondsPerBeat).toFixed(4)),
+    }))
+    .filter(({ beat }) => beat === 2 || beat === 4);
+
+  return {
+    notes: lick.notes.map((midi) => Number(midi) + semitones),
+    timings,
+    chicks,
+    bassHits: voiceBassHits(bassTemplates, semitones),
+    meta: {
+      source: {
+        kind: "dtl-lick-synthetic",
+        id: lick.id,
+        originalTempo: DTL_RHYTHM_PILOT.tempo,
+        transposition: semitones,
+        meter: pilot.meter,
+        startTick: pilot.startTick,
+        swingRatio: DTL_RHYTHM_PILOT.swingRatio,
       },
     },
   };
@@ -154,6 +266,10 @@ function queryLickExplorerElements(documentObject) {
     intervals: documentObject.querySelector("#lick-explorer-intervals"),
     rhythmRow: documentObject.querySelector("#lick-explorer-rhythm-row"),
     rhythmClass: documentObject.querySelector("#lick-explorer-rhythm-class"),
+    placementRow: documentObject.querySelector(
+      "#lick-explorer-placement-row",
+    ),
+    placement: documentObject.querySelector("#lick-explorer-placement"),
     play: documentObject.querySelector("#lick-explorer-play"),
     playOriginal: documentObject.querySelector(
       "#lick-explorer-play-original",
@@ -162,8 +278,15 @@ function queryLickExplorerElements(documentObject) {
     stop: documentObject.querySelector("#lick-explorer-stop"),
     autoRandom: documentObject.querySelector("#lick-explorer-auto-random"),
     filter: documentObject.querySelector("#lick-explorer-filter"),
+    rhythmMode: documentObject.querySelector("#lick-explorer-rhythm-mode"),
     status: documentObject.querySelector("#lick-explorer-status"),
   };
+}
+
+function normalizeRhythmMode(value) {
+  return Object.values(LICK_RHYTHM_MODE).includes(value)
+    ? value
+    : LICK_RHYTHM_MODE.reference;
 }
 
 export function createLickExplorer({
@@ -195,6 +318,7 @@ export function createLickExplorer({
   }
   let index = 0;
   let transposition = 0;
+  let rhythmMode = normalizeRhythmMode(elements.rhythmMode.value);
   let playbackTimer = null;
   let playbackVersion = 0;
   let playing = false;
@@ -227,6 +351,15 @@ export function createLickExplorer({
 
   function render() {
     const lick = currentLick();
+    const pilot = DTL_RHYTHM_PILOT.licks[lick.id] ?? null;
+    const syntheticOption = elements.rhythmMode.querySelector(
+      `[value="${LICK_RHYTHM_MODE.synthetic}"]`,
+    );
+    syntheticOption.disabled = !pilot;
+    if (!pilot && rhythmMode === LICK_RHYTHM_MODE.synthetic) {
+      rhythmMode = LICK_RHYTHM_MODE.reference;
+      elements.rhythmMode.value = rhythmMode;
+    }
     elements.progress.textContent = translate("lickExplorer.progress", {
       current: index + 1,
       total: visibleLicks.length,
@@ -241,6 +374,32 @@ export function createLickExplorer({
     elements.intervals.textContent = `[${lick.intervals.join(", ")}]`;
     elements.rhythmRow.hidden = !lick.rhythmClass;
     elements.rhythmClass.textContent = lick.rhythmClass ?? "";
+    elements.placementRow.hidden =
+      !pilot || rhythmMode !== LICK_RHYTHM_MODE.synthetic;
+    if (pilot) {
+      const beat = Math.floor(
+        pilot.startTick / DTL_RHYTHM_PILOT.ticksPerBeat,
+      ) + 1;
+      const offbeat =
+        pilot.startTick % DTL_RHYTHM_PILOT.ticksPerBeat !== 0;
+      const placement = translate(
+        offbeat
+          ? "lickExplorer.placement.offbeat"
+          : "lickExplorer.placement.beat",
+        { beat },
+      );
+      elements.placement.textContent = translate(
+        "lickExplorer.placement.value",
+        {
+          meter: `${pilot.meter}/4`,
+          meterSupport: Math.round(pilot.meterSupport * 100),
+          placement,
+          support: Math.round(pilot.placementSupport * 100),
+        },
+      );
+    } else {
+      elements.placement.textContent = "";
+    }
     elements.previous.disabled = index === 0;
     elements.next.disabled = index === visibleLicks.length - 1;
     renderStatus();
@@ -268,9 +427,27 @@ export function createLickExplorer({
         noteIndex === 0,
       );
     });
-    const lastTiming = sequence.timings.at(-1);
+    for (const chick of sequence.chicks ?? []) {
+      audioRuntime.playChick?.(chick.offset);
+    }
+    for (const bassHit of sequence.bassHits ?? []) {
+      audioRuntime.playBass?.(
+        bassHit.midi,
+        bassHit.offset,
+        bassHit.duration,
+      );
+    }
+    const playbackEnds = [
+      ...sequence.timings.map(
+        ({ offset, duration }) => offset + duration,
+      ),
+      ...(sequence.bassHits ?? []).map(
+        ({ offset, duration }) => offset + duration,
+      ),
+      ...(sequence.chicks ?? []).map(({ offset }) => offset + 0.06),
+    ];
     const durationMs = Math.ceil(
-      (lastTiming.offset + lastTiming.duration) * 1000 + 60,
+      Math.max(...playbackEnds) * 1000 + 60,
     );
     setPlaying(true);
     renderStatus("lickExplorer.status.playing");
@@ -286,9 +463,21 @@ export function createLickExplorer({
     stop();
     transposition = nextTransposition;
     const version = playbackVersion;
-    const sequence = createLickSequence(currentLick(), transposition);
+    const lick = currentLick();
+    const pilot = DTL_RHYTHM_PILOT.licks[lick.id] ?? null;
+    const sequence =
+      rhythmMode === LICK_RHYTHM_MODE.synthetic && pilot
+        ? createSyntheticLickSequence(lick, transposition, pilot)
+        : createLickSequence(lick, transposition);
     audioRuntime.getAudioContext();
     await audioRuntime.preloadMelodySamples(sequence.notes);
+    if (sequence.bassHits?.length && audioRuntime.preloadBassSamples) {
+      try {
+        await audioRuntime.preloadBassSamples(sequence.bassHits);
+      } catch {
+        // The pilot remains usable without its optional bass samples.
+      }
+    }
     return schedule(sequence, version);
   }
 
@@ -367,6 +556,22 @@ export function createLickExplorer({
     return setFilter(enabled ? LICK_FILTER.typical : LICK_FILTER.all);
   }
 
+  function setRhythmMode(value) {
+    const nextMode = normalizeRhythmMode(value);
+    const hasPilot = Boolean(DTL_RHYTHM_PILOT.licks[currentLick().id]);
+    if (nextMode === LICK_RHYTHM_MODE.synthetic && !hasPilot) {
+      elements.rhythmMode.value = rhythmMode;
+      return false;
+    }
+    elements.rhythmMode.value = nextMode;
+    if (nextMode === rhythmMode) return false;
+    stop();
+    rhythmMode = nextMode;
+    render();
+    void playAt(transposition);
+    return true;
+  }
+
   function open() {
     elements.panel.hidden = false;
     render();
@@ -394,6 +599,9 @@ export function createLickExplorer({
   listen(elements.filter, "change", () => {
     setFilter(elements.filter.value);
   });
+  listen(elements.rhythmMode, "change", () => {
+    setRhythmMode(elements.rhythmMode.value);
+  });
   listen(documentObject, "keydown", (event) => {
     if (event.key === "Escape" && !elements.panel.hidden) {
       event.preventDefault();
@@ -417,6 +625,7 @@ export function createLickExplorer({
     playRandom,
     previous,
     setFilter,
+    setRhythmMode,
     setTypicalOnly,
     snapshot: () => ({
       autoRandom: elements.autoRandom.checked,
@@ -424,6 +633,8 @@ export function createLickExplorer({
       id: currentLick().id,
       index,
       playing,
+      pilotAvailable: Boolean(DTL_RHYTHM_PILOT.licks[currentLick().id]),
+      rhythmMode,
       sourceTotal: allLicks.length,
       total: visibleLicks.length,
       transposition,

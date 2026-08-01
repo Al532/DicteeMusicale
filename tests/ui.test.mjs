@@ -188,6 +188,20 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
     ),
     ["all", "typical", "very-typical"],
   );
+  assert.equal(
+    document.querySelector("#lick-explorer-filter").value,
+    "very-typical",
+  );
+  assert.deepEqual(
+    [...document.querySelector("#lick-explorer-rhythm-mode").options].map(
+      ({ value }) => value,
+    ),
+    ["synthetic", "reference"],
+  );
+  assert.equal(
+    document.querySelector("#lick-explorer-rhythm-mode").value,
+    "synthetic",
+  );
 });
 
 test("les favoris et les originaux conservent leur structure publique", () => {

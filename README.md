@@ -125,6 +125,15 @@ corrigée selon la longueur du motif. Le niveau « très typiques » conserve 58
 ces motifs en exigeant aussi `log_excess_prob >= 2`. Ces statistiques restent
 internes et aucune identité supplémentaire n’est exposée dans l’écran.
 
+Ces 58 motifs disposent aussi d’un pilote rythmique statistique dans
+`data/dtl-rhythm-pilot.js`. Les 1 300 occurrences exactes sont retrouvées dans
+la WJazzD, puis leur microtiming est écarté. Le pilote retient séparément la
+mesure majoritaire, le départ majoritaire sur une grille de croches et la durée
+modale de chaque intervalle sur une grille de douzièmes de temps. La lecture à
+156 BPM ajoute une mesure de basse-repère, le hi-hat sur 2 et 4 et un swing
+léger de 1,4:1. Le sélecteur permet de comparer ce résultat à l’occurrence WJD
+de référence.
+
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :
 
@@ -136,6 +145,12 @@ npm run dtl:import -- /chemin/vers/pattern_stats.RDS
 Le script lit la liste officielle des occurrences, choisit la première encore
 compatible avec l’export WJazzD local, puis extrait les hauteurs, timings et
 tempo dans le corpus compact.
+
+Pour régénérer le pilote depuis la base SQLite publique WJazzD :
+
+```bash
+npm run dtl:rhythm-pilot -- /chemin/vers/wjazzd.db
+```
 
 Pour intégrer le dernier export central :
 
