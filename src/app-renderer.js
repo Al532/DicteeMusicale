@@ -301,9 +301,8 @@ export function createAppRenderer({
   }
 
   function renderLickExerciseProgress({
-    index,
+    current,
     patternId,
-    total,
   }) {
     elements.challengeProgress.hidden = false;
     elements.progressDots.hidden = true;
@@ -311,7 +310,7 @@ export function createAppRenderer({
     elements.freeNavigation.hidden = true;
     elements.progressTitle.textContent = translate(
       "lickExercise.progress",
-      { current: index + 1, total },
+      { current },
     );
     elements.progressDetail.textContent = patternId;
   }

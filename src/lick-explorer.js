@@ -72,6 +72,7 @@ export function classifiedVeryTypicalLicks(licks = DTL_LICKS) {
 export function shuffledLickDeck(
   licks = classifiedVeryTypicalLicks(),
   random = Math.random,
+  avoidFirstId = null,
 ) {
   const deck = [...licks];
   for (let index = deck.length - 1; index > 0; index -= 1) {
@@ -85,6 +86,14 @@ export function shuffledLickDeck(
       ),
     );
     [deck[index], deck[swapIndex]] = [deck[swapIndex], deck[index]];
+  }
+  if (deck.length > 1 && deck[0]?.id === avoidFirstId) {
+    const swapIndex = deck.findIndex(
+      (lick, index) => index > 0 && lick?.id !== avoidFirstId,
+    );
+    if (swapIndex > 0) {
+      [deck[0], deck[swapIndex]] = [deck[swapIndex], deck[0]];
+    }
   }
   return deck;
 }

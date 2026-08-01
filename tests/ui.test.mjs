@@ -117,7 +117,7 @@ test("le contrat HTML expose uniquement les outils développeur actuels", () => 
     ],
   );
   assert.equal(elements.developerMode.type, "checkbox");
-  assert.match(
+  assert.doesNotMatch(
     styles,
     /\.lick-exercise-mode\.game-mode #next-exercise:not\(\[hidden\]\)/,
   );

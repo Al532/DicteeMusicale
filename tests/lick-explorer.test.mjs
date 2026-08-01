@@ -446,7 +446,7 @@ test("la transposition aléatoire conserve le motif et change de ton", () => {
   );
 });
 
-test("la pioche d’exercice mélange les 19 licks sans remise", () => {
+test("la pioche mélange sans remise et évite un doublon à la reprise", () => {
   const catalog = classifiedVeryTypicalLicks();
   const originalIds = catalog.map(({ id }) => id);
   const deck = shuffledLickDeck(catalog, () => 0);
@@ -457,6 +457,13 @@ test("la pioche d’exercice mélange les 19 licks sans remise", () => {
   assert.deepEqual([...deckIds].sort(), [...originalIds].sort());
   assert.notDeepEqual(deckIds, originalIds);
   assert.deepEqual(catalog.map(({ id }) => id), originalIds);
+
+  const nextDeck = shuffledLickDeck(catalog, () => 0, deckIds[0]);
+  assert.notEqual(nextDeck[0].id, deckIds[0]);
+  assert.deepEqual(
+    nextDeck.map(({ id }) => id).sort(),
+    [...originalIds].sort(),
+  );
 });
 
 test("une séquence d’exercice ajoute le clavier et l’identité du pattern", () => {

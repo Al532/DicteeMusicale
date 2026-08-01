@@ -152,7 +152,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
-  await t.test("l’exercice de licks parcourt une pioche aléatoire sans remise", async () => {
+  await t.test("le Lick trainer enchaîne des tirages aléatoires sans fin", async () => {
     const app = await bootApp();
     try {
       const trainerButton = app.element("#start-lick-exercise");
@@ -174,6 +174,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         true,
       );
       assert.equal(first.lickExercise.index, 0);
+      assert.equal(first.lickExercise.number, 1);
       assert.equal(first.lickExercise.total, 19);
       assert.equal(
         new Set(first.lickExercise.deckIds).size,
@@ -183,10 +184,15 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         first.exercise.source.id,
         first.lickExercise.currentId,
       );
-      assert.equal(app.element("#next-exercise").hidden, false);
-      assert.equal(app.element("#next-exercise").disabled, false);
-      assert.equal(app.element("#free-transpose").hidden, false);
-      assert.match(app.element("#progress-title").textContent, /1.*19/);
+      assert.equal(first.lickExercise.toneState.transpositionsUsed.length, 1);
+      assert.equal(
+        first.lickExercise.toneState.lastTransposition,
+        first.exercise.transposition,
+      );
+      assert.equal(app.element("#next-exercise").hidden, true);
+      assert.equal(app.element("#next-exercise").disabled, true);
+      assert.equal(app.element("#free-transpose").hidden, true);
+      assert.equal(app.element("#progress-title").textContent, "Lick 1");
       assert.equal(
         app.element("#progress-detail").textContent,
         first.exercise.source.patternId,
@@ -196,32 +202,72 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         false,
       );
 
-      await finishPlayback(app);
-      await enterExerciseNotes(app);
-      assert.equal(app.element("#feedback").className, "feedback success");
-
-      const firstTransposition = app.snapshot().exercise.transposition;
       await app.click("#free-transpose");
-      await app.waitFor(
-        () =>
-          app.snapshot().exercise?.transposition !== firstTransposition,
-        "nouvelle tonalité du même lick",
-      );
+      await app.click("#next-exercise");
+      assert.equal(app.snapshot().exercise.source.id, first.exercise.source.id);
       assert.equal(
-        app.snapshot().exercise.source.id,
-        first.exercise.source.id,
+        app.snapshot().exercise.transposition,
+        first.exercise.transposition,
       );
 
-      await app.click("#next-exercise");
-      await app.waitFor(
-        () => app.snapshot().lickExercise?.index === 1,
-        "lick suivant",
-      );
-      const second = app.snapshot();
-      assert.notEqual(second.exercise.source.id, first.exercise.source.id);
+      const visitedFirstDeck = new Set();
+      let current = first;
+      for (
+        let completed = 0;
+        completed < first.lickExercise.total;
+        completed += 1
+      ) {
+        visitedFirstDeck.add(current.exercise.source.id);
+        await finishPlayback(app);
+        await enterExerciseNotes(app);
+        assert.equal(app.element("#feedback").className, "feedback success");
+        assert.equal(app.element("#feedback").textContent, "Lick complete.");
+        assert.equal(app.element("#replay").disabled, true);
+
+        const completedId = current.exercise.source.id;
+        const completedNumber = current.lickExercise.number;
+        await app.clock.tick(719);
+        assert.equal(app.snapshot().exercise.source.id, completedId);
+        await app.clock.tick(1);
+        await app.waitFor(
+          () =>
+            app.snapshot().lickExercise?.number === completedNumber + 1,
+          "lick suivant automatique",
+        );
+
+        const next = app.snapshot();
+        assert.notEqual(next.exercise.source.id, completedId);
+        assert.equal(next.lickExercise.number, completedNumber + 1);
+        assert.equal(next.lickExercise.toneState.transpositionsUsed.length, 1);
+        assert.equal(
+          next.lickExercise.toneState.lastTransposition,
+          next.exercise.transposition,
+        );
+        assert.equal(app.element("#next-exercise").hidden, true);
+        assert.equal(app.element("#free-transpose").hidden, true);
+        assert.equal(
+          app.element("#progress-title").textContent,
+          `Lick ${next.lickExercise.number}`,
+        );
+        if (next.lickExercise.number <= first.lickExercise.total) {
+          assert.deepEqual(
+            next.lickExercise.deckIds,
+            first.lickExercise.deckIds,
+          );
+        }
+        current = next;
+      }
+
       assert.deepEqual(
-        second.lickExercise.deckIds,
-        first.lickExercise.deckIds,
+        [...visitedFirstDeck].sort(),
+        [...first.lickExercise.deckIds].sort(),
+      );
+      assert.equal(current.lickExercise.number, 20);
+      assert.equal(current.lickExercise.index, 0);
+      assert.equal(current.lickExercise.total, 19);
+      assert.equal(
+        new Set(current.lickExercise.deckIds).size,
+        current.lickExercise.total,
       );
 
       await app.click("#fullscreen-button");

@@ -183,6 +183,7 @@ let freeBrowsePhraseKeys = [];
 let freeToneState = null;
 let lickExerciseDeck = [];
 let lickExerciseIndex = -1;
+let lickExerciseNumber = 0;
 let lickExerciseToneState = null;
 let lastCompletedChallengePhrases = [];
 let playbackTimer = null;
@@ -376,10 +377,12 @@ async function openLickExplorer() {
 function resetLickExerciseSession() {
   lickExerciseDeck = [];
   lickExerciseIndex = -1;
+  lickExerciseNumber = 0;
   lickExerciseToneState = null;
   document.body.classList.remove("lick-exercise-mode");
   elements.nextExercise.hidden = true;
   elements.nextExercise.disabled = true;
+  elements.freeTranspose.hidden = true;
 }
 
 async function ensureLickExerciseTools() {
@@ -403,6 +406,7 @@ async function startLickExercise() {
       tools.classifiedVeryTypicalLicks(),
     );
     lickExerciseIndex = 0;
+    lickExerciseNumber = 1;
     lickExerciseToneState = null;
     const loaded = await loadCurrentLickExercise();
     if (!loaded && currentMode === "lick-exercise") {
@@ -829,11 +833,7 @@ async function moveFreePhrase(offset) {
 }
 
 async function transposeFreePhrase() {
-  if (currentMode === "lick-exercise") {
-    await transposeLickExercise();
-    return;
-  }
-  if (!freePhraseKey || !freeToneState) return;
+  if (currentMode !== "free" || !freePhraseKey || !freeToneState) return;
   const transposition = drawNextTransposition(freeToneState);
   await loadPublicPhrase({
     phraseKey: freePhraseKey,
@@ -845,27 +845,37 @@ function currentLickExercise() {
   return lickExerciseDeck[lickExerciseIndex] ?? null;
 }
 
-async function transposeLickExercise() {
-  if (
-    currentMode !== "lick-exercise" ||
-    !currentLickExercise() ||
-    !lickExerciseToneState
-  ) {
-    return false;
-  }
-  return loadCurrentLickExercise();
-}
-
 async function moveToNextLickExercise() {
   if (
     currentMode !== "lick-exercise" ||
     lickExerciseIndex < 0 ||
-    lickExerciseIndex >= lickExerciseDeck.length - 1
+    !currentLickExercise()
   ) {
     return false;
   }
-  elements.nextExercise.disabled = true;
-  lickExerciseIndex += 1;
+  const previousDeck = lickExerciseDeck;
+  const previousIndex = lickExerciseIndex;
+  const previousLick = currentLickExercise();
+  const tools = await ensureLickExerciseTools();
+  if (
+    currentMode !== "lick-exercise" ||
+    lickExerciseDeck !== previousDeck ||
+    lickExerciseIndex !== previousIndex ||
+    currentLickExercise() !== previousLick
+  ) {
+    return false;
+  }
+  if (lickExerciseIndex >= lickExerciseDeck.length - 1) {
+    lickExerciseDeck = tools.shuffledLickDeck(
+      tools.classifiedVeryTypicalLicks(),
+      Math.random,
+      previousLick.id,
+    );
+    lickExerciseIndex = 0;
+  } else {
+    lickExerciseIndex += 1;
+  }
+  lickExerciseNumber += 1;
   lickExerciseToneState = null;
   return loadCurrentLickExercise();
 }
@@ -1749,14 +1759,13 @@ async function loadCurrentLickExercise() {
     );
   }
   const transposition = drawNextTransposition(lickExerciseToneState);
-  const index = lickExerciseIndex;
-  const total = lickExerciseDeck.length;
+  const number = lickExerciseNumber;
 
   return prepareAndLaunchExercise({
     resolvePlan: () =>
       currentMode === "lick-exercise" &&
       currentLickExercise() === lick
-        ? { index, lick, total, transposition }
+        ? { lick, number, transposition }
         : null,
     configureMode() {
       elements.suddenDeathModal.hidden = true;
@@ -1787,15 +1796,13 @@ async function loadCurrentLickExercise() {
       elements.kicker.textContent = t("mode.lickExercise");
       elements.exerciseTitle.textContent = t("lickExercise.find");
       renderSource(source);
-      elements.nextExercise.hidden = false;
-      elements.nextExercise.disabled = plan.index >= plan.total - 1;
-      elements.nextExercise.textContent = t("common.next");
+      elements.nextExercise.hidden = true;
+      elements.nextExercise.disabled = true;
       elements.ratingWorkspace.hidden = true;
-      elements.freeTranspose.hidden = false;
+      elements.freeTranspose.hidden = true;
       appRenderer.renderLickExerciseProgress({
-        index: plan.index,
+        current: plan.number,
         patternId: source.patternId,
-        total: plan.total,
       });
       renderFavoriteButton();
       renderRatingControls();
@@ -2191,20 +2198,17 @@ function finishExercise() {
     return;
   }
   if (currentMode === "lick-exercise") {
-    elements.feedback.textContent = t(
-      lickExerciseIndex >= lickExerciseDeck.length - 1
-        ? "finish.lickExerciseComplete"
-        : "finish.lickExercise",
-    );
-    elements.replay.disabled = false;
+    elements.feedback.textContent = t("finish.lickExercise");
+    elements.replay.disabled = true;
+    scheduleRoundTransition(async () => {
+      await moveToNextLickExercise();
+    });
+    return;
   }
 }
 
 function goToNextExercise() {
-  if (currentMode === "lick-exercise") {
-    void moveToNextLickExercise();
-    return;
-  }
+  if (currentMode === "lick-exercise") return;
   void startExercise();
 }
 
@@ -2355,6 +2359,7 @@ if (
           currentId: currentLickExercise()?.id ?? null,
           deckIds: lickExerciseDeck.map(({ id }) => id),
           index: lickExerciseIndex,
+          number: lickExerciseNumber,
           toneState: lickExerciseToneState
             ? structuredClone(lickExerciseToneState)
             : null,

@@ -435,14 +435,13 @@ test("les vues défi, review et session de notation restent stateless", () => {
   assert.equal(elements.freeNext.disabled, false);
 
   renderer.renderLickExerciseProgress({
-    index: 4,
+    current: 5,
     patternId: "P13",
-    total: 19,
   });
   assert.equal(elements.progressDots.hidden, true);
   assert.equal(elements.reviewNavigation.hidden, true);
   assert.equal(elements.freeNavigation.hidden, true);
-  assert.equal(elements.progressTitle.textContent, "Lick 5 of 19");
+  assert.equal(elements.progressTitle.textContent, "Lick 5");
   assert.equal(elements.progressDetail.textContent, "P13");
 
   renderer.renderRatingSession({

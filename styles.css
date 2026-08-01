@@ -1558,10 +1558,6 @@ body.game-mode {
   display: flex;
 }
 
-.lick-exercise-mode.game-mode #next-exercise:not([hidden]) {
-  display: flex;
-}
-
 .phrase-adjustments {
   width: min(100%, 330px);
   min-width: 0;

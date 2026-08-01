@@ -230,8 +230,7 @@ const messages = {
     "mode.review": "3-star review",
     "mode.lickExercise": "Lick trainer",
     "lickExercise.find": "Listen, then find the lick",
-    "lickExercise.progress": ({ current, total }) =>
-      `Lick ${current} of ${total}`,
+    "lickExercise.progress": ({ current }) => `Lick ${current}`,
     "game.explorePhrase": "Explore the phrase",
     "game.firstTry": "First try",
     "rating.listenRate": "Listen, then rate the phrase",
@@ -335,10 +334,7 @@ const messages = {
     "finish.toneValidated": "Key complete.",
     "finish.suddenValidated": "Phrase completed on the first try.",
     "finish.free": "Phrase complete. Replay it or change key.",
-    "finish.lickExercise":
-      "Lick complete. Replay it, change key, or move on.",
-    "finish.lickExerciseComplete":
-      "Lick complete. You have reached the end of this set.",
+    "finish.lickExercise": "Lick complete.",
     "fullscreen.enter": "Full screen",
     "fullscreen.exit": "Exit full screen",
     "fullscreen.enterAria": "Enter full screen",
@@ -585,8 +581,7 @@ const messages = {
     "mode.review": "Revue 3 étoiles",
     "mode.lickExercise": "Lick trainer",
     "lickExercise.find": "Écoute, puis retrouve le lick",
-    "lickExercise.progress": ({ current, total }) =>
-      `Lick ${current} sur ${total}`,
+    "lickExercise.progress": ({ current }) => `Lick ${current}`,
     "game.explorePhrase": "Explore la phrase",
     "game.firstTry": "Du premier coup",
     "rating.listenRate": "Écoute, puis note la phrase",
@@ -693,10 +688,7 @@ const messages = {
     "finish.toneValidated": "Ton validé.",
     "finish.suddenValidated": "Phrase validée du premier coup.",
     "finish.free": "Phrase retrouvée. Rejoue-la ou change de ton.",
-    "finish.lickExercise":
-      "Lick retrouvé. Rejoue-le, change de ton ou passe au suivant.",
-    "finish.lickExerciseComplete":
-      "Lick retrouvé. Tu es arrivé au bout de cette série.",
+    "finish.lickExercise": "Lick retrouvé.",
     "fullscreen.enter": "Plein écran",
     "fullscreen.exit": "Quitter le plein écran",
     "fullscreen.enterAria": "Passer en plein écran",
