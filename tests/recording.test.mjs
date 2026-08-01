@@ -34,8 +34,8 @@ test("les sources directes et décisions intégrées non validées restent invis
     {},
   );
   assert.deepEqual(distribution, {
-    "wrong-version": 20,
-    verified: 32,
+    "wrong-version": 26,
+    verified: 39,
     unavailable: 2,
   });
   assert.deepEqual(

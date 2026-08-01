@@ -61,6 +61,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     playSelectedRecordingWorkshopPhrase() {
       calls.push(["playSelectedRecordingWorkshopPhrase"]);
     },
+    selectRecordingWorkshopPhrase() {
+      calls.push(["selectRecordingWorkshopPhrase"]);
+    },
     openCurrentPhraseEditor() {
       calls.push(["openCurrentPhraseEditor"]);
     },
@@ -94,6 +97,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
   elements.startRating.click();
   elements.playRecordingWorkshopPhrase.click();
+  elements.recordingWorkshopPhrase.dispatchEvent(
+    new dom.window.Event("change"),
+  );
   elements.editRecordingWorkshopPhrase.click();
   elements.openLickExplorer.click();
   elements.openPhraseEditor.click();
@@ -138,6 +144,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     ["syncGameSpeed", "75"],
     ["startMode", "rating"],
     ["playSelectedRecordingWorkshopPhrase"],
+    ["selectRecordingWorkshopPhrase"],
     ["editSelectedRecordingWorkshopPhrase"],
     ["openLickExplorer"],
     ["openCurrentPhraseEditor"],
@@ -154,7 +161,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 13);
+  assert.equal(calls.length, 14);
 
   dom.window.close();
 });

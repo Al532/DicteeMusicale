@@ -206,6 +206,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.recordingWorkshopOffset, "change", () =>
     actions.useManualRecordingCandidate(),
   );
+  listen(elements.recordingWorkshopPhrase, "change", () =>
+    actions.selectRecordingWorkshopPhrase(),
+  );
   for (const button of elements.recordingOffsetButtons) {
     listen(button, "click", () =>
       actions.adjustRecordingOffset(Number(button.dataset.recordingOffset)),

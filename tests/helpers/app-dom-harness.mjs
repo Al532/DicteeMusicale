@@ -263,6 +263,60 @@ export async function bootApp({
   const pendingCorpusFetches = [];
   const serviceWorkerCalls = [];
   const mediaQueries = new Map();
+  const youtube = {
+    calls: [],
+    players: [],
+  };
+
+  class FakeYouTubePlayer {
+    constructor(iframe, { events = {} } = {}) {
+      this.currentTime = 0;
+      this.events = events;
+      this.iframe = iframe;
+      this.muted = false;
+      this.videoId = new URL(iframe.src).pathname.split("/").at(-1);
+      youtube.players.push(this);
+      events.onReady?.({ target: this });
+    }
+
+    getCurrentTime() {
+      return this.currentTime;
+    }
+
+    getVideoData() {
+      return { video_id: this.videoId };
+    }
+
+    loadVideoById(options) {
+      youtube.calls.push(["loadVideoById", options]);
+      this.videoId = options.videoId;
+      this.currentTime = Number(options.startSeconds) || 0;
+    }
+
+    mute() {
+      youtube.calls.push(["mute"]);
+      this.muted = true;
+    }
+
+    pauseVideo() {
+      youtube.calls.push(["pauseVideo"]);
+    }
+
+    playVideo() {
+      youtube.calls.push(["playVideo"]);
+    }
+
+    seekTo(seconds, allowSeekAhead) {
+      youtube.calls.push(["seekTo", seconds, allowSeekAhead]);
+      this.currentTime = seconds;
+    }
+
+    unMute() {
+      youtube.calls.push(["unMute"]);
+      this.muted = false;
+    }
+  }
+  dom.window.YT = { Player: FakeYouTubePlayer };
 
   Object.defineProperty(dom.window, "matchMedia", {
     configurable: true,
@@ -474,6 +528,7 @@ export async function bootApp({
     },
     waitFor,
     window: dom.window,
+    youtube,
   };
 }
 

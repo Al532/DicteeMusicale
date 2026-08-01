@@ -18,12 +18,12 @@ import { DEFAULT_PHRASE_SETTINGS } from "../data/default-phrase-settings.js";
 
 const execFileAsync = promisify(execFile);
 
-test("les 54 réglages de phrase exportés sont intégrés en dur", () => {
-  assert.equal(Object.keys(DEFAULT_PHRASE_SETTINGS).length, 54);
-  assert.deepEqual(DEFAULT_PHRASE_SETTINGS["wjazzd-v2.1-181:17"], {
-    notesMax: 14,
-    ignoredShortestNotes: 1,
-    updatedAt: "2026-07-30T14:05:53.017Z",
+test("les 56 réglages de phrase exportés sont intégrés en dur", () => {
+  assert.equal(Object.keys(DEFAULT_PHRASE_SETTINGS).length, 56);
+  assert.deepEqual(DEFAULT_PHRASE_SETTINGS["wjazzd-v2.1-122:12"], {
+    notesMax: 25,
+    ignoredShortestNotes: 0,
+    updatedAt: "2026-07-30T13:53:28.952Z",
   });
 });
 

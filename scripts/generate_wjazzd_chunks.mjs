@@ -15,7 +15,10 @@ import {
   WJAZZD_PERFORMERS,
   WJAZZD_SOLOS,
 } from "../data/wjazzd-solos.js";
-import { resolvePhraseSettings } from "../src/phrase-settings.js";
+import {
+  phraseEventsWithEdits,
+  resolvePhraseSettings,
+} from "../src/phrase-settings.js";
 
 const INDEX_SCHEMA_VERSION = 1;
 const BLOCK_SIZE = 8;
@@ -32,8 +35,9 @@ function sha256(value) {
 }
 
 function adjustedEvents(events, storedSettings) {
-  const settings = resolvePhraseSettings(storedSettings, events.length);
-  const truncated = events.slice(0, settings.notesMax);
+  const sourceEvents = phraseEventsWithEdits(events, storedSettings);
+  const settings = resolvePhraseSettings(storedSettings, sourceEvents.length);
+  const truncated = sourceEvents.slice(0, settings.notesMax);
   const ignored = new Set(
     truncated
       .map((event, index) => ({
