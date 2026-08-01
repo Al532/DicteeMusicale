@@ -40,6 +40,15 @@ test("l’état d’exercice conserve la source et les options de lancement", ()
   assert.equal(exercisePlaybackDurationMs(state), 2_000);
 });
 
+test("la lecture reste active jusqu’à la fin d’une basse tenue", () => {
+  const state = createExerciseState({
+    ...generated(),
+    bassHits: [{ midi: 36, offset: 0, duration: 2.25 }],
+  }, { speedPercent: 75 });
+
+  assert.equal(exercisePlaybackDurationMs(state), 3_000);
+});
+
 test("la saisie avance seulement sur la hauteur attendue", () => {
   const state = createExerciseState(generated());
   assert.deepEqual(enterExerciseMidi(state, 61), {

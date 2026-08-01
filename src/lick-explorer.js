@@ -2,6 +2,7 @@ import { DTL_LICKS } from "../data/dtl-licks.js";
 import { DTL_RHYTHM_PILOT } from "../data/dtl-rhythm-pilot.js";
 import {
   jazzTranspositionRangeForNotes,
+  keyboardLayoutForNotes,
   pitchClass,
   voiceBassHits,
 } from "./engine.js";
@@ -61,11 +62,31 @@ export function isClassifiedVeryTypicalLick(lick) {
   );
 }
 
-function classifiedVeryTypicalLicks(licks) {
+export function classifiedVeryTypicalLicks(licks = DTL_LICKS) {
   const byId = new Map(licks.map((lick) => [lick.id, lick]));
   return Object.keys(DTL_RHYTHM_PILOT.licks)
     .map((lickId) => byId.get(lickId))
     .filter(isClassifiedVeryTypicalLick);
+}
+
+export function shuffledLickDeck(
+  licks = classifiedVeryTypicalLicks(),
+  random = Math.random,
+) {
+  const deck = [...licks];
+  for (let index = deck.length - 1; index > 0; index -= 1) {
+    const randomValue = Number(random());
+    const swapIndex = Math.max(
+      0,
+      Math.min(
+        index,
+        Math.floor((Number.isFinite(randomValue) ? randomValue : 0) *
+          (index + 1)),
+      ),
+    );
+    [deck[index], deck[swapIndex]] = [deck[swapIndex], deck[index]];
+  }
+  return deck;
 }
 
 function normalizeTiming(timing) {
@@ -245,6 +266,26 @@ export function createSyntheticLickSequence(
         changeNoteIndex: pilot.changeNoteIndex ?? null,
         changeBeat: pilot.changeBeat ?? null,
         timelineStartTick,
+      },
+    },
+  };
+}
+
+export function createLickExerciseSequence(lick, transposition = 0) {
+  const sequence = createSyntheticLickSequence(lick, transposition);
+  const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
+  return {
+    ...sequence,
+    keyboard: keyboardLayoutForNotes(sequence.notes),
+    meta: {
+      source: {
+        ...sequence.meta.source,
+        kind: "dtl-lick-exercise",
+        patternId: pilot.patternId,
+        harmonicFunction: pilot.harmonicFunction,
+        startDegree: pilot.startDegree,
+        noteCount: lick.notes.length,
+        transpositionRange: jazzTranspositionRangeForNotes(lick.notes),
       },
     },
   };

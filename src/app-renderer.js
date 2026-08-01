@@ -300,6 +300,27 @@ export function createAppRenderer({
     elements.freeNext.disabled = !total || index >= total - 1;
   }
 
+  function renderLickExerciseProgress({
+    harmonicFunction,
+    index,
+    patternId,
+    startDegree,
+    total,
+  }) {
+    elements.challengeProgress.hidden = false;
+    elements.progressDots.hidden = true;
+    elements.reviewNavigation.hidden = true;
+    elements.freeNavigation.hidden = true;
+    elements.progressTitle.textContent = translate(
+      "lickExercise.progress",
+      { current: index + 1, total },
+    );
+    elements.progressDetail.textContent = translate(
+      "lickExercise.pattern",
+      { harmonicFunction, patternId, startDegree },
+    );
+  }
+
   function renderRatingSession({
     count,
     distribution,
@@ -358,6 +379,7 @@ export function createAppRenderer({
       !developerMode ||
       mode === "challenge" ||
       mode === "free" ||
+      mode === "lick-exercise" ||
       mode === "review";
     const transposition = Number.isFinite(source.transposition)
       ? source.transposition === 0
@@ -452,6 +474,7 @@ export function createAppRenderer({
     renderFavorites,
     renderFreeProgress,
     renderHomeState,
+    renderLickExerciseProgress,
     renderPhraseControls,
     renderProgressDots,
     renderRatingSession,

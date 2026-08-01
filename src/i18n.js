@@ -46,6 +46,7 @@ const messages = {
     "developer.quickRating": "Quick rating",
     "developer.threeStarReview": "Review 3-star phrases",
     "developer.recordingWorkshop": "Recording workshop",
+    "developer.lickExercise": "Lick exercise",
     "developer.lickExplorer": "Lick Explorer",
     "lickExplorer.back": "Back",
     "lickExplorer.kicker": "Developer browser",
@@ -227,6 +228,15 @@ const messages = {
     "mode.suddenDeath": "Sudden death",
     "mode.challenge": "3×3 Challenge",
     "mode.review": "3-star review",
+    "mode.lickExercise": "Lick exercise",
+    "lickExercise.find": "Listen, then find the lick",
+    "lickExercise.progress": ({ current, total }) =>
+      `Lick ${current} of ${total}`,
+    "lickExercise.pattern": ({
+      harmonicFunction,
+      patternId,
+      startDegree,
+    }) => `${patternId} · ${harmonicFunction} · starts on ${startDegree}`,
     "game.explorePhrase": "Explore the phrase",
     "game.firstTry": "First try",
     "rating.listenRate": "Listen, then rate the phrase",
@@ -330,6 +340,10 @@ const messages = {
     "finish.toneValidated": "Key complete.",
     "finish.suddenValidated": "Phrase completed on the first try.",
     "finish.free": "Phrase complete. Replay it or change key.",
+    "finish.lickExercise":
+      "Lick complete. Replay it, change key, or move on.",
+    "finish.lickExerciseComplete":
+      "Lick complete. You have reached the end of this set.",
     "fullscreen.enter": "Full screen",
     "fullscreen.exit": "Exit full screen",
     "fullscreen.enterAria": "Enter full screen",
@@ -388,6 +402,7 @@ const messages = {
     "developer.quickRating": "Notation rapide",
     "developer.threeStarReview": "Revue des phrases 3 étoiles",
     "developer.recordingWorkshop": "Atelier enregistrements",
+    "developer.lickExercise": "Exercice de licks",
     "developer.lickExplorer": "Explorateur de licks",
     "lickExplorer.back": "Retour",
     "lickExplorer.kicker": "Explorateur développeur",
@@ -573,6 +588,15 @@ const messages = {
     "mode.suddenDeath": "Mort subite",
     "mode.challenge": "Défi 3×3",
     "mode.review": "Revue 3 étoiles",
+    "mode.lickExercise": "Exercice de licks",
+    "lickExercise.find": "Écoute, puis retrouve le lick",
+    "lickExercise.progress": ({ current, total }) =>
+      `Lick ${current} sur ${total}`,
+    "lickExercise.pattern": ({
+      harmonicFunction,
+      patternId,
+      startDegree,
+    }) => `${patternId} · ${harmonicFunction} · départ ${startDegree}`,
     "game.explorePhrase": "Explore la phrase",
     "game.firstTry": "Du premier coup",
     "rating.listenRate": "Écoute, puis note la phrase",
@@ -679,6 +703,10 @@ const messages = {
     "finish.toneValidated": "Ton validé.",
     "finish.suddenValidated": "Phrase validée du premier coup.",
     "finish.free": "Phrase retrouvée. Rejoue-la ou change de ton.",
+    "finish.lickExercise":
+      "Lick retrouvé. Rejoue-le, change de ton ou passe au suivant.",
+    "finish.lickExerciseComplete":
+      "Lick retrouvé. Tu es arrivé au bout de cette série.",
     "fullscreen.enter": "Plein écran",
     "fullscreen.exit": "Quitter le plein écran",
     "fullscreen.enterAria": "Passer en plein écran",

@@ -152,6 +152,83 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
+  await t.test("l’exercice de licks parcourt une pioche aléatoire sans remise", async () => {
+    const app = await bootApp({
+      storage: {
+        [SETTINGS_KEY]: {
+          developerMode: true,
+          realSpeed: 100,
+        },
+      },
+    });
+    try {
+      await app.click("#start-lick-exercise");
+      await app.waitFor(
+        () => app.snapshot().exercise?.source?.kind === "dtl-lick-exercise",
+        "premier exercice de lick",
+      );
+
+      const first = app.snapshot();
+      assert.equal(first.currentMode, "lick-exercise");
+      assert.equal(first.lickExercise.index, 0);
+      assert.equal(first.lickExercise.total, 19);
+      assert.equal(
+        new Set(first.lickExercise.deckIds).size,
+        first.lickExercise.total,
+      );
+      assert.equal(
+        first.exercise.source.id,
+        first.lickExercise.currentId,
+      );
+      assert.equal(app.element("#next-exercise").hidden, false);
+      assert.equal(app.element("#next-exercise").disabled, false);
+      assert.equal(app.element("#free-transpose").hidden, false);
+      assert.match(app.element("#progress-title").textContent, /1.*19/);
+      assert.match(
+        app.element("#progress-detail").textContent,
+        /^P\d{2} · /,
+      );
+      assert.equal(
+        app.fetchCalls.some((url) => url.includes("/data/wjazzd-blocks/")),
+        false,
+      );
+
+      await finishPlayback(app);
+      await enterExerciseNotes(app);
+      assert.equal(app.element("#feedback").className, "feedback success");
+
+      const firstTransposition = app.snapshot().exercise.transposition;
+      await app.click("#free-transpose");
+      await app.waitFor(
+        () =>
+          app.snapshot().exercise?.transposition !== firstTransposition,
+        "nouvelle tonalité du même lick",
+      );
+      assert.equal(
+        app.snapshot().exercise.source.id,
+        first.exercise.source.id,
+      );
+
+      await app.click("#next-exercise");
+      await app.waitFor(
+        () => app.snapshot().lickExercise?.index === 1,
+        "lick suivant",
+      );
+      const second = app.snapshot();
+      assert.notEqual(second.exercise.source.id, first.exercise.source.id);
+      assert.deepEqual(
+        second.lickExercise.deckIds,
+        first.lickExercise.deckIds,
+      );
+
+      await app.click("#fullscreen-button");
+      assert.equal(app.snapshot().lickExercise, null);
+      assert.equal(app.element("#home-panel").hidden, false);
+    } finally {
+      app.close();
+    }
+  });
+
   await t.test("le mode libre parcourt les favoris dans leur ordre affiché", async () => {
     const app = await bootApp({
       favorites: ["wjazzd-v2.1-1:1", "wjazzd-v2.1-456:1"],

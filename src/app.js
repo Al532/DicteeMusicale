@@ -135,6 +135,7 @@ let recordingValidations = mergeRecordingValidations(
 );
 let recordingWorkshop = null;
 let lickExplorer = null;
+let lickExerciseToolsPromise = null;
 const {
   getAudioContext,
   playBass,
@@ -180,6 +181,9 @@ let favoritePhraseKeys = loadStoredArray(FAVORITES_KEY);
 let freePhraseKey = null;
 let freeBrowsePhraseKeys = [];
 let freeToneState = null;
+let lickExerciseDeck = [];
+let lickExerciseIndex = -1;
+let lickExerciseToneState = null;
 let lastCompletedChallengePhrases = [];
 let playbackTimer = null;
 let restartTimer = null;
@@ -203,6 +207,7 @@ const appShell = createAppShell({
     cancelPhraseAdjustmentReload();
     acceptingInput = false;
     exercise = null;
+    if (currentMode === "lick-exercise") resetLickExerciseSession();
     if (currentMode === "free") showFavorites();
     else showHome();
   },
@@ -368,6 +373,50 @@ async function openLickExplorer() {
   explorer.open();
 }
 
+function resetLickExerciseSession() {
+  lickExerciseDeck = [];
+  lickExerciseIndex = -1;
+  lickExerciseToneState = null;
+}
+
+async function ensureLickExerciseTools() {
+  if (!lickExerciseToolsPromise) {
+    lickExerciseToolsPromise = import("./lick-explorer.js");
+  }
+  return lickExerciseToolsPromise;
+}
+
+async function startLickExercise() {
+  if (!developerMode) return false;
+  currentMode = "lick-exercise";
+  stopAllTones();
+  recordingWorkshop?.stopPreview();
+  lickExplorer?.stop();
+  elements.recordingWorkshopPanel.hidden = true;
+  elements.lickExplorerPanel.hidden = true;
+  try {
+    const tools = await ensureLickExerciseTools();
+    if (!developerMode || currentMode !== "lick-exercise") return false;
+    lickExerciseDeck = tools.shuffledLickDeck(
+      tools.classifiedVeryTypicalLicks(),
+    );
+    lickExerciseIndex = 0;
+    lickExerciseToneState = null;
+    return loadCurrentLickExercise();
+  } catch (error) {
+    if (currentMode !== "lick-exercise") return false;
+    resetLickExerciseSession();
+    currentMode = "challenge";
+    const message = localizeError(
+      error instanceof Error ? error.message : t("phrase.noneAvailable"),
+    );
+    showHome();
+    elements.sessionStatus.hidden = false;
+    elements.sessionStatus.textContent = message;
+    return false;
+  }
+}
+
 async function setDeveloperMode(enabled) {
   developerMode = Boolean(enabled);
   elements.developerMode.closest("details")?.removeAttribute("open");
@@ -376,8 +425,9 @@ async function setDeveloperMode(enabled) {
   }
   if (
     !developerMode &&
-    (currentMode === "rating" || currentMode === "review")
+    ["lick-exercise", "rating", "review"].includes(currentMode)
   ) {
+    resetLickExerciseSession();
     currentMode = "challenge";
     await leaveGameMode();
   }
@@ -765,12 +815,45 @@ async function moveFreePhrase(offset) {
 }
 
 async function transposeFreePhrase() {
+  if (currentMode === "lick-exercise") {
+    await transposeLickExercise();
+    return;
+  }
   if (!freePhraseKey || !freeToneState) return;
   const transposition = drawNextTransposition(freeToneState);
   await loadPublicPhrase({
     phraseKey: freePhraseKey,
     transposition,
   });
+}
+
+function currentLickExercise() {
+  return lickExerciseDeck[lickExerciseIndex] ?? null;
+}
+
+async function transposeLickExercise() {
+  if (
+    currentMode !== "lick-exercise" ||
+    !currentLickExercise() ||
+    !lickExerciseToneState
+  ) {
+    return false;
+  }
+  return loadCurrentLickExercise();
+}
+
+async function moveToNextLickExercise() {
+  if (
+    currentMode !== "lick-exercise" ||
+    lickExerciseIndex < 0 ||
+    lickExerciseIndex >= lickExerciseDeck.length - 1
+  ) {
+    return false;
+  }
+  elements.nextExercise.disabled = true;
+  lickExerciseIndex += 1;
+  lickExerciseToneState = null;
+  return loadCurrentLickExercise();
 }
 
 function setPlaybackState(playing) {
@@ -1635,6 +1718,81 @@ async function loadPublicPhrase({ phraseKey, transposition }) {
   });
 }
 
+async function loadCurrentLickExercise() {
+  const lick = currentLickExercise();
+  if (!lick || currentMode !== "lick-exercise") return false;
+  const tools = await ensureLickExerciseTools();
+  if (lick !== currentLickExercise() || currentMode !== "lick-exercise") {
+    return false;
+  }
+  if (!lickExerciseToneState) {
+    lickExerciseToneState = createTranspositionState(
+      jazzTranspositionRangeForNotes(lick.notes),
+    );
+  }
+  const transposition = drawNextTransposition(lickExerciseToneState);
+  const index = lickExerciseIndex;
+  const total = lickExerciseDeck.length;
+
+  return prepareAndLaunchExercise({
+    resolvePlan: () =>
+      currentMode === "lick-exercise" &&
+      currentLickExercise() === lick
+        ? { index, lick, total, transposition }
+        : null,
+    configureMode() {
+      elements.suddenDeathModal.hidden = true;
+      renderSpeedSetting();
+      document.body.classList.remove(
+        "challenge-mode",
+        "free-mode",
+        "rating-mode",
+        "review-mode",
+        "sudden-death-mode",
+      );
+    },
+    generate(plan) {
+      return tools.createLickExerciseSequence(
+        plan.lick,
+        plan.transposition,
+      );
+    },
+    createState(generated) {
+      return createExerciseState(generated, {
+        speedPercent: realSpeedPercent,
+        transpositionState: lickExerciseToneState,
+      });
+    },
+    render(generated, plan) {
+      const source = generated.meta.source;
+      elements.kicker.textContent = t("mode.lickExercise");
+      elements.exerciseTitle.textContent = t("lickExercise.find");
+      renderSource(source);
+      elements.nextExercise.hidden = false;
+      elements.nextExercise.disabled = plan.index >= plan.total - 1;
+      elements.nextExercise.textContent = t("common.next");
+      elements.ratingWorkspace.hidden = true;
+      elements.freeTranspose.hidden = false;
+      appRenderer.renderLickExerciseProgress({
+        harmonicFunction: source.harmonicFunction,
+        index: plan.index,
+        patternId: source.patternId,
+        startDegree: source.startDegree,
+        total: plan.total,
+      });
+      renderFavoriteButton();
+      renderRatingControls();
+      renderPhraseControls();
+      appRenderer.buildPiano(generated.keyboard, handlePianoInput);
+      markReferenceKey();
+    },
+    onError(message) {
+      elements.feedback.className = "feedback error";
+      elements.feedback.textContent = message;
+    },
+  });
+}
+
 async function loadChallengeRound() {
   if (!challengeSession) return;
   persistChallengeSession();
@@ -2012,11 +2170,24 @@ function finishExercise() {
   if (currentMode === "free") {
     elements.feedback.textContent = t("finish.free");
     elements.replay.disabled = false;
+    return;
+  }
+  if (currentMode === "lick-exercise") {
+    elements.feedback.textContent = t(
+      lickExerciseIndex >= lickExerciseDeck.length - 1
+        ? "finish.lickExerciseComplete"
+        : "finish.lickExercise",
+    );
+    elements.replay.disabled = false;
   }
 }
 
 function goToNextExercise() {
-  startExercise();
+  if (currentMode === "lick-exercise") {
+    void moveToNextLickExercise();
+    return;
+  }
+  void startExercise();
 }
 
 function download(filename, content, type) {
@@ -2056,6 +2227,7 @@ async function enterGameMode() {
 async function leaveGameMode(
   destination = currentMode === "free" ? "favorites" : "home",
 ) {
+  const leavingLickExercise = currentMode === "lick-exercise";
   phraseEditor.close({ restoreFocus: false });
   cancelPhraseAdjustmentReload();
   stopAllTones();
@@ -2064,6 +2236,7 @@ async function leaveGameMode(
   acceptingInput = false;
   await appShell.leaveGameMode();
   exercise = null;
+  if (leavingLickExercise) resetLickExerciseSession();
   if (destination === "favorites") showFavorites();
   else showHome();
 }
@@ -2109,6 +2282,7 @@ bindAppEvents(
     setRatingFromButton,
     showFavorites,
     showHome,
+    startLickExercise,
     startMode,
     startNewChallenge,
     syncGameSpeed,
@@ -2158,6 +2332,17 @@ if (
       : null,
     isOriginalPlaying: originalPlayer.isPlaying(),
     isPlaying,
+    lickExercise: lickExerciseDeck.length
+      ? {
+          currentId: currentLickExercise()?.id ?? null,
+          deckIds: lickExerciseDeck.map(({ id }) => id),
+          index: lickExerciseIndex,
+          toneState: lickExerciseToneState
+            ? structuredClone(lickExerciseToneState)
+            : null,
+          total: lickExerciseDeck.length,
+        }
+      : null,
     lickExplorer: lickExplorer?.snapshot() ?? null,
     phraseEditorOpen: phraseEditor.isOpen,
   });

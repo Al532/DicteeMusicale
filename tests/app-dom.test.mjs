@@ -26,6 +26,7 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
     "edit-recording-workshop-phrase",
   );
   assert.equal(elements.openLickExplorer.id, "open-lick-explorer");
+  assert.equal(elements.startLickExercise.id, "start-lick-exercise");
   assert.equal(elements.lickExplorerPanel.id, "lick-explorer-panel");
   assert.equal(elements.developerOnly.length, 1);
   assert.equal(elements.quickRatingButtons.length, 3);
@@ -78,6 +79,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
           : Number(value.currentTarget.dataset.quickRating),
       ]);
     },
+    startLickExercise() {
+      calls.push(["startLickExercise"]);
+    },
     startMode(mode) {
       calls.push(["startMode", mode]);
     },
@@ -93,6 +97,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.gameSpeed.value = "75";
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
   elements.startRating.click();
+  elements.startLickExercise.click();
   elements.playRecordingWorkshopPhrase.click();
   elements.editRecordingWorkshopPhrase.click();
   elements.openLickExplorer.click();
@@ -137,6 +142,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   assert.deepEqual(calls, [
     ["syncGameSpeed", "75"],
     ["startMode", "rating"],
+    ["startLickExercise"],
     ["playSelectedRecordingWorkshopPhrase"],
     ["editSelectedRecordingWorkshopPhrase"],
     ["openLickExplorer"],
@@ -154,7 +160,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 13);
+  assert.equal(calls.length, 14);
 
   dom.window.close();
 });

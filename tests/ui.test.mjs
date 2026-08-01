@@ -107,6 +107,7 @@ test("le contrat HTML expose uniquement les outils développeur actuels", () => 
       "start-rating",
       "start-review",
       "open-recording-workshop",
+      "start-lick-exercise",
       "open-lick-explorer",
       "export-data",
     ],

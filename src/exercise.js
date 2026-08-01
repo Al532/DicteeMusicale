@@ -47,14 +47,18 @@ export function enterExerciseMidi(exercise, midi) {
 }
 
 export function exercisePlaybackDurationMs(exercise) {
-  const lastTiming = exercise?.timings?.at(-1);
-  if (!lastTiming) return 0;
+  const playbackEnds = [
+    ...(exercise?.timings ?? []).map(
+      ({ offset, duration }) => offset + duration,
+    ),
+    ...(exercise?.bassHits ?? []).map(
+      ({ offset, duration }) => offset + duration,
+    ),
+    ...(exercise?.chicks ?? []).map(({ offset }) => offset + 0.06),
+  ].filter(Number.isFinite);
+  if (!playbackEnds.length) return 0;
   const timeScale = 100 / exercise.speedPercent;
-  return (
-    (lastTiming.offset + lastTiming.duration) *
-    timeScale *
-    1000
-  );
+  return Math.max(...playbackEnds) * timeScale * 1000;
 }
 
 export function originalExerciseNotes(exercise) {

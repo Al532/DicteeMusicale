@@ -10,7 +10,9 @@ import {
 import { DTL_RHYTHM_PILOT } from "../data/dtl-rhythm-pilot.js";
 import {
   adjustedLickSalience,
+  classifiedVeryTypicalLicks,
   createLickExplorer,
+  createLickExerciseSequence,
   createLickSequence,
   createSyntheticLickSequence,
   isClassifiedVeryTypicalLick,
@@ -18,6 +20,7 @@ import {
   isVeryTypicalLick,
   moveLickIndex,
   randomLickTransposition,
+  shuffledLickDeck,
 } from "../src/lick-explorer.js";
 
 const html = await readFile(
@@ -441,6 +444,39 @@ test("la transposition aléatoire conserve le motif et change de ton", () => {
     ),
     lick.intervals,
   );
+});
+
+test("la pioche d’exercice mélange les 19 licks sans remise", () => {
+  const catalog = classifiedVeryTypicalLicks();
+  const originalIds = catalog.map(({ id }) => id);
+  const deck = shuffledLickDeck(catalog, () => 0);
+  const deckIds = deck.map(({ id }) => id);
+
+  assert.equal(deck.length, 19);
+  assert.equal(new Set(deckIds).size, deck.length);
+  assert.deepEqual([...deckIds].sort(), [...originalIds].sort());
+  assert.notDeepEqual(deckIds, originalIds);
+  assert.deepEqual(catalog.map(({ id }) => id), originalIds);
+});
+
+test("une séquence d’exercice ajoute le clavier et l’identité du pattern", () => {
+  const lick = classifiedVeryTypicalLicks()[0];
+  const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
+  const sequence = createLickExerciseSequence(lick, 3);
+
+  assert.equal(sequence.meta.source.kind, "dtl-lick-exercise");
+  assert.equal(sequence.meta.source.patternId, pilot.patternId);
+  assert.equal(
+    sequence.meta.source.harmonicFunction,
+    pilot.harmonicFunction,
+  );
+  assert.equal(sequence.meta.source.startDegree, pilot.startDegree);
+  assert.deepEqual(
+    sequence.notes,
+    lick.notes.map((midi) => midi + 3),
+  );
+  assert.ok(sequence.keyboard.startMidi <= Math.min(...sequence.notes));
+  assert.ok(sequence.keyboard.endMidi >= Math.max(...sequence.notes));
 });
 
 function swungBeatPosition(tick) {

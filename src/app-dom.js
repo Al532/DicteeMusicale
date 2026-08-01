@@ -40,6 +40,9 @@ export function queryAppElements(documentObject) {
     gameSpeed: documentObject.querySelector("#game-speed"),
     gameSpeedOutput: documentObject.querySelector("#game-speed-output"),
     gameSpeedSetting: documentObject.querySelector("#game-speed-setting"),
+    startLickExercise: documentObject.querySelector(
+      "#start-lick-exercise",
+    ),
     startRating: documentObject.querySelector("#start-rating"),
     startReview: documentObject.querySelector("#start-review"),
     openRecordingWorkshop: documentObject.querySelector(
@@ -185,6 +188,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   );
   listen(elements.startRating, "click", () => actions.startMode("rating"));
   listen(elements.startReview, "click", () => actions.startMode("review"));
+  listen(elements.startLickExercise, "click", () =>
+    actions.startLickExercise(),
+  );
   listen(elements.openRecordingWorkshop, "click", () =>
     actions.openRecordingWorkshop(),
   );

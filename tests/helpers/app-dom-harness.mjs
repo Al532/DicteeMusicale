@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { JSDOM } from "jsdom";
 import { clearCorpusBlockCache } from "../../src/corpus-loader.js";
+import { exercisePlaybackDurationMs } from "../../src/exercise.js";
 
 const GLOBAL_NAMES = [
   "AudioContext",
@@ -481,11 +482,7 @@ export async function finishPlayback(app) {
   if (!app.snapshot().isPlaying) await app.clock.tick(900);
   const state = app.snapshot();
   const exercise = state.exercise;
-  const last = exercise.timings.at(-1);
-  const totalMilliseconds =
-    (last.offset + last.duration) *
-      (100 / exercise.speedPercent) *
-    1000;
+  const totalMilliseconds = exercisePlaybackDurationMs(exercise);
   const elapsedMilliseconds =
     app.clock.now - exercise.playbackStartedAt;
   await app.clock.tick(
