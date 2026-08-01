@@ -307,10 +307,6 @@ function selectRecordingWorkshopCandidate() {
   recordingWorkshop?.selectCandidate();
 }
 
-function selectRecordingWorkshopPhrase() {
-  recordingWorkshop?.stopPreview();
-}
-
 function useManualRecordingCandidate() {
   recordingWorkshop?.useManualCandidate();
 }
@@ -2106,7 +2102,6 @@ bindAppEvents(
     rejectRecordingWorkshop,
     resumeChallenge,
     selectRecordingWorkshopCandidate,
-    selectRecordingWorkshopPhrase,
     selectRecordingWorkshopSolo,
     setDeveloperMode,
     setQuickRating,

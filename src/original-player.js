@@ -1,7 +1,6 @@
 import {
   recordingsAtPhrase,
 } from "./recording.js";
-import { createYouTubeExactPlayer } from "./youtube-player.js";
 
 export function createOriginalPlayer({
   documentObject = globalThis.document,
@@ -16,11 +15,6 @@ export function createOriginalPlayer({
   let currentSource = null;
   let isPlaying = false;
   let returnFocus = null;
-  const youtubePlayer = createYouTubeExactPlayer({
-    documentObject,
-    iframeElement: elements.recordingPlayer,
-    windowObject,
-  });
 
   function setPlaying(playing) {
     isPlaying = playing;
@@ -33,12 +27,26 @@ export function createOriginalPlayer({
     );
   }
 
+  function seekToExactStart(choice) {
+    if (!Number.isFinite(choice?.exactStart)) return;
+    windowObject.setTimeout(() => {
+      elements.recordingPlayer.contentWindow?.postMessage?.(
+        JSON.stringify({
+          event: "command",
+          func: "seekTo",
+          args: [choice.exactStart, true],
+        }),
+        "https://www.youtube-nocookie.com",
+      );
+    }, 100);
+  }
+
   function close({
     restoreFocus = true,
     restoreInput = true,
   } = {}) {
     if (elements.recordingModal.hidden) return;
-    youtubePlayer.stop();
+    elements.recordingPlayer.removeAttribute("src");
     elements.recordingModal.hidden = true;
     setPlaying(false);
     if (restoreInput) onRestoreInput();
@@ -77,9 +85,8 @@ export function createOriginalPlayer({
     elements.recordingTitle.textContent =
       `${currentSource.performer} — ${currentSource.title}${phraseReference}`;
     elements.recordingModal.hidden = false;
-    void youtubePlayer.load(choice).catch(() => {
-      if (!elements.recordingModal.hidden) close();
-    });
+    elements.recordingPlayer.src = choice.embedUrl;
+    seekToExactStart(choice);
     elements.closeRecording.focus();
   }
 
@@ -102,7 +109,6 @@ export function createOriginalPlayer({
     elements.playOriginal.hidden = !canPlay;
     elements.playOriginal.disabled = !canPlay;
     elements.originalControls.hidden = !canPlay;
-    if (canPlay) void youtubePlayer.prepare().catch(() => {});
   }
 
   return Object.freeze({

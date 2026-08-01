@@ -772,10 +772,6 @@ output {
   color: #9cdda9;
 }
 
-.recording-workshop-current strong[data-status="revalidate"] {
-  color: #ffd37a;
-}
-
 .recording-workshop-current strong[data-status="wrong-version"] {
   color: var(--warm);
 }

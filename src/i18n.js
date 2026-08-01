@@ -85,19 +85,17 @@ const messages = {
     "recordingWorkshop.kicker": "Developer workshop",
     "recordingWorkshop.title": "Original recordings",
     "recordingWorkshop.intro":
-      "Recheck exact JazzTube timings first, then review the remaining 3-star solos. Nothing appears in the public player until it has been explicitly validated here.",
+      "Check the first YouTube result for performer and title using only 3-star phrases. Nothing appears in the public player until it has been explicitly validated here.",
     "recordingWorkshop.progress": ({
-      revalidate,
       total,
       unavailable,
       verified,
       wrong,
     }) =>
-      `${revalidate} to recheck · ${verified} validated · ${wrong} wrong version · ${unavailable} unavailable · ${total} solos`,
+      `${verified} validated · ${wrong} wrong version · ${unavailable} unavailable · ${total} solos`,
     "recordingWorkshop.solo": "Solo",
     "recordingWorkshop.currentStatus": "Current status",
     "recordingWorkshop.status.pending": "Not checked",
-    "recordingWorkshop.status.revalidate": "Recheck exact timing",
     "recordingWorkshop.status.verified": "Validated",
     "recordingWorkshop.status.wrong-version": "Wrong version",
     "recordingWorkshop.status.unavailable": "Unavailable",
@@ -120,12 +118,8 @@ const messages = {
     "recordingWorkshop.unavailable": "Unavailable",
     "recordingWorkshop.invalid": "Enter a valid video and offset.",
     "recordingWorkshop.loading": "Loading phrase…",
-    "recordingWorkshop.previewReady": ({ actual, phrase, start }) =>
-      `Phrase ${phrase}: requested ${start} s · reached ${actual} s.`,
-    "recordingWorkshop.previewRequired":
-      "Run the corrected preview before validating.",
-    "recordingWorkshop.revalidationPrompt": ({ offset }) =>
-      `Exact-seek recheck: JazzTube reference restored to ${offset} s.`,
+    "recordingWorkshop.previewReady": ({ phrase, start }) =>
+      `Phrase ${phrase} starts at ${start} s.`,
     "recordingWorkshop.phrasePlaying": "Playing the app phrase.",
     "recordingWorkshop.loadError": "Unable to load this phrase.",
     "recordingWorkshop.saved": "Recording validated.",
@@ -427,19 +421,17 @@ const messages = {
     "recordingWorkshop.kicker": "Atelier développeur",
     "recordingWorkshop.title": "Enregistrements originaux",
     "recordingWorkshop.intro":
-      "Revalide d’abord les calages JazzTube avec le seek exact, puis les autres solos 3 étoiles. Rien n’apparaît dans le lecteur public avant une validation explicite ici.",
+      "Vérifie le premier résultat YouTube pour le musicien et le morceau, uniquement avec les phrases 3 étoiles. Rien n’apparaît dans le lecteur public avant une validation explicite ici.",
     "recordingWorkshop.progress": ({
-      revalidate,
       total,
       unavailable,
       verified,
       wrong,
     }) =>
-      `${revalidate} à revalider · ${verified} validés · ${wrong} mauvaise version · ${unavailable} indisponibles · ${total} solos`,
+      `${verified} validés · ${wrong} mauvaise version · ${unavailable} indisponibles · ${total} solos`,
     "recordingWorkshop.solo": "Solo",
     "recordingWorkshop.currentStatus": "Statut actuel",
     "recordingWorkshop.status.pending": "Non vérifié",
-    "recordingWorkshop.status.revalidate": "Calage exact à revalider",
     "recordingWorkshop.status.verified": "Validé",
     "recordingWorkshop.status.wrong-version": "Mauvaise version",
     "recordingWorkshop.status.unavailable": "Indisponible",
@@ -463,12 +455,8 @@ const messages = {
     "recordingWorkshop.invalid":
       "Saisis une vidéo et un décalage valides.",
     "recordingWorkshop.loading": "Chargement de la phrase…",
-    "recordingWorkshop.previewReady": ({ actual, phrase, start }) =>
-      `Phrase ${phrase} : demandé ${start} s · atteint ${actual} s.`,
-    "recordingWorkshop.previewRequired":
-      "Teste l’aperçu corrigé avant de valider.",
-    "recordingWorkshop.revalidationPrompt": ({ offset }) =>
-      `Revalidation du seek exact : référence JazzTube rétablie à ${offset} s.`,
+    "recordingWorkshop.previewReady": ({ phrase, start }) =>
+      `La phrase ${phrase} commence à ${start} s.`,
     "recordingWorkshop.phrasePlaying":
       "Lecture de la phrase dans l’application.",
     "recordingWorkshop.loadError":

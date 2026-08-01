@@ -1,8 +1,5 @@
 import { RECORDING_VALIDATIONS } from "../data/recording-validations.js";
 import {
-  RECORDING_EXACT_SEEK_REVALIDATIONS,
-} from "../data/recording-revalidations.js";
-import {
   YOUTUBE_SEARCH_RECORDINGS,
 } from "../data/youtube-search-recordings.js";
 import {
@@ -14,20 +11,6 @@ import {
   recordingChoiceAtPhrase,
   youtubeIdFromValue,
 } from "./recording.js";
-import { createYouTubeExactPlayer } from "./youtube-player.js";
-
-export function exactSeekRevalidationFor(soloId, validation) {
-  const queued = RECORDING_EXACT_SEEK_REVALIDATIONS[soloId];
-  if (
-    !queued ||
-    validation?.status !== "verified" ||
-    validation.youtubeId !== queued.youtubeId ||
-    validation.updatedAt !== queued.validationUpdatedAt
-  ) {
-    return null;
-  }
-  return queued;
-}
 
 function compareSolos(left, right) {
   return (
@@ -59,13 +42,7 @@ export function createRecordingWorkshop({
     initialLocalValidations,
   );
   let previewVersion = 0;
-  let previewSignature = null;
   let reviewPhraseKeySet = new Set();
-  const youtubePlayer = createYouTubeExactPlayer({
-    documentObject,
-    iframeElement: elements.recordingWorkshopPlayer,
-    windowObject,
-  });
 
   function validations() {
     return mergeRecordingValidations(
@@ -96,24 +73,6 @@ export function createRecordingWorkshop({
     return validations()[selectedSolo()?.id] ?? null;
   }
 
-  function revalidationFor(soloId, record = validations()[soloId]) {
-    return exactSeekRevalidationFor(soloId, record);
-  }
-
-  function selectedRevalidation() {
-    const solo = selectedSolo();
-    return solo ? revalidationFor(solo.id) : null;
-  }
-
-  function verificationSignature(youtubeId, offset, phrase) {
-    return `${youtubeId}:${roundedOffset(offset)}:${phrase}`;
-  }
-
-  function requireNewPreview() {
-    previewSignature = null;
-    elements.verifyRecordingWorkshop.disabled = true;
-  }
-
   function candidateEntries(soloId) {
     return (YOUTUBE_SEARCH_RECORDINGS[soloId] ?? [])
       .map(([youtubeId, offset]) => ({
@@ -129,8 +88,7 @@ export function createRecordingWorkshop({
   function stopPreview({ clearStatus = true } = {}) {
     previewVersion += 1;
     onStopPhrase();
-    youtubePlayer.stop();
-    requireNewPreview();
+    elements.recordingWorkshopPlayer.removeAttribute("src");
     elements.recordingWorkshopPreview.hidden = true;
     if (clearStatus) {
       elements.recordingWorkshopMessage.textContent = "";
@@ -141,7 +99,14 @@ export function createRecordingWorkshop({
 
   function pausePreview() {
     if (elements.recordingWorkshopPreview.hidden) return;
-    youtubePlayer.pause();
+    elements.recordingWorkshopPlayer.contentWindow?.postMessage?.(
+      JSON.stringify({
+        event: "command",
+        func: "pauseVideo",
+        args: [],
+      }),
+      "https://www.youtube-nocookie.com",
+    );
   }
 
   function renderProgress() {
@@ -149,25 +114,19 @@ export function createRecordingWorkshop({
     const visibleSoloIds = new Set(solos.map(({ id }) => id));
     const records = Object.entries(validations())
       .filter(([soloId]) => visibleSoloIds.has(soloId))
-      .map(([soloId, record]) => ({ record, soloId }));
+      .map(([, record]) => record);
     const verified = records.filter(
-      ({ record, soloId }) =>
-        record.status === "verified" &&
-        !revalidationFor(soloId, record),
+      ({ status }) => status === "verified",
     ).length;
     const unavailable = records.filter(
-      ({ record }) => record.status === "unavailable",
+      ({ status }) => status === "unavailable",
     ).length;
     const wrong = records.filter(
-      ({ record }) => record.status === "wrong-version",
-    ).length;
-    const revalidate = records.filter(({ record, soloId }) =>
-      revalidationFor(soloId, record)
+      ({ status }) => status === "wrong-version",
     ).length;
     elements.recordingWorkshopProgress.textContent = translate(
       "recordingWorkshop.progress",
       {
-        revalidate,
         total: solos.length,
         unavailable,
         verified,
@@ -176,25 +135,17 @@ export function createRecordingWorkshop({
     );
   }
 
-  function statusText(soloId, record) {
-    if (revalidationFor(soloId, record)) {
-      return translate("recordingWorkshop.status.revalidate");
-    }
+  function statusText(record) {
     return translate(
       `recordingWorkshop.status.${record?.status ?? "pending"}`,
     );
   }
 
   function renderCurrentStatus() {
-    const solo = selectedSolo();
     const record = selectedValidation();
-    const revalidation = revalidationFor(solo?.id, record);
-    elements.recordingWorkshopStatus.textContent = statusText(
-      solo?.id,
-      record,
-    );
+    elements.recordingWorkshopStatus.textContent = statusText(record);
     elements.recordingWorkshopStatus.dataset.status =
-      revalidation ? "revalidate" : record?.status ?? "pending";
+      record?.status ?? "pending";
   }
 
   function updateSoloOption() {
@@ -206,15 +157,13 @@ export function createRecordingWorkshop({
     if (!option) return;
     const record = validations()[solo.id];
     const mark =
-      revalidationFor(solo.id, record)
-        ? "↻"
-        : record?.status === "verified"
-          ? "✓"
-          : record?.status === "unavailable"
-            ? "—"
-            : record?.status === "wrong-version"
-              ? "×"
-              : "·";
+      record?.status === "verified"
+        ? "✓"
+        : record?.status === "unavailable"
+          ? "—"
+          : record?.status === "wrong-version"
+            ? "×"
+            : "·";
     option.textContent =
       `${mark} ${solo.performer} — ${solo.title} (${solo.id.split("-").at(-1)})`;
   }
@@ -240,20 +189,14 @@ export function createRecordingWorkshop({
     const currentIndex = soloIds.indexOf(
       elements.recordingWorkshopSolo.value,
     );
-    const merged = validations();
-    for (const criterion of [
-      (soloId) => Boolean(revalidationFor(soloId, merged[soloId])),
-      (soloId) => !merged[soloId],
-    ]) {
-      for (let distance = 1; distance <= soloIds.length; distance += 1) {
-        const soloId = soloIds[
-          (currentIndex + distance + soloIds.length) % soloIds.length
-        ];
-        if (criterion(soloId)) {
-          elements.recordingWorkshopSolo.value = soloId;
-          selectSolo();
-          return true;
-        }
+    for (let distance = 1; distance <= soloIds.length; distance += 1) {
+      const soloId = soloIds[
+        (currentIndex + distance + soloIds.length) % soloIds.length
+      ];
+      if (!validations()[soloId]) {
+        elements.recordingWorkshopSolo.value = soloId;
+        selectSolo();
+        return true;
       }
     }
     return false;
@@ -304,20 +247,6 @@ export function createRecordingWorkshop({
       );
     }
 
-    const revalidation = revalidationFor(solo.id, record);
-    if (revalidation) {
-      candidateIndex = candidates.findIndex(
-        ({ youtubeId }) => youtubeId === revalidation.youtubeId,
-      );
-      elements.recordingWorkshopYoutube.value = revalidation.youtubeId;
-      elements.recordingWorkshopOffset.value = String(
-        revalidation.referenceOffset,
-      );
-      elements.recordingWorkshopCandidate.value =
-        candidateIndex >= 0 ? String(candidateIndex) : "manual";
-      return;
-    }
-
     if (preferStored && record?.status === "verified") {
       elements.recordingWorkshopYoutube.value = record.youtubeId;
       elements.recordingWorkshopOffset.value = String(record.offset);
@@ -363,13 +292,6 @@ export function createRecordingWorkshop({
     renderCandidates();
     renderPhrases();
     renderCurrentStatus();
-    const revalidation = selectedRevalidation();
-    if (revalidation) {
-      elements.recordingWorkshopMessage.textContent = translate(
-        "recordingWorkshop.revalidationPrompt",
-        { offset: revalidation.referenceOffset },
-      );
-    }
   }
 
   function selectCandidate() {
@@ -419,7 +341,6 @@ export function createRecordingWorkshop({
 
     onStopPhrase();
     pausePreview();
-    requireNewPreview();
     const version = ++previewVersion;
     elements.recordingWorkshopMessage.textContent = translate(
       "recordingWorkshop.loading",
@@ -432,23 +353,26 @@ export function createRecordingWorkshop({
       const source = generated?.meta?.source;
       const choice = recordingChoiceAtPhrase(youtubeId, offset, source);
       if (!choice) throw new Error("Invalid recording");
+      elements.recordingWorkshopPlayer.src = choice.embedUrl;
       elements.recordingWorkshopPreview.hidden = false;
-      const synchronization = await youtubePlayer.load(choice);
-      if (version !== previewVersion || !synchronization) return;
-      previewSignature = verificationSignature(
-        youtubeId,
-        offset,
-        phrase,
-      );
-      elements.verifyRecordingWorkshop.disabled = false;
       elements.recordingWorkshopMessage.textContent = translate(
         "recordingWorkshop.previewReady",
         {
-          actual: synchronization.actualStart.toFixed(2),
           phrase,
           start: choice.exactStart.toFixed(2),
         },
       );
+      windowObject.setTimeout(() => {
+        if (version !== previewVersion) return;
+        elements.recordingWorkshopPlayer.contentWindow?.postMessage?.(
+          JSON.stringify({
+            event: "command",
+            func: "seekTo",
+            args: [choice.exactStart, true],
+          }),
+          "https://www.youtube-nocookie.com",
+        );
+      }, 100);
     } catch {
       if (version !== previewVersion) return;
       stopPreview({ clearStatus: false });
@@ -518,20 +442,6 @@ export function createRecordingWorkshop({
     if (!youtubeId || !Number.isFinite(offset)) {
       elements.recordingWorkshopMessage.textContent = translate(
         "recordingWorkshop.invalid",
-      );
-      elements.recordingWorkshopMessage.className =
-        "recording-workshop-message error";
-      return;
-    }
-    if (
-      previewSignature !== verificationSignature(
-        youtubeId,
-        offset,
-        elements.recordingWorkshopPhrase.value,
-      )
-    ) {
-      elements.recordingWorkshopMessage.textContent = translate(
-        "recordingWorkshop.previewRequired",
       );
       elements.recordingWorkshopMessage.className =
         "recording-workshop-message error";
@@ -611,7 +521,6 @@ export function createRecordingWorkshop({
     const reviewed = new Set(Object.keys(validations()));
     const initial =
       sorted.find(({ id }) => id === previousSoloId) ??
-      sorted.find(({ id }) => revalidationFor(id)) ??
       sorted.find(
         ({ id }) => !reviewed.has(id) && candidateEntries(id).length,
       ) ?? sorted.find(({ id }) => !reviewed.has(id)) ?? sorted[0];
@@ -619,7 +528,6 @@ export function createRecordingWorkshop({
   }
 
   function open() {
-    void youtubePlayer.prepare().catch(() => {});
     initializeOptions();
     renderProgress();
     selectSolo();

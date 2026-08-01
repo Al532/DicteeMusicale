@@ -956,7 +956,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(embed.hostname, "www.youtube-nocookie.com");
       assert.equal(embed.searchParams.get("start"), String(expectedStart));
       assert.equal(embed.searchParams.get("end"), String(expectedEnd));
-      assert.equal(embed.searchParams.get("autoplay"), "0");
+      assert.equal(embed.searchParams.get("autoplay"), "1");
       assert.equal(
         youtube.document.querySelector("#recording-external-link"),
         null,
@@ -965,9 +965,8 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(youtube.element("#recording-modal").hidden, true);
       assert.equal(
         youtube.element("#recording-player").hasAttribute("src"),
-        true,
+        false,
       );
-      assert.equal(youtube.youtube.calls.at(-1)[0], "pauseVideo");
 
       await youtube.click("#fullscreen-button");
       await youtube.click("#close-favorites");
