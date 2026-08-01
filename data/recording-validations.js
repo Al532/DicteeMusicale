@@ -197,17 +197,189 @@ export const RECORDING_VALIDATIONS = Object.freeze({
     "offset": 36.551,
     "updatedAt": "2026-07-31T21:01:26.443Z"
   },
+  "wjazzd-v2.1-220": {
+    "status": "verified",
+    "youtubeId": "X51rBZzR-Ww",
+    "offset": 10.5837,
+    "updatedAt": "2026-08-01T03:26:23.179Z"
+  },
+  "wjazzd-v2.1-234": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "QjdlsRwPdz0"
+    ],
+    "updatedAt": "2026-08-01T03:29:49.993Z"
+  },
+  "wjazzd-v2.1-236": {
+    "status": "verified",
+    "youtubeId": "DZB1Wk_ObNg",
+    "offset": 55.6122,
+    "updatedAt": "2026-08-01T03:37:56.382Z"
+  },
+  "wjazzd-v2.1-241": {
+    "status": "verified",
+    "youtubeId": "p4F0U2Y350Y",
+    "offset": 69.4776,
+    "updatedAt": "2026-08-01T03:45:40.691Z"
+  },
+  "wjazzd-v2.1-242": {
+    "status": "verified",
+    "youtubeId": "KZxD6mOwG5g",
+    "offset": 48.9853,
+    "updatedAt": "2026-08-01T03:47:08.339Z"
+  },
+  "wjazzd-v2.1-247": {
+    "status": "verified",
+    "youtubeId": "6TJi-0kGUVE",
+    "offset": 63.4907,
+    "updatedAt": "2026-08-01T03:51:52.342Z"
+  },
+  "wjazzd-v2.1-248": {
+    "status": "verified",
+    "youtubeId": "YylWkCEENls",
+    "offset": 97.8245,
+    "updatedAt": "2026-08-01T03:52:26.174Z"
+  },
+  "wjazzd-v2.1-252": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "nDlY_dbDX1w"
+    ],
+    "updatedAt": "2026-08-01T03:54:11.293Z"
+  },
+  "wjazzd-v2.1-261": {
+    "status": "verified",
+    "youtubeId": "hIfaePzpP_Q",
+    "offset": 145.249,
+    "updatedAt": "2026-08-01T03:56:11.152Z"
+  },
+  "wjazzd-v2.1-278": {
+    "status": "verified",
+    "youtubeId": "GBSalNi9hIc",
+    "offset": 129.2959,
+    "updatedAt": "2026-08-01T03:58:43.578Z"
+  },
+  "wjazzd-v2.1-279": {
+    "status": "verified",
+    "youtubeId": "wUuyGRQgOHg",
+    "offset": 6,
+    "updatedAt": "2026-08-01T04:00:27.506Z"
+  },
   "wjazzd-v2.1-28": {
     "status": "verified",
     "youtubeId": "ssZZxvvgglc",
     "offset": 52.3893,
     "updatedAt": "2026-07-31T07:34:48.224Z"
   },
+  "wjazzd-v2.1-280": {
+    "status": "verified",
+    "youtubeId": "bE-as3A_Krw",
+    "offset": 1.1633,
+    "updatedAt": "2026-08-01T04:00:56.165Z"
+  },
+  "wjazzd-v2.1-281": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "c7Nf0q_i0mU"
+    ],
+    "updatedAt": "2026-08-01T04:03:53.299Z"
+  },
+  "wjazzd-v2.1-282": {
+    "status": "verified",
+    "youtubeId": "xZb_L3QwZfI",
+    "offset": 67.5184,
+    "updatedAt": "2026-08-01T04:04:16.197Z"
+  },
+  "wjazzd-v2.1-283": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "Ja1kIyW0mOE"
+    ],
+    "updatedAt": "2026-08-01T13:49:54.681Z"
+  },
+  "wjazzd-v2.1-284": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "qGBvgKSixSg"
+    ],
+    "updatedAt": "2026-08-01T14:49:32.031Z"
+  },
+  "wjazzd-v2.1-291": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "qRjT4h7F_jw"
+    ],
+    "updatedAt": "2026-08-01T14:53:52.870Z"
+  },
+  "wjazzd-v2.1-293": {
+    "status": "verified",
+    "youtubeId": "_2fhRwAFA2Y",
+    "offset": 104.8694,
+    "updatedAt": "2026-08-01T14:55:35.201Z"
+  },
+  "wjazzd-v2.1-294": {
+    "status": "verified",
+    "youtubeId": "Gois5QkDEWU",
+    "offset": 58.7102,
+    "updatedAt": "2026-08-01T14:55:58.666Z"
+  },
+  "wjazzd-v2.1-295": {
+    "status": "verified",
+    "youtubeId": "ND-Mvb-Yk38",
+    "offset": 113.8115,
+    "updatedAt": "2026-08-01T14:56:19.446Z"
+  },
+  "wjazzd-v2.1-296": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "glG5Ri5sjmI"
+    ],
+    "updatedAt": "2026-08-01T15:39:42.374Z"
+  },
+  "wjazzd-v2.1-299": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "h8WN4R6uTeY"
+    ],
+    "updatedAt": "2026-08-01T16:08:54.903Z"
+  },
   "wjazzd-v2.1-30": {
     "status": "verified",
     "youtubeId": "0Ue9igC7flI",
     "offset": 58.0953,
     "updatedAt": "2026-07-31T07:36:32.261Z"
+  },
+  "wjazzd-v2.1-313": {
+    "status": "verified",
+    "youtubeId": "EaBAfHs4Qc8",
+    "offset": 28.7683,
+    "updatedAt": "2026-08-01T16:09:20.979Z"
+  },
+  "wjazzd-v2.1-321": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "9IY29EZb1pI"
+    ],
+    "updatedAt": "2026-08-01T16:12:48.129Z"
+  },
+  "wjazzd-v2.1-322": {
+    "status": "verified",
+    "youtubeId": "JiCsi5cRchA",
+    "offset": 23.2145,
+    "updatedAt": "2026-08-01T16:14:14.241Z"
+  },
+  "wjazzd-v2.1-326": {
+    "status": "verified",
+    "youtubeId": "bA-zhK1ky90",
+    "offset": 23.2087,
+    "updatedAt": "2026-08-01T16:14:35.853Z"
+  },
+  "wjazzd-v2.1-339": {
+    "status": "wrong-version",
+    "rejectedYoutubeIds": [
+      "nAomEYBpJsg"
+    ],
+    "updatedAt": "2026-08-01T16:16:39.734Z"
   },
   "wjazzd-v2.1-41": {
     "status": "verified",
