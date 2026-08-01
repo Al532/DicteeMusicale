@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Generate the synthetic-rhythm pilot for very typical DTL licks.
+"""Generate the synthetic eighth-note pilot for very typical DTL licks.
 
 The generator finds every exact interval-pattern occurrence in the public
-WJazzD database.  It deliberately discards performed onset microtiming and
-keeps only metrical positions.  For each lick it independently selects:
+WJazzD database.  It deliberately ignores performed rhythm and microtiming.
+For each lick it keeps only a compact harmonic consensus:
 
-- the modal meter;
-- the modal half-beat starting position within that meter;
-- the modal quantized duration of every interval;
-- the modal pitch-class relation between the first note and the notated bass.
+- whether one harmony or several is the more common context;
+- for a multi-harmony context, the first change and whether it falls most
+  often on beat 1 or beat 3;
+- the note index that first belongs to the second harmony;
+- the modal chord-bass relation and root motion.
 
-This produces a statistical reconstruction rather than copying one solo.
+The browser then plays every lick as swung eighth notes.  A one-harmony lick
+ends on beat 1; a two-harmony lick is shifted so its change note lands on the
+selected beat 1 or beat 3.
 
 Usage:
     python scripts/generate_dtl_rhythm_pilot.py /path/to/wjazzd.db
@@ -20,7 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
+import re
 import sqlite3
 import statistics
 from collections import Counter, defaultdict
@@ -29,10 +32,9 @@ from typing import Any, Iterable
 
 
 TICKS_PER_BEAT = 12
-START_GRID_TICKS = 6
+EIGHTH_NOTE_TICKS = TICKS_PER_BEAT // 2
 PILOT_TEMPO = 156
 SWING_RATIO = 1.4
-ALLOWED_IOI_TICKS = (2, 3, 4, 6, 8, 9, 12, 16, 18, 24, 36, 48)
 
 MIN_OCCURRENCES = 10
 MIN_PERFORMERS = 3
@@ -42,10 +44,20 @@ MIN_ADJUSTED_LOG_EXCESS_PROB = 1.35
 MIN_LOG_EXCESS_PROB = 2
 EXTRA_INTERVAL_PENALTY = 0.5
 
+NATURAL_PITCH_CLASSES = {
+    "C": 0,
+    "D": 2,
+    "E": 4,
+    "F": 5,
+    "G": 7,
+    "A": 9,
+    "B": 11,
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate the DTL synthetic-rhythm pilot.",
+        description="Generate the DTL synthetic eighth-note pilot.",
     )
     parser.add_argument("database", type=Path, help="public WJazzD SQLite file")
     parser.add_argument(
@@ -100,14 +112,6 @@ def is_very_typical(lick: dict[str, Any]) -> bool:
     )
 
 
-def nearest_grid(value: float, step: int) -> int:
-    return math.floor(value / step + 0.5) * step
-
-
-def nearest_allowed_ioi(value: float) -> int:
-    return min(ALLOWED_IOI_TICKS, key=lambda tick: (abs(tick - value), tick))
-
-
 def mode_with_count(values: Iterable[int]) -> tuple[int, int]:
     items = list(values)
     if not items:
@@ -118,6 +122,18 @@ def mode_with_count(values: Iterable[int]) -> tuple[int, int]:
     choices = [value for value, count in counts.items() if count == maximum]
     choice = min(choices, key=lambda value: (abs(value - median), value))
     return choice, maximum
+
+
+def chord_bass_pitch_class(chord: str | None) -> int | None:
+    symbol = str(chord or "").strip()
+    if not symbol or symbol == "NC":
+        return None
+    bass_symbol = symbol.split("/")[-1]
+    match = re.match(r"^([A-G])([b#]?)", bass_symbol)
+    if not match:
+        return None
+    accidental = {"b": -1, "#": 1}.get(match.group(2), 0)
+    return (NATURAL_PITCH_CLASSES[match.group(1)] + accidental) % 12
 
 
 def measurements_for_occurrences(
@@ -149,7 +165,7 @@ def measurements_for_occurrences(
         ).fetchall()
         beats = connection.execute(
             """
-            SELECT bar, beat, bass_pitch
+            SELECT bar, beat, chord
             FROM beats
             WHERE melid = ?
             ORDER BY onset, beatid
@@ -160,6 +176,20 @@ def measurements_for_occurrences(
             (row["bar"], row["beat"]): index
             for index, row in enumerate(beats)
         }
+        active_chords: list[str] = []
+        chord_changes: list[dict[str, Any]] = []
+        active_chord = ""
+        for index, beat in enumerate(beats):
+            if beat["chord"]:
+                active_chord = beat["chord"]
+                chord_changes.append(
+                    {
+                        "position": float(index),
+                        "beat": int(beat["beat"]),
+                        "chord": active_chord,
+                    },
+                )
+            active_chords.append(active_chord)
 
         for interval_count, patterns in patterns_by_length.items():
             for event_index in range(len(events) - interval_count):
@@ -186,41 +216,63 @@ def measurements_for_occurrences(
                     continue
 
                 first = occurrence[0]
-                meter = int(first["num"])
-                raw_start_tick = (
-                    first["beat"]
-                    - 1
-                    + (first["tatum"] - 1) / first["division"]
-                ) * TICKS_PER_BEAT
-                start_tick = nearest_grid(
-                    raw_start_tick,
-                    START_GRID_TICKS,
-                ) % (meter * TICKS_PER_BEAT)
-                interval_ticks = [
-                    nearest_allowed_ioi(
-                        (positions[index + 1] - positions[index])
-                        * TICKS_PER_BEAT,
-                    )
-                    for index in range(interval_count)
+                first_beat_index = beat_index[(first["bar"], first["beat"])]
+                harmony_runs = [
+                    {
+                        "chord": active_chords[first_beat_index],
+                        "position": positions[0],
+                        "beat": int(first["beat"]),
+                    },
                 ]
-                active_beat = beats[
-                    beat_index[(first["bar"], first["beat"])]
-                ]
-                bass_pitch = active_beat["bass_pitch"]
-                bass_interval = (
-                    (first["pitch"] - int(bass_pitch)) % 12
-                    if bass_pitch is not None
+                for change in chord_changes:
+                    if change["position"] <= positions[0]:
+                        continue
+                    if change["position"] > positions[-1]:
+                        break
+                    if change["chord"] != harmony_runs[-1]["chord"]:
+                        harmony_runs.append(change)
+
+                first_root = chord_bass_pitch_class(
+                    harmony_runs[0]["chord"],
+                )
+                first_bass_interval = (
+                    (int(first["pitch"]) - first_root) % 12
+                    if first_root is not None
                     else None
                 )
-                matches[lick["id"]].append(
-                    {
-                        "meter": meter,
-                        "startTick": start_tick,
-                        "intervalTicks": interval_ticks,
-                        "bassInterval": bass_interval,
-                    },
-                )
+                measurement: dict[str, Any] = {
+                    "meter": int(first["num"]),
+                    "harmonyCount": len(harmony_runs),
+                    "firstNoteBassInterval": first_bass_interval,
+                }
+
+                if len(harmony_runs) >= 2:
+                    change = harmony_runs[1]
+                    change_note_index = next(
+                        index
+                        for index, position in enumerate(positions)
+                        if position >= change["position"]
+                    )
+                    second_root = chord_bass_pitch_class(change["chord"])
+                    measurement.update(
+                        {
+                            "changeBeat": int(change["beat"]),
+                            "changeNoteIndex": change_note_index,
+                            "rootMotion": (
+                                (second_root - first_root) % 12
+                                if first_root is not None
+                                and second_root is not None
+                                else None
+                            ),
+                        },
+                    )
+
+                matches[lick["id"]].append(measurement)
     return matches
+
+
+def rounded_ratio(count: int, total: int) -> float:
+    return round(count / total, 4)
 
 
 def build_pilot_entry(
@@ -242,58 +294,116 @@ def build_pilot_entry(
         for observation in observations
         if observation["meter"] == meter
     ]
-    start_tick, start_count = mode_with_count(
-        observation["startTick"] for observation in metrical
+    harmony_count, harmony_count_support = mode_with_count(
+        1 if observation["harmonyCount"] <= 1 else 2
+        for observation in metrical
     )
-
-    interval_ticks = []
-    interval_supports = []
-    for index in range(len(lick["intervals"])):
-        tick, count = mode_with_count(
-            observation["intervalTicks"][index]
-            for observation in metrical
-        )
-        interval_ticks.append(tick)
-        interval_supports.append(count / len(metrical))
+    harmonic = [
+        observation
+        for observation in metrical
+        if (1 if observation["harmonyCount"] <= 1 else 2)
+        == harmony_count
+    ]
 
     bass_observations = [
-        observation["bassInterval"]
-        for observation in metrical
-        if observation["bassInterval"] is not None
+        observation["firstNoteBassInterval"]
+        for observation in harmonic
+        if observation["firstNoteBassInterval"] is not None
     ]
-    bass_interval, bass_count = mode_with_count(bass_observations)
+    first_bass_interval, bass_count = mode_with_count(bass_observations)
 
-    return {
+    entry: dict[str, Any] = {
         "meter": meter,
-        "startTick": start_tick,
-        "intervalTicks": interval_ticks,
-        "firstNoteBassInterval": bass_interval,
+        "harmonyCount": harmony_count,
+        "firstNoteBassInterval": first_bass_interval,
         "observations": len(observations),
-        "meterSupport": round(meter_count / len(observations), 4),
-        "placementSupport": round(start_count / len(observations), 4),
-        "rhythmSupport": round(
-            sum(interval_supports) / len(interval_supports),
-            4,
+        "meterSupport": rounded_ratio(meter_count, len(observations)),
+        "harmonySupport": rounded_ratio(
+            harmony_count_support,
+            len(metrical),
         ),
-        "bassSupport": round(bass_count / len(bass_observations), 4),
+        "bassSupport": rounded_ratio(bass_count, len(bass_observations)),
     }
+
+    if harmony_count == 1:
+        target_note_index = len(lick["intervals"])
+        entry["startTick"] = (
+            -target_note_index * EIGHTH_NOTE_TICKS
+        ) % (meter * TICKS_PER_BEAT)
+        return entry
+
+    strong_change_observations = [
+        observation
+        for observation in harmonic
+        if observation.get("changeBeat") in (1, 3)
+    ]
+    change_beat, change_beat_count = mode_with_count(
+        observation["changeBeat"]
+        for observation in strong_change_observations
+    )
+    aligned_changes = [
+        observation
+        for observation in strong_change_observations
+        if observation["changeBeat"] == change_beat
+    ]
+    change_note_index, change_note_count = mode_with_count(
+        observation["changeNoteIndex"]
+        for observation in aligned_changes
+    )
+    root_motion_observations = [
+        observation["rootMotion"]
+        for observation in harmonic
+        if observation.get("rootMotion") is not None
+    ]
+    root_motion, root_motion_count = mode_with_count(
+        root_motion_observations,
+    )
+    target_tick = (change_beat - 1) * TICKS_PER_BEAT
+    entry.update(
+        {
+            "startTick": (
+                target_tick - change_note_index * EIGHTH_NOTE_TICKS
+            ) % (meter * TICKS_PER_BEAT),
+            "changeNoteIndex": change_note_index,
+            "changeBeat": change_beat,
+            "rootMotion": root_motion,
+            "changeBeatSupport": rounded_ratio(
+                change_beat_count,
+                len(harmonic),
+            ),
+            "changeNoteSupport": rounded_ratio(
+                change_note_count,
+                len(aligned_changes),
+            ),
+            "rootMotionSupport": rounded_ratio(
+                root_motion_count,
+                len(root_motion_observations),
+            ),
+        },
+    )
+    return entry
 
 
 def javascript_module(entries: dict[str, dict[str, Any]]) -> str:
     occurrence_count = sum(
         entry["observations"] for entry in entries.values()
     )
+    single_harmony_count = sum(
+        entry["harmonyCount"] == 1 for entry in entries.values()
+    )
     lines = [
         "// Generated by scripts/generate_dtl_rhythm_pilot.py from exact",
-        "// DTL interval matches and metrical WJazzD annotations.",
+        "// DTL interval matches and WJazzD chord annotations.",
         "export const DTL_RHYTHM_PILOT = Object.freeze({",
-        '  source: "DTL patterns × WJazzD metrical consensus",',
+        '  source: "DTL patterns × WJazzD harmonic consensus",',
         f"  ticksPerBeat: {TICKS_PER_BEAT},",
-        f"  startGridTicks: {START_GRID_TICKS},",
+        f"  eighthNoteTicks: {EIGHTH_NOTE_TICKS},",
         f"  tempo: {PILOT_TEMPO},",
         f"  swingRatio: {SWING_RATIO},",
         f"  lickCount: {len(entries)},",
         f"  occurrenceCount: {occurrence_count},",
+        f"  singleHarmonyCount: {single_harmony_count},",
+        f"  twoHarmonyCount: {len(entries) - single_harmony_count},",
         "  licks: Object.freeze({",
     ]
     lines.extend(
@@ -328,7 +438,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(javascript_module(entries), encoding="utf-8")
     print(
-        f"Wrote {len(entries)} synthetic DTL rhythms "
+        f"Wrote {len(entries)} synthetic DTL harmony profiles "
         f"({sum(entry['observations'] for entry in entries.values())} "
         f"occurrences) to {args.output}",
     )

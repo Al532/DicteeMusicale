@@ -125,14 +125,16 @@ corrigée selon la longueur du motif. Le niveau « très typiques » conserve 58
 ces motifs en exigeant aussi `log_excess_prob >= 2`. Ces statistiques restent
 internes et aucune identité supplémentaire n’est exposée dans l’écran.
 
-Ces 58 motifs disposent aussi d’un pilote rythmique statistique dans
+Ces 58 motifs disposent aussi d’un pilote synthétique dans
 `data/dtl-rhythm-pilot.js`. Les 1 300 occurrences exactes sont retrouvées dans
-la WJazzD, puis leur microtiming est écarté. Le pilote retient séparément la
-mesure majoritaire, le départ majoritaire sur une grille de croches et la durée
-modale de chaque intervalle sur une grille de douzièmes de temps. La lecture à
-156 BPM ajoute une mesure de basse-repère, le hi-hat sur 2 et 4 et un swing
-léger de 1,4:1. Le sélecteur permet de comparer ce résultat à l’occurrence WJD
-de référence.
+la WJazzD pour déterminer si le contexte dominant comporte une ou plusieurs
+harmonies, puis, dans le second cas, la première bascule harmonique et son
+placement dominant sur le temps 1 ou 3. Le rythme interprété est volontairement
+uniforme : croches à 156 BPM avec un swing léger de 1,4:1. Un motif à une
+harmonie place sa dernière note sur 1 ; un motif à deux harmonies place la note
+de bascule sur le temps fort retenu. La basse ne joue que sur les premiers temps
+et sur le changement d’harmonie, tandis que le hi-hat marque 2 et 4. Le
+sélecteur permet de comparer ce résultat à l’occurrence WJD de référence.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :

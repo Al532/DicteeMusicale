@@ -51,7 +51,7 @@ const messages = {
     "lickExplorer.kicker": "Developer browser",
     "lickExplorer.title": "Lick Explorer",
     "lickExplorer.intro":
-      "For the 58 most typical patterns, compare a quantized statistical rhythm with its hidden WJD reference. The pilot adds a one-bar bass marker and a light 1.4:1 swing.",
+      "The 58 most typical patterns are played as lightly swung eighth notes. Bass sounds on beat 1 and at each harmony change; the WJD occurrence remains available for comparison.",
     "lickExplorer.navigation": "Lick navigation",
     "lickExplorer.previous": "Previous lick",
     "lickExplorer.next": "Next lick",
@@ -64,17 +64,12 @@ const messages = {
     "lickExplorer.noteCount": ({ count }) =>
       `${count} ${plural(count, "note", "notes")}`,
     "lickExplorer.intervals": "Intervals",
-    "lickExplorer.rhythmClass": "Reference DTL class",
-    "lickExplorer.placement": "Most common placement",
-    "lickExplorer.placement.beat": ({ beat }) => `beat ${beat}`,
-    "lickExplorer.placement.offbeat": ({ beat }) => `beat ${beat} &`,
-    "lickExplorer.placement.value": ({
-      meter,
-      meterSupport,
-      placement,
-      support,
-    }) =>
-      `${meter} (${meterSupport}%) · ${placement} (${support}%)`,
+    "lickExplorer.rhythmClass": "WJD reference rhythm",
+    "lickExplorer.placement": "Synthetic frame",
+    "lickExplorer.placement.single":
+      "1 harmony · last note on beat 1",
+    "lickExplorer.placement.double": ({ beat, note }) =>
+      `2 harmonies · note ${note} changes on beat ${beat}`,
     "lickExplorer.play": "Play",
     "lickExplorer.originalKey": "Original key",
     "lickExplorer.randomKey": "Random key",
@@ -84,7 +79,7 @@ const messages = {
     "lickExplorer.filter.typical": "Typical licks",
     "lickExplorer.filter.veryTypical": "Very typical licks",
     "lickExplorer.rhythmMode": "Rhythm",
-    "lickExplorer.rhythmMode.synthetic": "Statistical pilot",
+    "lickExplorer.rhythmMode.synthetic": "Swung eighth notes",
     "lickExplorer.rhythmMode.reference": "WJD occurrence",
     "lickExplorer.status.original": "Original key selected.",
     "lickExplorer.status.transposed": ({ value }) =>
@@ -399,7 +394,7 @@ const messages = {
     "lickExplorer.kicker": "Explorateur développeur",
     "lickExplorer.title": "Lick Explorer",
     "lickExplorer.intro":
-      "Pour les 58 motifs les plus typiques, compare un rythme statistique quantifié à sa référence WJD masquée. Le pilote ajoute une mesure de basse-repère et un swing léger de 1,4:1.",
+      "Les 58 motifs les plus typiques sont joués en croches légèrement swinguées. La basse joue sur le temps 1 et à chaque changement d’harmonie ; l’occurrence WJD reste disponible pour comparaison.",
     "lickExplorer.navigation": "Navigation entre les licks",
     "lickExplorer.previous": "Lick précédent",
     "lickExplorer.next": "Lick suivant",
@@ -412,18 +407,12 @@ const messages = {
     "lickExplorer.noteCount": ({ count }) =>
       `${count} note${count > 1 ? "s" : ""}`,
     "lickExplorer.intervals": "Intervalles",
-    "lickExplorer.rhythmClass": "Classe DTL de référence",
-    "lickExplorer.placement": "Placement majoritaire",
-    "lickExplorer.placement.beat": ({ beat }) => `temps ${beat}`,
-    "lickExplorer.placement.offbeat": ({ beat }) =>
-      `contretemps du temps ${beat}`,
-    "lickExplorer.placement.value": ({
-      meter,
-      meterSupport,
-      placement,
-      support,
-    }) =>
-      `${meter} (${meterSupport} %) · ${placement} (${support} %)`,
+    "lickExplorer.rhythmClass": "Rythme de l’occurrence WJD",
+    "lickExplorer.placement": "Cadre synthétique",
+    "lickExplorer.placement.single":
+      "1 harmonie · dernière note sur le temps 1",
+    "lickExplorer.placement.double": ({ beat, note }) =>
+      `2 harmonies · changement à la note ${note}, sur le temps ${beat}`,
     "lickExplorer.play": "Lire",
     "lickExplorer.originalKey": "Tonalité originale",
     "lickExplorer.randomKey": "Tonalité aléatoire",
@@ -434,7 +423,7 @@ const messages = {
     "lickExplorer.filter.typical": "Licks typiques",
     "lickExplorer.filter.veryTypical": "Licks très typiques",
     "lickExplorer.rhythmMode": "Rythme",
-    "lickExplorer.rhythmMode.synthetic": "Pilote statistique",
+    "lickExplorer.rhythmMode.synthetic": "Croches swinguées",
     "lickExplorer.rhythmMode.reference": "Occurrence WJD",
     "lickExplorer.status.original": "Tonalité originale sélectionnée.",
     "lickExplorer.status.transposed": ({ value }) =>

@@ -93,11 +93,14 @@ test("le filtre très typique exige aussi une forte surreprésentation", () => {
   );
 });
 
-test("le pilote reconstruit les 58 licks depuis leurs 1 300 occurrences", () => {
+test("le pilote harmonique reconstruit les 58 licks depuis 1 300 occurrences", () => {
   const veryTypicalLicks = DTL_LICKS.filter(isVeryTypicalLick);
 
   assert.equal(DTL_RHYTHM_PILOT.lickCount, 58);
   assert.equal(DTL_RHYTHM_PILOT.occurrenceCount, 1_300);
+  assert.equal(DTL_RHYTHM_PILOT.singleHarmonyCount, 25);
+  assert.equal(DTL_RHYTHM_PILOT.twoHarmonyCount, 33);
+  assert.equal(DTL_RHYTHM_PILOT.eighthNoteTicks, 6);
   assert.deepEqual(
     Object.keys(DTL_RHYTHM_PILOT.licks),
     veryTypicalLicks.map(({ id }) => id),
@@ -106,13 +109,36 @@ test("le pilote reconstruit les 58 licks depuis leurs 1 300 occurrences", () => 
     const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
     assert.equal(pilot.observations, lick.occurrenceCount);
     assert.equal(pilot.meter, 4);
-    assert.equal(pilot.startTick % DTL_RHYTHM_PILOT.startGridTicks, 0);
-    assert.equal(pilot.intervalTicks.length, lick.intervals.length);
-    assert.ok(pilot.intervalTicks.every((tick) => tick > 0));
+    assert.equal(
+      pilot.startTick % DTL_RHYTHM_PILOT.eighthNoteTicks,
+      0,
+    );
+    assert.ok([1, 2].includes(pilot.harmonyCount));
     assert.ok(pilot.meterSupport >= 0.8);
-    assert.ok(pilot.placementSupport > 0);
-    assert.ok(pilot.rhythmSupport > 0);
+    assert.ok(pilot.harmonySupport >= 0.5);
     assert.ok(pilot.bassSupport > 0);
+
+    const targetNoteIndex =
+      pilot.harmonyCount === 1
+        ? lick.notes.length - 1
+        : pilot.changeNoteIndex;
+    const targetBeat = pilot.harmonyCount === 1 ? 1 : pilot.changeBeat;
+    assert.equal(
+      (pilot.startTick +
+        targetNoteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks) %
+        (pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat),
+      (targetBeat - 1) * DTL_RHYTHM_PILOT.ticksPerBeat,
+    );
+
+    if (pilot.harmonyCount === 2) {
+      assert.ok(pilot.changeNoteIndex > 0);
+      assert.ok(pilot.changeNoteIndex < lick.notes.length);
+      assert.ok([1, 3].includes(pilot.changeBeat));
+      assert.ok(Number.isInteger(pilot.rootMotion));
+      assert.ok(pilot.changeBeatSupport > 0);
+      assert.ok(pilot.changeNoteSupport > 0);
+      assert.ok(pilot.rootMotionSupport > 0);
+    }
   }
 });
 
@@ -240,7 +266,7 @@ test("le lecteur joue le premier lick avec ses timings WJD", async () => {
   }
 });
 
-test("le pilote joue le consensus métrique avec basse, 2 et 4 et swing léger", async () => {
+test("le pilote joue les croches swinguées avec basse rare et 2 et 4", async () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
   const audio = createAudioHarness();
   const licks = DTL_LICKS.filter(isVeryTypicalLick);
@@ -258,7 +284,7 @@ test("le pilote joue le consensus métrique avec basse, 2 et 4 et swing léger",
     const played = await explorer.playOriginal();
     assert.equal(played, true);
     assert.equal(audio.calls.bassPreloads.length, 1);
-    assert.ok(audio.calls.bass.length >= 8);
+    assert.equal(audio.calls.bass.length, 3);
     assert.ok(audio.calls.chicks.length >= 4);
     assert.equal(
       dom.window.document.querySelector("#lick-explorer-placement-row")
@@ -363,35 +389,129 @@ test("la transposition aléatoire conserve le motif et change de ton", () => {
   );
 });
 
-test("la reconstruction synthétique conserve motif, placement et basse transposée", () => {
+function swungBeatPosition(tick) {
+  const ticksPerBeat = DTL_RHYTHM_PILOT.ticksPerBeat;
+  const beat = Math.floor(tick / ticksPerBeat);
+  const withinBeat = tick % ticksPerBeat;
+  return withinBeat === DTL_RHYTHM_PILOT.eighthNoteTicks
+    ? beat +
+        DTL_RHYTHM_PILOT.swingRatio /
+          (DTL_RHYTHM_PILOT.swingRatio + 1)
+    : beat + withinBeat / ticksPerBeat;
+}
+
+test("toutes les reconstructions utilisent des croches et leur temps cible", () => {
+  const licks = DTL_LICKS.filter(isVeryTypicalLick);
+  const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
+
+  for (const lick of licks) {
+    const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
+    const sequence = createSyntheticLickSequence(lick);
+    const firstNoteTick =
+      pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat + pilot.startTick;
+
+    sequence.timings.forEach((timing, noteIndex) => {
+      const expectedOffset = Number(
+        (
+          swungBeatPosition(
+            firstNoteTick +
+              noteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks,
+          ) * secondsPerBeat
+        ).toFixed(4),
+      );
+      assert.equal(timing.offset, expectedOffset, lick.id);
+      assert.ok(timing.duration > 0, lick.id);
+    });
+
+    const targetNoteIndex =
+      pilot.harmonyCount === 1
+        ? lick.notes.length - 1
+        : pilot.changeNoteIndex;
+    const targetBeat = pilot.harmonyCount === 1 ? 1 : pilot.changeBeat;
+    const targetTick =
+      firstNoteTick +
+      targetNoteIndex * DTL_RHYTHM_PILOT.eighthNoteTicks;
+    assert.equal(
+      targetTick % (pilot.meter * DTL_RHYTHM_PILOT.ticksPerBeat),
+      (targetBeat - 1) * DTL_RHYTHM_PILOT.ticksPerBeat,
+      lick.id,
+    );
+
+    const changeOffset =
+      pilot.harmonyCount === 2
+        ? sequence.timings[pilot.changeNoteIndex].offset
+        : null;
+    for (const { offset } of sequence.bassHits) {
+      const position = (offset / secondsPerBeat) % pilot.meter;
+      const onBeatOne =
+        Math.min(position, pilot.meter - position) < 0.001;
+      const onHarmonyChange =
+        changeOffset !== null && Math.abs(offset - changeOffset) < 0.001;
+      assert.ok(onBeatOne || onHarmonyChange, lick.id);
+    }
+  }
+});
+
+test("une harmonie finit sur 1 et la basse ne joue que sur les 1", () => {
   const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0057");
   const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
   const sequence = createSyntheticLickSequence(lick, 5);
   const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
-  const swungOffbeat =
-    DTL_RHYTHM_PILOT.swingRatio /
-    (DTL_RHYTHM_PILOT.swingRatio + 1);
 
+  assert.equal(pilot.harmonyCount, 1);
   assert.deepEqual(
     sequence.notes,
     lick.notes.map((midi) => midi + 5),
-  );
-  assert.equal(
-    sequence.timings[0].offset,
-    Number(((pilot.meter + swungOffbeat) * secondsPerBeat).toFixed(4)),
-  );
-  assert.ok(
-    sequence.timings.every(
-      (timing, index) =>
-        timing.duration > 0 &&
-        (index === 0 || timing.offset > sequence.timings[index - 1].offset),
-    ),
   );
   assert.ok(sequence.chicks.every(({ beat }) => beat === 2 || beat === 4));
   assert.equal(sequence.meta.source.kind, "dtl-lick-synthetic");
   const expectedBassPitchClass =
     ((lick.notes[0] + 5 - pilot.firstNoteBassInterval) % 12 + 12) % 12;
-  assert.equal(sequence.bassHits[0].midi % 12, expectedBassPitchClass);
+  assert.ok(
+    sequence.bassHits.every(
+      ({ midi, offset }) => {
+        const position = (offset / secondsPerBeat) % pilot.meter;
+        return (
+          midi % 12 === expectedBassPitchClass &&
+          Math.min(position, pilot.meter - position) < 0.001
+        );
+      },
+    ),
+  );
+});
+
+test("deux harmonies placent et font entendre la bascule sur 3", () => {
+  const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0179");
+  const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
+  const sequence = createSyntheticLickSequence(lick, 0);
+  const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
+  const changeOffset = sequence.timings[pilot.changeNoteIndex].offset;
+  const changeBeatPosition = changeOffset / secondsPerBeat;
+  const firstBassPitchClass =
+    ((lick.notes[0] - pilot.firstNoteBassInterval) % 12 + 12) % 12;
+  const secondBassPitchClass =
+    (firstBassPitchClass + pilot.rootMotion) % 12;
+
+  assert.equal(pilot.harmonyCount, 2);
+  assert.equal(pilot.changeBeat, 3);
+  assert.ok(Math.abs(changeBeatPosition % pilot.meter - 2) < 0.001);
+  assert.ok(
+    sequence.bassHits.some(
+      ({ midi, offset }) =>
+        Math.abs(offset - changeOffset) < 0.001 &&
+        midi % 12 === secondBassPitchClass,
+    ),
+  );
+  assert.ok(
+    sequence.bassHits.every(({ offset }) => {
+      const beat = offset / secondsPerBeat;
+      const position = beat % pilot.meter;
+      return (
+        Math.min(position, pilot.meter - position) < 0.001 ||
+        Math.abs(offset - changeOffset) < 0.001
+      );
+    }),
+  );
 });
 
 test("la navigation précédent/suivant reste bornée au corpus", () => {

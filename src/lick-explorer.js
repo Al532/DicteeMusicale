@@ -132,19 +132,28 @@ export function createSyntheticLickSequence(
   if (!lick || !Array.isArray(lick.notes) || !pilot) {
     throw new TypeError("A DTL lick with pilot rhythm data is required.");
   }
-  if (pilot.intervalTicks.length !== lick.notes.length - 1) {
-    throw new RangeError("The DTL pilot rhythm length is inconsistent.");
+  if (![1, 2].includes(pilot.harmonyCount)) {
+    throw new RangeError("The DTL pilot harmony count is inconsistent.");
+  }
+  if (
+    pilot.harmonyCount === 2 &&
+    (!Number.isInteger(pilot.changeNoteIndex) ||
+      pilot.changeNoteIndex <= 0 ||
+      pilot.changeNoteIndex >= lick.notes.length ||
+      ![1, 3].includes(pilot.changeBeat))
+  ) {
+    throw new RangeError("The DTL pilot harmony change is inconsistent.");
   }
 
   const semitones = normalizedTransposition(transposition);
   const ticksPerBeat = DTL_RHYTHM_PILOT.ticksPerBeat;
+  const eighthNoteTicks = DTL_RHYTHM_PILOT.eighthNoteTicks;
   const secondsPerBeat = 60 / DTL_RHYTHM_PILOT.tempo;
   const leadInTicks = pilot.meter * ticksPerBeat;
   const firstNoteTick = leadInTicks + pilot.startTick;
-  const noteTicks = [firstNoteTick];
-  for (const intervalTick of pilot.intervalTicks) {
-    noteTicks.push(noteTicks.at(-1) + intervalTick);
-  }
+  const noteTicks = lick.notes.map(
+    (_, noteIndex) => firstNoteTick + noteIndex * eighthNoteTicks,
+  );
   const beatPositions = noteTicks.map((tick) =>
     swungBeatPosition(
       tick,
@@ -152,9 +161,9 @@ export function createSyntheticLickSequence(
       DTL_RHYTHM_PILOT.swingRatio,
     ),
   );
-  const lastIntervalTick = pilot.intervalTicks.at(-1) ?? ticksPerBeat / 2;
+  const lastReleaseTick = noteTicks.at(-1) + eighthNoteTicks;
   const lastReleaseBeat = swungBeatPosition(
-    noteTicks.at(-1) + lastIntervalTick,
+    lastReleaseTick,
     ticksPerBeat,
     DTL_RHYTHM_PILOT.swingRatio,
   );
@@ -170,28 +179,54 @@ export function createSyntheticLickSequence(
     };
   });
 
-  const playbackEndBeat = Math.max(
-    pilot.meter * 2,
-    lastReleaseBeat,
+  const playbackEndTick = Math.max(
+    pilot.meter * 2 * ticksPerBeat,
+    lastReleaseTick,
   );
-  const bassRootPitchClass = pitchClass(
+  const firstBassRootPitchClass = pitchClass(
     lick.notes[0] - pilot.firstNoteBassInterval,
   );
-  const bassTemplates = Array.from(
-    { length: Math.ceil(playbackEndBeat) },
-    (_, beatIndex) => ({
-      offset: Number((beatIndex * secondsPerBeat).toFixed(4)),
-      duration: Number((secondsPerBeat * 0.82).toFixed(4)),
-      rootPitchClass: bassRootPitchClass,
-      chord: "pilot-pedal",
-    }),
-  );
-  const chicks = bassTemplates
-    .map((_, beatIndex) => ({
-      beat: (beatIndex % pilot.meter) + 1,
-      offset: Number((beatIndex * secondsPerBeat).toFixed(4)),
-    }))
-    .filter(({ beat }) => beat === 2 || beat === 4);
+  const changeTick =
+    pilot.harmonyCount === 2
+      ? firstNoteTick + pilot.changeNoteIndex * eighthNoteTicks
+      : null;
+  const bassTicks = new Set();
+  for (
+    let tick = 0;
+    tick < playbackEndTick;
+    tick += pilot.meter * ticksPerBeat
+  ) {
+    bassTicks.add(tick);
+  }
+  if (changeTick !== null) bassTicks.add(changeTick);
+  const bassTemplates = [...bassTicks]
+    .sort((left, right) => left - right)
+    .map((tick) => {
+      const harmony = changeTick !== null && tick >= changeTick ? 2 : 1;
+      const rootPitchClass =
+        harmony === 2
+          ? pitchClass(firstBassRootPitchClass + pilot.rootMotion)
+          : firstBassRootPitchClass;
+      return {
+        offset: Number(
+          (
+            swungBeatPosition(
+              tick,
+              ticksPerBeat,
+              DTL_RHYTHM_PILOT.swingRatio,
+            ) * secondsPerBeat
+          ).toFixed(4),
+        ),
+        duration: Number((secondsPerBeat * 0.82).toFixed(4)),
+        rootPitchClass,
+        chord: `pilot-harmony-${harmony}`,
+      };
+    });
+  const beatCount = Math.ceil(playbackEndTick / ticksPerBeat);
+  const chicks = Array.from({ length: beatCount }, (_, beatIndex) => ({
+    beat: (beatIndex % pilot.meter) + 1,
+    offset: Number((beatIndex * secondsPerBeat).toFixed(4)),
+  })).filter(({ beat }) => beat === 2 || beat === 4);
 
   return {
     notes: lick.notes.map((midi) => Number(midi) + semitones),
@@ -207,6 +242,9 @@ export function createSyntheticLickSequence(
         meter: pilot.meter,
         startTick: pilot.startTick,
         swingRatio: DTL_RHYTHM_PILOT.swingRatio,
+        harmonyCount: pilot.harmonyCount,
+        changeNoteIndex: pilot.changeNoteIndex ?? null,
+        changeBeat: pilot.changeBeat ?? null,
       },
     },
   };
@@ -377,25 +415,16 @@ export function createLickExplorer({
     elements.placementRow.hidden =
       !pilot || rhythmMode !== LICK_RHYTHM_MODE.synthetic;
     if (pilot) {
-      const beat = Math.floor(
-        pilot.startTick / DTL_RHYTHM_PILOT.ticksPerBeat,
-      ) + 1;
-      const offbeat =
-        pilot.startTick % DTL_RHYTHM_PILOT.ticksPerBeat !== 0;
-      const placement = translate(
-        offbeat
-          ? "lickExplorer.placement.offbeat"
-          : "lickExplorer.placement.beat",
-        { beat },
-      );
       elements.placement.textContent = translate(
-        "lickExplorer.placement.value",
-        {
-          meter: `${pilot.meter}/4`,
-          meterSupport: Math.round(pilot.meterSupport * 100),
-          placement,
-          support: Math.round(pilot.placementSupport * 100),
-        },
+        pilot.harmonyCount === 1
+          ? "lickExplorer.placement.single"
+          : "lickExplorer.placement.double",
+        pilot.harmonyCount === 1
+          ? {}
+          : {
+              beat: pilot.changeBeat,
+              note: pilot.changeNoteIndex + 1,
+            },
       );
     } else {
       elements.placement.textContent = "";
