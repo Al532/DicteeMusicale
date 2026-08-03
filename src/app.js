@@ -64,6 +64,10 @@ import {
   resetExerciseProgress as resetExerciseState,
 } from "./exercise.js";
 import {
+  createMidiAttemptMapper,
+  createMidiInput,
+} from "./midi-input.js";
+import {
   CHALLENGE_SESSION_KEY,
   COMPLETED_PHRASES_KEY,
   FAVORITES_KEY,
@@ -137,12 +141,16 @@ let recordingWorkshop = null;
 let lickExplorer = null;
 let lickExerciseToolsPromise = null;
 const {
+  activeInputToneCount,
   getAudioContext,
   playBass,
   playChick,
   playTone,
+  prepareInputAudio,
   preloadBassSamples,
   preloadMelodySamples,
+  startInputTone,
+  stopInputTone,
 } = audioRuntime;
 const originalPlayer = createOriginalPlayer({
   documentObject: document,
@@ -159,6 +167,14 @@ const originalPlayer = createOriginalPlayer({
 
 let exercise = null;
 let acceptingInput = false;
+const midiAttemptMapper = createMidiAttemptMapper();
+const activeMidiTones = new Map();
+const midiInput = createMidiInput({
+  navigatorObject: navigator,
+  onNoteOff: handleMidiNoteOff,
+  onNoteOn: handleMidiNoteOn,
+  onStatusChange: renderMidiInputStatus,
+});
 const ratingWorkflow = createRatingWorkflow({
   embeddedRatings: DEFAULT_PHRASE_RATINGS,
   embeddedScopes: DEFAULT_RATING_SCOPES,
@@ -204,6 +220,7 @@ const appShell = createAppShell({
   navigatorObject: navigator,
   onFullscreenExit: () => {
     phraseEditor.close({ restoreFocus: false });
+    releaseAllMidiInputTones();
     stopAllTones();
     cancelPhraseAdjustmentReload();
     acceptingInput = false;
@@ -884,6 +901,59 @@ function setPlaybackState(playing) {
   isPlaying = playing;
   elements.replay.textContent = t(playing ? "audio.stop" : "game.replay");
   elements.replay.setAttribute("aria-pressed", String(playing));
+}
+
+function releaseMidiInputTone(id) {
+  const active = activeMidiTones.get(id);
+  if (!active) return;
+  activeMidiTones.delete(id);
+  stopInputTone(active.tone);
+  active.key?.classList.remove("active");
+}
+
+function releaseAllMidiInputTones() {
+  for (const id of [...activeMidiTones.keys()]) {
+    releaseMidiInputTone(id);
+  }
+}
+
+function renderMidiInputStatus(status) {
+  elements.midiConnect.hidden = !status.supported;
+  elements.midiConnect.disabled = status.state === "connecting";
+  elements.midiConnect.dataset.state = status.state;
+  elements.midiConnect.setAttribute(
+    "aria-pressed",
+    String(status.state === "connected"),
+  );
+
+  const labelKey =
+    status.state === "connected"
+      ? "midi.connected"
+      : status.state === "ready"
+        ? "midi.noInput"
+        : status.state === "connecting"
+          ? "midi.connecting"
+          : status.state === "error"
+            ? "midi.error"
+            : "midi.enable";
+  const label = t(labelKey, { count: status.inputCount });
+  elements.midiConnect.textContent =
+    status.state === "connected"
+      ? "MIDI ✓"
+      : status.state === "ready"
+        ? "MIDI ○"
+        : status.state === "connecting"
+          ? "MIDI…"
+          : status.state === "error"
+            ? "MIDI !"
+            : "MIDI";
+  elements.midiConnect.setAttribute("aria-label", label);
+  elements.midiConnect.title = label;
+}
+
+function connectMidiInput() {
+  prepareInputAudio();
+  return midiInput.connect();
 }
 
 function stopAllTones() {
@@ -1662,6 +1732,7 @@ async function prepareAndLaunchExercise({
   await preloadExerciseAssets(generated);
   if (launchVersion !== exerciseLaunchVersion) return false;
   exercise = createState(generated, plan);
+  midiAttemptMapper.reset();
   render(generated, plan);
   scheduleInitialExercisePlayback(enteringGameMode);
   return true;
@@ -2038,6 +2109,7 @@ function togglePlayback() {
 
 function resetExerciseProgress() {
   if (!resetExerciseState(exercise)) return;
+  midiAttemptMapper.reset();
   acceptingInput = false;
   elements.replay.disabled = false;
   renderPhraseControls();
@@ -2065,22 +2137,7 @@ function failSuddenDeath() {
   });
 }
 
-function handlePianoInput(midi, key) {
-  const inputAt = performance.now();
-  const quietBeforeInput = inputAt - lastPianoInputAt;
-  lastPianoInputAt = inputAt;
-  if (guardPlaybackFromInputBurst) {
-    if (quietBeforeInput < INPUT_BURST_QUIET_MS) return;
-    guardPlaybackFromInputBurst = false;
-  }
-  if (isPlaying || originalPlayer.isPlaying()) {
-    stopAllTones();
-    restoreExerciseInput(t("playback.interrupted"));
-  }
-
-  playTone(midi, 0, 0.36);
-  key.classList.add("active");
-  window.setTimeout(() => key.classList.remove("active"), 160);
+function applyExerciseInput(midi, key) {
   if (!exercise || !acceptingInput) return;
 
   if (
@@ -2097,8 +2154,8 @@ function handlePianoInput(midi, key) {
 
   const input = enterExerciseMidi(exercise, midi);
   if (!input.correct) {
-    key.classList.add("wrong-key");
-    window.setTimeout(() => key.classList.remove("wrong-key"), 260);
+    key?.classList.add("wrong-key");
+    window.setTimeout(() => key?.classList.remove("wrong-key"), 260);
     if (
       currentMode === "challenge" &&
       challengeSession?.phase === "sudden-death"
@@ -2110,8 +2167,8 @@ function handlePianoInput(midi, key) {
     return;
   }
 
-  key.classList.add("correct-key");
-  window.setTimeout(() => key.classList.remove("correct-key"), 280);
+  key?.classList.add("correct-key");
+  window.setTimeout(() => key?.classList.remove("correct-key"), 280);
   if (input.complete) {
     finishExercise();
     return;
@@ -2129,6 +2186,57 @@ function handlePianoInput(midi, key) {
           current: exercise.currentIndex + 1,
           total: exercise.notes.length,
         });
+}
+
+function handlePianoInput(midi, key) {
+  const inputAt = performance.now();
+  const quietBeforeInput = inputAt - lastPianoInputAt;
+  lastPianoInputAt = inputAt;
+  if (guardPlaybackFromInputBurst) {
+    if (quietBeforeInput < INPUT_BURST_QUIET_MS) return;
+    guardPlaybackFromInputBurst = false;
+  }
+  if (isPlaying || originalPlayer.isPlaying()) {
+    stopAllTones();
+    restoreExerciseInput(t("playback.interrupted"));
+  }
+
+  playTone(midi, 0, 0.36);
+  key.classList.add("active");
+  window.setTimeout(() => key.classList.remove("active"), 160);
+  applyExerciseInput(midi, key);
+}
+
+function handleMidiNoteOn({ id, midi, velocity }) {
+  releaseMidiInputTone(id);
+  if (
+    !exercise ||
+    currentMode === "rating" ||
+    !document.body.classList.contains("game-mode") ||
+    phraseEditor.isOpen
+  ) {
+    return;
+  }
+  if (isPlaying || originalPlayer.isPlaying()) {
+    stopAllTones();
+    restoreExerciseInput(t("playback.interrupted"));
+  }
+
+  const mappedMidi = midiAttemptMapper.map(midi, exercise.notes[0], {
+    commit: acceptingInput,
+  });
+  if (!Number.isFinite(mappedMidi)) return;
+  const key = elements.piano.querySelector(
+    `[data-midi="${mappedMidi}"]`,
+  );
+  const tone = startInputTone(mappedMidi, velocity / 127);
+  activeMidiTones.set(id, { key, midi: mappedMidi, tone });
+  key?.classList.add("active");
+  applyExerciseInput(mappedMidi, key);
+}
+
+function handleMidiNoteOff({ id } = {}) {
+  if (id) releaseMidiInputTone(id);
 }
 
 function renderCompletedChallenge(phrases) {
@@ -2252,6 +2360,7 @@ async function leaveGameMode(
   const leavingLickExercise = currentMode === "lick-exercise";
   phraseEditor.close({ restoreFocus: false });
   cancelPhraseAdjustmentReload();
+  releaseAllMidiInputTones();
   stopAllTones();
   elements.suddenDeathModal.hidden = true;
   elements.challengeCompleteModal.hidden = true;
@@ -2280,6 +2389,7 @@ bindAppEvents(
     closeRecordingWorkshop,
     closeRecordingPlayer: originalPlayer.close,
     copyCurrentPhraseId,
+    connectMidiInput,
     editSelectedRecordingWorkshopPhrase,
     exportData,
     goToNextExercise,
@@ -2322,6 +2432,7 @@ bindAppEvents(
 
 function initializeApp() {
   loadSettings();
+  renderMidiInputStatus(midiInput.snapshot());
   showHome();
   appShell.setUp();
 }
@@ -2354,6 +2465,11 @@ if (
       : null,
     isOriginalPlaying: originalPlayer.isPlaying(),
     isPlaying,
+    midiInput: {
+      ...midiInput.snapshot(),
+      activeToneCount: activeInputToneCount(),
+      ...midiAttemptMapper.snapshot(),
+    },
     lickExercise: lickExerciseDeck.length
       ? {
           currentId: currentLickExercise()?.id ?? null,

@@ -8,6 +8,8 @@ import {
   MASTER_LIMITER_THRESHOLD_DB,
   MELODY_EMPHASIS_GAIN,
   MELODY_SAMPLE_INSTRUMENTS,
+  MIDI_INPUT_ATTACK_SECONDS,
+  MIDI_INPUT_RELEASE_SECONDS,
   SYNTHETIC_MELODY_GAIN,
   createAudioRuntime,
   keyboardMidiNotes,
@@ -250,6 +252,37 @@ test("le son synthétique conserve oscillateurs, enveloppes et fallback", () => 
   assert.equal(runtime.activeSourceCount(), 2);
   context.oscillators[0].emit("ended");
   assert.equal(runtime.activeSourceCount(), 1);
+});
+
+test("la saisie MIDI démarre immédiatement et tient jusqu’au note-off", () => {
+  const context = new FakeAudioContext();
+  const { runtime } = makeRuntime({ context });
+
+  runtime.prepareInputAudio();
+  const tone = runtime.startInputTone(69, 0.5);
+  const oscillator = context.oscillators[0];
+  const inputGain = context.gains[1];
+  const volume = SYNTHETIC_MELODY_GAIN * 0.625;
+
+  assert.deepEqual(oscillator.startCalls, [[10]]);
+  assert.deepEqual(oscillator.stopCalls, []);
+  assert.equal(runtime.activeInputToneCount(), 1);
+  assert.deepEqual(inputGain.gain.events, [
+    ["set", 0.0001, 10],
+    ["exponential", volume, 10 + MIDI_INPUT_ATTACK_SECONDS],
+  ]);
+
+  context.currentTime = 10.2;
+  runtime.stopInputTone(tone);
+  runtime.stopInputTone(tone);
+  assert.equal(runtime.activeInputToneCount(), 0);
+  assert.deepEqual(inputGain.gain.events.slice(2), [
+    ["set", volume, 10.2],
+    ["exponential", 0.0001, 10.2 + MIDI_INPUT_RELEASE_SECONDS],
+  ]);
+  assert.deepEqual(oscillator.stopCalls, [
+    [10.2 + MIDI_INPUT_RELEASE_SECONDS + 0.005],
+  ]);
 });
 
 test("les samples de mélodie sont dédupliqués, mis en cache et transposés", async () => {

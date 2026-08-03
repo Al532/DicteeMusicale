@@ -1550,6 +1550,27 @@ body.game-mode {
   margin: 0;
 }
 
+.midi-connect-button {
+  min-height: 34px;
+  padding-inline: 11px;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.midi-connect-button[data-state="connected"] {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 45%, var(--line));
+}
+
+.midi-connect-button[data-state="ready"],
+.midi-connect-button[data-state="error"] {
+  color: var(--warm);
+}
+
+.rating-mode .midi-connect-button {
+  display: none;
+}
+
 .developer-game-control {
   display: none;
 }

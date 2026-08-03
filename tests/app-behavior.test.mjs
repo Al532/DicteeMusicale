@@ -683,6 +683,54 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
+  await t.test("la saisie MIDI tient les notes et verrouille l’octave par tentative", async () => {
+    const phraseKey = "wjazzd-v2.1-1:1";
+    const app = await bootApp({ favorites: [phraseKey], midi: true });
+    try {
+      await app.click("#open-favorites");
+      await app.click(".favorite-row-main");
+      await app.waitFor(
+        () => app.snapshot().exercise,
+        "phrase MIDI chargée",
+      );
+      await finishPlayback(app);
+
+      assert.equal(app.element("#midi-connect").hidden, false);
+      await app.click("#midi-connect");
+      assert.deepEqual(app.midi.requestCalls, [{ sysex: false }]);
+      assert.equal(app.snapshot().midiInput.state, "connected");
+
+      const firstMidi = app.snapshot().exercise.notes[0];
+      const lowFirstMidi = firstMidi - 24;
+      await app.midi.send([0x90, lowFirstMidi, 100]);
+      assert.equal(app.snapshot().exercise.currentIndex, 1);
+      assert.equal(app.snapshot().midiInput.translation, 24);
+      assert.equal(app.snapshot().midiInput.activeToneCount, 1);
+
+      await app.midi.send([0x80, lowFirstMidi, 0]);
+      assert.equal(app.snapshot().exercise.currentIndex, 1);
+      assert.equal(app.snapshot().midiInput.activeToneCount, 0);
+
+      await app.click("#replay");
+      assert.equal(app.snapshot().exercise.currentIndex, 0);
+      assert.equal(app.snapshot().midiInput.translation, null);
+      assert.equal(app.snapshot().isPlaying, true);
+
+      const highFirstMidi = firstMidi + 12;
+      await app.midi.send([0x90, highFirstMidi, 96]);
+      assert.equal(app.snapshot().isPlaying, false);
+      assert.equal(app.snapshot().exercise.currentIndex, 1);
+      assert.equal(app.snapshot().midiInput.translation, -12);
+      assert.equal(app.snapshot().midiInput.activeToneCount, 1);
+
+      await app.midi.send([0x90, highFirstMidi, 0]);
+      assert.equal(app.snapshot().exercise.currentIndex, 1);
+      assert.equal(app.snapshot().midiInput.activeToneCount, 0);
+    } finally {
+      app.close();
+    }
+  });
+
   await t.test("défi complet et protection contre les clics traversants", async () => {
     const app = await bootApp();
     try {

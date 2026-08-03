@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=68" />
-    <script type="module" src="./src/app.js?v=68"></script>
+    <link rel="stylesheet" href="./styles.css?v=69" />
+    <script type="module" src="./src/app.js?v=69"></script>
   </head>
   <body>
     <div
@@ -673,6 +673,15 @@
             <span data-i18n="game.replay">Replay</span>
           </button>
           <div class="game-context-controls">
+            <button
+              class="quiet-button midi-connect-button"
+              id="midi-connect"
+              type="button"
+              aria-label="Enable MIDI input"
+              data-i18n-aria-label="midi.enable"
+              aria-pressed="false"
+              hidden
+            >MIDI</button>
             <div
               class="phrase-adjustments developer-game-control"
               id="phrase-adjustments"

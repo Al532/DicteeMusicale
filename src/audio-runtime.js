@@ -20,6 +20,8 @@ export const MELODY_GAIN = 1;
 export const MELODY_EMPHASIS_GAIN = 1.12;
 export const SYNTHETIC_MELODY_GAIN = 0.36;
 export const SYNTHETIC_MELODY_EMPHASIS_GAIN = 0.5;
+export const MIDI_INPUT_ATTACK_SECONDS = 0.003;
+export const MIDI_INPUT_RELEASE_SECONDS = 0.025;
 export const MELODY_ATTACK_SECONDS = 0.006;
 export const MELODY_RELEASE_SECONDS = 0.035;
 export const BASS_GAIN = 0.22;
@@ -38,7 +40,8 @@ export function keyboardMidiNotes(keyboard) {
 }
 
 export function createAudioRuntime({
-  audioContextFactory = () => new globalThis.AudioContext(),
+  audioContextFactory = () =>
+    new globalThis.AudioContext({ latencyHint: "interactive" }),
   fetchImpl = (...args) => globalThis.fetch(...args),
   baseUrl = globalThis.document?.baseURI,
   translate = (key) => key,
@@ -50,6 +53,7 @@ export function createAudioRuntime({
   let melodySound = initialMelodySound;
   let chickBuffer = null;
   const activeAudioSources = new Set();
+  const activeInputTones = new Set();
   const melodySampleBuffers = new Map();
   const melodySampleLoads = new Map();
   const bassSampleBuffers = new Map();
@@ -106,6 +110,10 @@ export function createAudioRuntime({
 
   function activeSourceCount() {
     return activeAudioSources.size;
+  }
+
+  function activeInputToneCount() {
+    return activeInputTones.size;
   }
 
   function melodySampleMidi(midi, sound = melodySound) {
@@ -290,6 +298,59 @@ export function createAudioRuntime({
     source.stop(stop + 0.02);
   }
 
+  function prepareInputAudio() {
+    getOutputNode();
+  }
+
+  function startInputTone(midi, velocity = 1) {
+    const context = getAudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const frequency = 440 * 2 ** ((midi - 69) / 12);
+    const start = context.currentTime;
+    const normalizedVelocity = Math.max(
+      0,
+      Math.min(1, Number(velocity) || 0),
+    );
+    const volume =
+      SYNTHETIC_MELODY_GAIN * (0.25 + normalizedVelocity * 0.75);
+    let stopped = false;
+    let tone;
+
+    oscillator.type = "triangle";
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(
+      volume,
+      start + MIDI_INPUT_ATTACK_SECONDS,
+    );
+    oscillator.connect(gain).connect(getOutputNode());
+    oscillator.start(start);
+
+    tone = Object.freeze({
+      midi,
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        const releaseStart = context.currentTime;
+        const releaseEnd = releaseStart + MIDI_INPUT_RELEASE_SECONDS;
+        gain.gain.setValueAtTime(volume, releaseStart);
+        gain.gain.exponentialRampToValueAtTime(0.0001, releaseEnd);
+        oscillator.stop(releaseEnd + 0.005);
+        activeInputTones.delete(tone);
+      },
+    });
+    oscillator.addEventListener("ended", () => {
+      activeInputTones.delete(tone);
+    });
+    activeInputTones.add(tone);
+    return tone;
+  }
+
+  function stopInputTone(tone) {
+    tone?.stop?.();
+  }
+
   function playChick(startAt) {
     const context = getAudioContext();
     if (!chickBuffer || chickBuffer.sampleRate !== context.sampleRate) {
@@ -399,6 +460,10 @@ export function createAudioRuntime({
     preloadMelodySamples,
     playSyntheticTone,
     playTone,
+    prepareInputAudio,
+    startInputTone,
+    stopInputTone,
+    activeInputToneCount,
     playChick,
     loadBassSample,
     preloadBassSamples,

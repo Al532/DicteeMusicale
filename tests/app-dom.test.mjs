@@ -16,6 +16,7 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
 
   assert.equal(elements.homePanel.id, "home-panel");
   assert.equal(elements.gameSpeed.id, "game-speed");
+  assert.equal(elements.midiConnect.id, "midi-connect");
   assert.equal(elements.recordingModal.id, "recording-modal");
   assert.equal(
     elements.playRecordingWorkshopPhrase.id,
@@ -49,6 +50,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     },
     closePhraseEditor() {
       calls.push(["closePhraseEditor"]);
+    },
+    connectMidiInput() {
+      calls.push(["connectMidiInput"]);
     },
     editSelectedRecordingWorkshopPhrase() {
       calls.push(["editSelectedRecordingWorkshopPhrase"]);
@@ -96,6 +100,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
 
   elements.gameSpeed.value = "75";
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
+  elements.midiConnect.click();
   elements.startRating.click();
   elements.startLickExercise.click();
   elements.playRecordingWorkshopPhrase.click();
@@ -141,6 +146,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
 
   assert.deepEqual(calls, [
     ["syncGameSpeed", "75"],
+    ["connectMidiInput"],
     ["startMode", "rating"],
     ["startLickExercise"],
     ["playSelectedRecordingWorkshopPhrase"],
@@ -160,7 +166,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 14);
+  assert.equal(calls.length, 15);
 
   dom.window.close();
 });

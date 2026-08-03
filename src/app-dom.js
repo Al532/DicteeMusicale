@@ -40,6 +40,7 @@ export function queryAppElements(documentObject) {
     gameSpeed: documentObject.querySelector("#game-speed"),
     gameSpeedOutput: documentObject.querySelector("#game-speed-output"),
     gameSpeedSetting: documentObject.querySelector("#game-speed-setting"),
+    midiConnect: documentObject.querySelector("#midi-connect"),
     startLickExercise: documentObject.querySelector(
       "#start-lick-exercise",
     ),
@@ -186,6 +187,7 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.gameSpeed, "input", () =>
     actions.syncGameSpeed(elements.gameSpeed.value),
   );
+  listen(elements.midiConnect, "click", () => actions.connectMidiInput());
   listen(elements.startRating, "click", () => actions.startMode("rating"));
   listen(elements.startReview, "click", () => actions.startMode("review"));
   listen(elements.startLickExercise, "click", () =>

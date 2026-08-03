@@ -241,9 +241,61 @@ function createAudioHarness(clock) {
   return { calls, FakeAudioContext };
 }
 
+function createMidiHarness(window, enabled) {
+  const inputListeners = new Set();
+  const accessListeners = new Set();
+  const requestCalls = [];
+  const input = {
+    id: "midi-keyboard-1",
+    state: "connected",
+    type: "input",
+    addEventListener(type, listener) {
+      if (type === "midimessage") inputListeners.add(listener);
+    },
+    removeEventListener(type, listener) {
+      if (type === "midimessage") inputListeners.delete(listener);
+    },
+  };
+  const access = {
+    inputs: new Map([[input.id, input]]),
+    addEventListener(type, listener) {
+      if (type === "statechange") accessListeners.add(listener);
+    },
+    removeEventListener(type, listener) {
+      if (type === "statechange") accessListeners.delete(listener);
+    },
+  };
+
+  if (enabled) {
+    Object.defineProperty(window.navigator, "requestMIDIAccess", {
+      configurable: true,
+      value: async (options) => {
+        requestCalls.push(options);
+        return access;
+      },
+    });
+  }
+
+  return {
+    async disconnect() {
+      input.state = "disconnected";
+      for (const listener of accessListeners) listener({ port: input });
+      await flushMicrotasks(24);
+    },
+    requestCalls,
+    async send(data) {
+      for (const listener of inputListeners) {
+        listener({ data: Uint8Array.from(data) });
+      }
+      await flushMicrotasks(24);
+    },
+  };
+}
+
 export async function bootApp({
   deferCorpus = false,
   favorites = [],
+  midi = false,
   storage = {},
 } = {}) {
   // Chaque démarrage représente un nouveau chargement de page : le cache
@@ -260,6 +312,7 @@ export async function bootApp({
   const originals = new Map();
   const clock = createClock(dom.window);
   const audio = createAudioHarness(clock);
+  const midiHarness = createMidiHarness(dom.window, midi);
   const fetchCalls = [];
   const pendingCorpusFetches = [];
   const serviceWorkerCalls = [];
@@ -457,6 +510,7 @@ export async function bootApp({
     element,
     fetchCalls,
     flush: flushMicrotasks,
+    midi: midiHarness,
     pointerDown,
     pendingCorpusFetches,
     async resolveCorpusFetch(index = 0) {

@@ -51,6 +51,12 @@ exposés dans l’interface. Les fondamentales de basse suivent les accords
 annotés ; un chick de charleston marque les temps 2 et 4. La vitesse se règle
 directement sous le clavier pendant le jeu.
 
+Un clavier compatible Web MIDI peut être activé depuis le bouton `MIDI` en
+jeu. Les notes restent audibles jusqu’au relâchement de la touche ; seuls les
+note-on comptent pour la réponse. À chaque tentative, l’octave de la première
+note est automatiquement rapprochée de celle de la phrase, puis ce décalage
+reste fixe jusqu’au prochain essai.
+
 Le lecteur YouTube intégré ne s’affiche que pour les solos explicitement
 validés dans `data/recording-validations.js`. L’interface publique ne propose
 ni lien externe ni recherche de secours. Aucun enregistrement original n’est
