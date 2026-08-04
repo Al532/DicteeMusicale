@@ -509,7 +509,7 @@ body.home-view {
 
 .developer-home-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
@@ -2241,6 +2241,48 @@ body.phrase-editor-open {
 }
 
 @media (orientation: landscape) and (max-height: 600px) {
+  .developer-mode .home-panel {
+    height: 100dvh;
+    min-height: 0;
+    align-items: safe center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .developer-mode .challenge-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .developer-mode .challenge-actions > #start-challenge,
+  .developer-mode .challenge-actions > #resume-challenge,
+  .developer-mode .challenge-actions > #new-challenge,
+  .developer-mode .challenge-actions > .developer-home-actions {
+    grid-column: 1 / -1;
+  }
+
+  .developer-mode .home-actions .wide-button,
+  .developer-mode .free-mode-button {
+    min-width: 0;
+    min-height: 42px;
+    padding: 5px 10px;
+  }
+
+  .developer-mode .developer-home-actions {
+    gap: 5px;
+    margin-top: 3px;
+    padding-top: 7px;
+  }
+
+  .developer-mode .developer-home-actions button {
+    min-width: 0;
+    min-height: 38px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    line-height: 1.15;
+  }
+
   .modal-layer {
     padding:
       max(10px, env(safe-area-inset-top))

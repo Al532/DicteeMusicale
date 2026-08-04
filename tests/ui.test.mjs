@@ -348,6 +348,21 @@ test("la mise en page réserve la rotation au jeu avec piano", () => {
   );
 });
 
+test("l’accueil développeur reste accessible en paysage court", () => {
+  assert.match(
+    styles,
+    /\.developer-home-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+  );
+  assert.match(
+    styles,
+    /@media \(orientation: landscape\) and \(max-height: 600px\)[\s\S]*?\.developer-mode \.home-panel \{[\s\S]*?height: 100dvh;[\s\S]*?align-items: safe center;[\s\S]*?overflow-y: auto;/,
+  );
+  assert.match(
+    styles,
+    /@media \(orientation: landscape\) and \(max-height: 600px\)[\s\S]*?\.developer-mode \.challenge-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)[\s\S]*?\.developer-mode \.developer-home-actions button \{[\s\S]*?min-height: 38px/,
+  );
+});
+
 test("les contrôles de jeu conservent leur grille visuelle", () => {
   const gameControls = document.querySelector(".game-controls");
   assert.ok(gameControls);
