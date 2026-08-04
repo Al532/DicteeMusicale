@@ -196,7 +196,7 @@ export function createAppRenderer({
     elements.favoritesPanel.hidden = homeVisible;
   }
 
-  function renderFavorites(phrases, { onOpen, onRemove }) {
+  function renderFavorites(phrases, { onOpen }) {
     elements.favoritesList.replaceChildren();
     elements.favoritesEmpty.hidden = phrases.length > 0;
     for (const phrase of phrases) {
@@ -215,21 +215,7 @@ export function createAppRenderer({
       open.append(performer, title);
       open.addEventListener("click", () => onOpen(phrase.phraseKey));
 
-      const remove = documentObject.createElement("button");
-      remove.type = "button";
-      remove.className = "favorite-row-remove";
-      remove.textContent = "♥";
-      remove.setAttribute(
-        "aria-label",
-        translate("favorites.removeSpecific", {
-          performer: phrase.performer,
-          phrase: phraseNumber(phrase),
-          title: phrase.title,
-        }),
-      );
-      remove.addEventListener("click", () => onRemove(phrase.phraseKey));
-
-      row.append(open, remove);
+      row.append(open);
       elements.favoritesList.append(row);
     }
   }

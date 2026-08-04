@@ -622,13 +622,6 @@ function renderFavorites() {
 
   appRenderer.renderFavorites(favorites, {
     onOpen: startFreePhrase,
-    onRemove: (phraseKey) => {
-      favoritePhraseKeys = favoritePhraseKeys.filter(
-        (favoriteKey) => favoriteKey !== phraseKey,
-      );
-      writeJson(FAVORITES_KEY, favoritePhraseKeys);
-      renderFavorites();
-    },
   });
 }
 

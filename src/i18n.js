@@ -267,8 +267,6 @@ const messages = {
       "All nine rounds complete · sudden death ready to start.",
     "session.sudden": ({ count }) =>
       `Sudden death in progress · ${count} ${plural(count, "phrase", "phrases")} remaining.`,
-    "favorites.removeSpecific": ({ performer, phrase = "", title }) =>
-      `Remove ${performer}, ${title}${phrase ? `, phrase ${phrase}` : ""} from favorites`,
     "favorites.remove": ({ subject = "" }) =>
       `Remove${subject ? ` ${subject}` : ""} from favorites`,
     "favorites.addSubject": ({ subject = "" }) =>
@@ -625,8 +623,6 @@ const messages = {
       "Les neuf manches sont terminées · mort subite à lancer.",
     "session.sudden": ({ count }) =>
       `Mort subite en cours · ${count} phrase${count > 1 ? "s" : ""} restante${count > 1 ? "s" : ""}.`,
-    "favorites.removeSpecific": ({ performer, phrase = "", title }) =>
-      `Retirer ${performer}, ${title}${phrase ? `, phrase ${phrase}` : ""} des favoris`,
     "favorites.remove": ({ subject = "" }) =>
       `Retirer${subject ? ` ${subject}` : ""} des favoris`,
     "favorites.addSubject": ({ subject = "" }) =>

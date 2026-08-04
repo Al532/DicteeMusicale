@@ -885,11 +885,10 @@ output {
 
 .favorite-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 78px;
-  padding: 0 16px 0 20px;
+  padding: 0 20px;
   align-items: center;
-  gap: 16px;
   border: 1px solid var(--line);
   border-radius: 17px;
   background: rgba(25, 29, 23, 0.72);
@@ -920,16 +919,6 @@ output {
 .favorite-row-main span {
   color: var(--muted);
   font-size: 0.78rem;
-}
-
-.favorite-row-remove {
-  width: 40px;
-  height: 40px;
-  color: var(--accent);
-  border: 0;
-  background: transparent;
-  font-size: 1.5rem;
-  cursor: pointer;
 }
 
 .empty-state {

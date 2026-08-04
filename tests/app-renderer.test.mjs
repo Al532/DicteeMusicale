@@ -353,7 +353,6 @@ test("l’accueil et les favoris délèguent leurs actions sans état caché", (
     ],
     {
       onOpen: (phraseKey) => actions.push(["open", phraseKey]),
-      onRemove: (phraseKey) => actions.push(["remove", phraseKey]),
     },
   );
   assert.equal(elements.favoritesEmpty.hidden, true);
@@ -366,17 +365,12 @@ test("l’accueil et les favoris délèguent leurs actions sans état caché", (
     "Donna Lee · phrase 3",
   );
   assert.equal(
-    elements.favoritesList
-      .querySelector(".favorite-row-remove")
-      .getAttribute("aria-label"),
-    "Remove Charlie Parker, Donna Lee, phrase 3 from favorites",
+    elements.favoritesList.querySelector(".favorite-row-remove"),
+    null,
   );
+  assert.equal(elements.favoritesList.querySelectorAll("button").length, 1);
   elements.favoritesList.querySelector(".favorite-row-main").click();
-  elements.favoritesList.querySelector(".favorite-row-remove").click();
-  assert.deepEqual(actions, [
-    ["open", "solo:3"],
-    ["remove", "solo:3"],
-  ]);
+  assert.deepEqual(actions, [["open", "solo:3"]]);
 
   dom.window.close();
 });
