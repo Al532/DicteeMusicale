@@ -420,7 +420,7 @@ async function startLickExercise() {
     const tools = await ensureLickExerciseTools();
     if (currentMode !== "lick-exercise") return false;
     lickExerciseDeck = tools.shuffledLickDeck(
-      tools.classifiedVeryTypicalLicks(),
+      tools.playableVeryTypicalLicks(),
     );
     lickExerciseIndex = 0;
     lickExerciseNumber = 1;
@@ -877,7 +877,7 @@ async function moveToNextLickExercise() {
   }
   if (lickExerciseIndex >= lickExerciseDeck.length - 1) {
     lickExerciseDeck = tools.shuffledLickDeck(
-      tools.classifiedVeryTypicalLicks(),
+      tools.playableVeryTypicalLicks(),
       Math.random,
       previousLick.id,
     );

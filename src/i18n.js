@@ -52,7 +52,7 @@ const messages = {
     "lickExplorer.kicker": "Developer browser",
     "lickExplorer.title": "Lick Explorer",
     "lickExplorer.intro":
-      "Only very typical patterns with a clear harmonic function and starting degree are retained. They are grouped by function, then by starting degree, and played immediately as lightly swung eighth notes.",
+      "Browse all 58 very typical patterns. Clear contexts retain their function, starting degree and representative bass; ambiguous ones only receive a bass when a root has a strict majority among identifiable contexts.",
     "lickExplorer.navigation": "Lick navigation",
     "lickExplorer.previous": "Previous lick",
     "lickExplorer.next": "Next lick",
@@ -403,7 +403,7 @@ const messages = {
     "lickExplorer.kicker": "Explorateur développeur",
     "lickExplorer.title": "Lick Explorer",
     "lickExplorer.intro":
-      "Seuls les motifs très typiques dont la fonction harmonique et le degré de départ sont nets sont conservés. Ils sont groupés par fonction, puis par degré de départ, et joués immédiatement en croches légèrement swinguées.",
+      "Explore les 58 motifs très typiques. Les contextes nets gardent leur fonction, leur degré de départ et une basse représentative ; les cas ambigus ne reçoivent une basse que si une fondamentale obtient une majorité stricte parmi les contextes identifiables.",
     "lickExplorer.navigation": "Navigation entre les licks",
     "lickExplorer.previous": "Lick précédent",
     "lickExplorer.next": "Lick suivant",

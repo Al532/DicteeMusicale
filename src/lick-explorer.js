@@ -55,22 +55,22 @@ export function isVeryTypicalLick(lick) {
   );
 }
 
-export function isClassifiedVeryTypicalLick(lick) {
+export function isPlayableVeryTypicalLick(lick) {
   return Boolean(
     isVeryTypicalLick(lick) &&
       Object.hasOwn(DTL_RHYTHM_PILOT.licks, lick.id),
   );
 }
 
-export function classifiedVeryTypicalLicks(licks = DTL_LICKS) {
+export function playableVeryTypicalLicks(licks = DTL_LICKS) {
   const byId = new Map(licks.map((lick) => [lick.id, lick]));
   return Object.keys(DTL_RHYTHM_PILOT.licks)
     .map((lickId) => byId.get(lickId))
-    .filter(isClassifiedVeryTypicalLick);
+    .filter(isPlayableVeryTypicalLick);
 }
 
 export function shuffledLickDeck(
-  licks = classifiedVeryTypicalLicks(),
+  licks = playableVeryTypicalLicks(),
   random = Math.random,
   avoidFirstId = null,
 ) {
@@ -166,6 +166,15 @@ export function createSyntheticLickSequence(
   ) {
     throw new RangeError("The DTL pilot harmony change is inconsistent.");
   }
+  const bassInterval = Number(pilot.bassInterval);
+  const hasBass = Number.isInteger(bassInterval);
+  if (
+    hasBass &&
+    pilot.harmonyCount === 2 &&
+    !Number.isInteger(pilot.rootMotion)
+  ) {
+    throw new RangeError("The DTL pilot bass motion is inconsistent.");
+  }
 
   const semitones = normalizedTransposition(transposition);
   const ticksPerBeat = DTL_RHYTHM_PILOT.ticksPerBeat;
@@ -209,22 +218,24 @@ export function createSyntheticLickSequence(
   });
 
   const playbackEndTick = lastReleaseTick;
-  const firstBassRootPitchClass = pitchClass(
-    lick.notes[0] - pilot.startDegreePitchClass,
-  );
+  const firstBassRootPitchClass = hasBass
+    ? pitchClass(lick.notes[0] - bassInterval)
+    : null;
   const changeTick =
     pilot.harmonyCount === 2
       ? firstNoteTick + pilot.changeNoteIndex * eighthNoteTicks
       : null;
   const bassTicks = new Set();
-  for (
-    let tick = timelineStartTick;
-    tick < playbackEndTick;
-    tick += measureTicks
-  ) {
-    bassTicks.add(tick);
+  if (hasBass) {
+    for (
+      let tick = timelineStartTick;
+      tick < playbackEndTick;
+      tick += measureTicks
+    ) {
+      bassTicks.add(tick);
+    }
+    if (changeTick !== null) bassTicks.add(changeTick);
   }
-  if (changeTick !== null) bassTicks.add(changeTick);
   const orderedBassTicks = [...bassTicks].sort(
     (left, right) => left - right,
   );
@@ -274,6 +285,7 @@ export function createSyntheticLickSequence(
         harmonyCount: pilot.harmonyCount,
         changeNoteIndex: pilot.changeNoteIndex ?? null,
         changeBeat: pilot.changeBeat ?? null,
+        hasBass,
         timelineStartTick,
       },
     },
@@ -402,9 +414,9 @@ export function createLickExplorer({
   }
 
   const allLicks = licks;
-  const visibleLicks = classifiedVeryTypicalLicks(allLicks);
+  const visibleLicks = playableVeryTypicalLicks(allLicks);
   if (!visibleLicks.length) {
-    throw new TypeError("The classified DTL lick selection is empty.");
+    throw new TypeError("The playable DTL lick selection is empty.");
   }
   let index = 0;
   let transposition = 0;
@@ -458,6 +470,9 @@ export function createLickExplorer({
     elements.harmonicFunction.textContent =
       pilot?.harmonicFunction ?? "";
     elements.startDegree.textContent = pilot?.startDegree ?? "";
+    elements.harmonicFunction.parentElement.hidden =
+      !pilot?.harmonicFunction;
+    elements.startDegree.parentElement.hidden = !pilot?.startDegree;
     elements.occurrences.textContent = translate(
       "lickExplorer.occurrenceCount",
       { count: lick.occurrenceCount },

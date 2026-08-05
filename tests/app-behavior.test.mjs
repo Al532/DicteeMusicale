@@ -76,7 +76,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(app.element("#home-panel").hidden, true);
       assert.equal(app.element("#lick-explorer-panel").hidden, false);
       assert.equal(app.snapshot().lickExplorer.index, 0);
-      assert.equal(app.snapshot().lickExplorer.total, 19);
+      assert.equal(app.snapshot().lickExplorer.total, 58);
       assert.equal(app.snapshot().lickExplorer.patternId, "P01");
       assert.equal(app.snapshot().lickExplorer.harmonicFunction, "I");
       assert.equal(app.snapshot().lickExplorer.startDegree, "2");
@@ -175,7 +175,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       );
       assert.equal(first.lickExercise.index, 0);
       assert.equal(first.lickExercise.number, 1);
-      assert.equal(first.lickExercise.total, 19);
+      assert.equal(first.lickExercise.total, 58);
       assert.equal(
         new Set(first.lickExercise.deckIds).size,
         first.lickExercise.total,
@@ -262,9 +262,12 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         [...visitedFirstDeck].sort(),
         [...first.lickExercise.deckIds].sort(),
       );
-      assert.equal(current.lickExercise.number, 20);
+      assert.equal(
+        current.lickExercise.number,
+        first.lickExercise.total + 1,
+      );
       assert.equal(current.lickExercise.index, 0);
-      assert.equal(current.lickExercise.total, 19);
+      assert.equal(current.lickExercise.total, 58);
       assert.equal(
         new Set(current.lickExercise.deckIds).size,
         current.lickExercise.total,

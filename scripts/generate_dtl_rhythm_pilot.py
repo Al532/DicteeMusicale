@@ -13,9 +13,12 @@ For each lick it keeps only a compact harmonic consensus:
 - the note index that first belongs to the second harmony;
 - the root motion.
 
-Patterns whose function or starting degree is ambiguous are omitted.  The
-remaining catalog is ordered by harmonic function, then by starting degree,
-and receives stable display IDs in that order.
+Patterns whose function or starting degree is ambiguous remain in the catalog.
+They reuse the broader rhythmic consensus, and only receive a bass when its
+root relation (and, when needed, root motion) has a strict majority among the
+identifiable chord contexts.  The classified catalog stays first, ordered by
+harmonic function then starting degree, so its stable display IDs remain
+unchanged.
 
 The browser then plays every lick as swung eighth notes.  A one-harmony lick
 ends on beat 1; a two-harmony lick is shifted so its change note lands on the
@@ -96,6 +99,8 @@ MIN_FUNCTION_OBSERVATIONS = 3
 MIN_FUNCTION_CONTEXT_RATIO = 0.2
 MIN_FUNCTION_CLASSIFIED_RATIO = 0.55
 MIN_START_DEGREE_RATIO = 0.55
+MIN_PLAUSIBLE_BASS_SUPPORT = 0.5
+MIN_PLAUSIBLE_ROOT_MOTION_SUPPORT = 0.5
 
 
 def parse_args() -> argparse.Namespace:
@@ -165,6 +170,18 @@ def mode_with_count(values: Iterable[int]) -> tuple[int, int]:
     choices = [value for value, count in counts.items() if count == maximum]
     choice = min(choices, key=lambda value: (abs(value - median), value))
     return choice, maximum
+
+
+def chord_bass_pitch_class(chord: str | None) -> int | None:
+    symbol = str(chord or "").strip()
+    if not symbol or symbol == "NC":
+        return None
+    bass_symbol = symbol.split("/")[-1]
+    match = re.match(r"^([A-G])([b#]?)", bass_symbol)
+    if not match:
+        return None
+    accidental = {"b": -1, "#": 1}.get(match.group(2), 0)
+    return (NATURAL_PITCH_CLASSES[match.group(1)] + accidental) % 12
 
 
 def parsed_chord(
@@ -377,6 +394,9 @@ def measurements_for_occurrences(
 
                 first_chord = parsed_chord(harmony_runs[0]["chord"])
                 first_root = first_chord[0] if first_chord else None
+                first_bass = chord_bass_pitch_class(
+                    harmony_runs[0]["chord"],
+                )
                 collapsed_harmony_count = 1 if len(harmony_runs) == 1 else 2
                 measurement: dict[str, Any] = {
                     "meter": int(first["num"]),
@@ -391,6 +411,11 @@ def measurements_for_occurrences(
                         if first_root is not None
                         else None
                     ),
+                    "firstNoteBassInterval": (
+                        (int(first["pitch"]) - first_bass) % 12
+                        if first_bass is not None
+                        else None
+                    ),
                 }
 
                 if len(harmony_runs) >= 2:
@@ -402,6 +427,7 @@ def measurements_for_occurrences(
                     )
                     second_chord = parsed_chord(change["chord"])
                     second_root = second_chord[0] if second_chord else None
+                    second_bass = chord_bass_pitch_class(change["chord"])
                     measurement.update(
                         {
                             "changeBeat": int(change["beat"]),
@@ -410,6 +436,12 @@ def measurements_for_occurrences(
                                 (second_root - first_root) % 12
                                 if first_root is not None
                                 and second_root is not None
+                                else None
+                            ),
+                            "bassRootMotion": (
+                                (second_bass - first_bass) % 12
+                                if first_bass is not None
+                                and second_bass is not None
                                 else None
                             ),
                         },
@@ -421,6 +453,133 @@ def measurements_for_occurrences(
 
 def rounded_ratio(count: int, total: int) -> float:
     return round(count / total, 4)
+
+
+def build_rhythm_entry(
+    lick: dict[str, Any],
+    observations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build a profile without requiring a harmonic-function consensus."""
+    expected = int(lick["occurrenceCount"])
+    if len(observations) != expected:
+        raise ValueError(
+            f"DTL count mismatch for {lick['id']}: "
+            f"catalog={expected}, exact WJazzD matches={len(observations)}",
+        )
+
+    meter, meter_count = mode_with_count(
+        observation["meter"] for observation in observations
+    )
+    metrical = [
+        observation
+        for observation in observations
+        if observation["meter"] == meter
+    ]
+    harmony_count, harmony_count_support = mode_with_count(
+        observation["harmonyCount"] for observation in metrical
+    )
+    harmonic = [
+        observation
+        for observation in metrical
+        if observation["harmonyCount"] == harmony_count
+    ]
+
+    bass_observations = [
+        observation["firstNoteBassInterval"]
+        for observation in harmonic
+        if observation.get("firstNoteBassInterval") is not None
+    ]
+    if bass_observations:
+        bass_candidate, bass_count = mode_with_count(bass_observations)
+        bass_support = rounded_ratio(bass_count, len(bass_observations))
+    else:
+        bass_candidate = None
+        bass_support = 0
+    entry: dict[str, Any] = {
+        "meter": meter,
+        "harmonyCount": harmony_count,
+        "bassCandidateInterval": bass_candidate,
+        "observations": len(observations),
+        "meterSupport": rounded_ratio(meter_count, len(observations)),
+        "harmonySupport": rounded_ratio(
+            harmony_count_support,
+            len(metrical),
+        ),
+        "bassSupport": bass_support,
+    }
+
+    if harmony_count == 1:
+        target_note_index = len(lick["intervals"])
+        entry["startTick"] = (
+            -target_note_index * EIGHTH_NOTE_TICKS
+        ) % (meter * TICKS_PER_BEAT)
+        return entry
+
+    strong_change_observations = [
+        observation
+        for observation in harmonic
+        if observation.get("changeBeat") in (1, 3)
+        and isinstance(observation.get("changeNoteIndex"), int)
+    ]
+    if not strong_change_observations:
+        entry["harmonyCount"] = 1
+        entry["bassCandidateInterval"] = None
+        entry["bassSupport"] = 0
+        target_note_index = len(lick["intervals"])
+        entry["startTick"] = (
+            -target_note_index * EIGHTH_NOTE_TICKS
+        ) % (meter * TICKS_PER_BEAT)
+        return entry
+    change_beat, change_beat_count = mode_with_count(
+        observation["changeBeat"]
+        for observation in strong_change_observations
+    )
+    aligned_changes = [
+        observation
+        for observation in strong_change_observations
+        if observation["changeBeat"] == change_beat
+    ]
+    change_note_index, change_note_count = mode_with_count(
+        observation["changeNoteIndex"]
+        for observation in aligned_changes
+    )
+    root_motion_observations = [
+        observation["bassRootMotion"]
+        for observation in harmonic
+        if observation.get("bassRootMotion") is not None
+    ]
+    if root_motion_observations:
+        root_motion, root_motion_count = mode_with_count(
+            root_motion_observations,
+        )
+        root_motion_support = rounded_ratio(
+            root_motion_count,
+            len(root_motion_observations),
+        )
+    else:
+        root_motion = None
+        root_motion_support = 0
+    target_tick = (change_beat - 1) * TICKS_PER_BEAT
+    entry.update(
+        {
+            "startTick": (
+                target_tick - change_note_index * EIGHTH_NOTE_TICKS
+            ) % (meter * TICKS_PER_BEAT),
+            "changeNoteIndex": change_note_index,
+            "changeBeat": change_beat,
+            "rootMotion": root_motion,
+            "changeBeatSupport": rounded_ratio(
+                change_beat_count,
+                len(harmonic),
+            ),
+            "changeNoteSupport": rounded_ratio(
+                change_note_count,
+                len(aligned_changes),
+            ),
+            "rootMotionSupport": root_motion_support,
+        },
+    )
+    return entry
 
 
 def dominant_function(
@@ -440,7 +599,7 @@ def dominant_function(
     return function, counts[function], sum(counts.values())
 
 
-def build_pilot_entry(
+def build_classified_entry(
     lick: dict[str, Any],
     observations: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
@@ -603,11 +762,18 @@ def javascript_module(
     single_harmony_count = sum(
         entry["harmonyCount"] == 1 for entry in entries.values()
     )
+    classified_lick_count = sum(
+        entry["harmonicClassification"] == "classified"
+        for entry in entries.values()
+    )
+    bass_lick_count = sum(
+        "bassInterval" in entry for entry in entries.values()
+    )
     lines = [
         "// Generated by scripts/generate_dtl_rhythm_pilot.py from exact",
         "// DTL interval matches and WJazzD chord annotations.",
         "export const DTL_RHYTHM_PILOT = Object.freeze({",
-        '  source: "Very typical DTL patterns × WJazzD harmonic consensus",',
+        '  source: "Very typical DTL patterns × WJazzD rhythm and harmonic consensus",',
         f"  ticksPerBeat: {TICKS_PER_BEAT},",
         f"  eighthNoteTicks: {EIGHTH_NOTE_TICKS},",
         f"  tempo: {PILOT_TEMPO},",
@@ -616,7 +782,10 @@ def javascript_module(
         f"  analyzedOccurrenceCount: {analyzed_occurrence_count},",
         f"  lickCount: {len(entries)},",
         f"  occurrenceCount: {selected_occurrence_count},",
-        f"  excludedAmbiguousCount: {analyzed_lick_count - len(entries)},",
+        f"  classifiedLickCount: {classified_lick_count},",
+        f"  ambiguousLickCount: {len(entries) - classified_lick_count},",
+        f"  bassLickCount: {bass_lick_count},",
+        f"  basslessLickCount: {len(entries) - bass_lick_count},",
         f"  singleHarmonyCount: {single_harmony_count},",
         f"  twoHarmonyCount: {len(entries) - single_harmony_count},",
         "  licks: Object.freeze({",
@@ -646,18 +815,46 @@ def main() -> int:
     finally:
         connection.close()
 
-    generated_entries = []
+    classified_entries = []
+    ambiguous_entries = []
     for lick in licks:
-        entry = build_pilot_entry(lick, measurements[lick["id"]])
-        if entry is not None:
-            generated_entries.append((lick, entry))
-    generated_entries.sort(
+        observations = measurements[lick["id"]]
+        rhythm_entry = build_rhythm_entry(lick, observations)
+        classified_entry = build_classified_entry(lick, observations)
+        if classified_entry is not None:
+            classified_entry["harmonicClassification"] = "classified"
+            classified_entry["bassInterval"] = classified_entry[
+                "startDegreePitchClass"
+            ]
+            classified_entry["bassSupport"] = classified_entry[
+                "startDegreeSupport"
+            ]
+            classified_entries.append((lick, classified_entry))
+            continue
+
+        rhythm_entry["harmonicClassification"] = "ambiguous"
+        bass_candidate = rhythm_entry.pop("bassCandidateInterval")
+        has_stable_root_motion = (
+            rhythm_entry["harmonyCount"] == 1
+            or rhythm_entry.get("rootMotionSupport", 0)
+            > MIN_PLAUSIBLE_ROOT_MOTION_SUPPORT
+        )
+        if (
+            rhythm_entry["bassSupport"] > MIN_PLAUSIBLE_BASS_SUPPORT
+            and has_stable_root_motion
+        ):
+            rhythm_entry["bassInterval"] = bass_candidate
+        ambiguous_entries.append((lick, rhythm_entry))
+
+    classified_entries.sort(
         key=lambda item: (
             FUNCTION_ORDER[item[1]["harmonicFunction"]],
             item[1]["startDegreePitchClass"],
             item[0]["id"],
         ),
     )
+    ambiguous_entries.sort(key=lambda item: item[0]["id"])
+    generated_entries = classified_entries + ambiguous_entries
     entries: dict[str, dict[str, Any]] = {}
     for index, (lick, entry) in enumerate(generated_entries, start=1):
         entry["patternId"] = f"P{index:02d}"
@@ -676,9 +873,10 @@ def main() -> int:
         encoding="utf-8",
     )
     print(
-        f"Wrote {len(entries)} classified DTL harmony profiles; "
-        f"excluded {len(licks) - len(entries)} ambiguous patterns after "
-        f"analyzing {analyzed_occurrence_count} occurrences; "
+        f"Wrote {len(entries)} DTL rhythm profiles "
+        f"({len(classified_entries)} classified, "
+        f"{len(ambiguous_entries)} ambiguous) after analyzing "
+        f"{analyzed_occurrence_count} occurrences; "
         f"output: {args.output}",
     )
     return 0

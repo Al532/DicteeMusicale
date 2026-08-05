@@ -127,25 +127,28 @@ Les seuils statistiques « typique » et « très typique » restent disponibles
 dans le code pour reconstruire le corpus : le second conserve 58 motifs et
 1 300 occurrences exactes, avec notamment `log_excess_prob >= 2`.
 
-L’explorateur n’affiche que les motifs très typiques dont le contexte est assez
-net pour un usage pédagogique. `data/dtl-rhythm-pilot.js` croise les 1 300
-occurrences avec les accords et la tonalité WJazzD, choisit une fonction
+L’explorateur et le Lick trainer utilisent les 58 motifs très typiques.
+`data/dtl-rhythm-pilot.js` croise leurs 1 300 occurrences avec les accords et
+la tonalité WJazzD. Les 19 contextes les plus nets conservent une fonction
 harmonique majoritaire (`I`, `Im`, `V`, `II–V`, `V–I`, etc.) et le degré modal
-de la première note. Une fonction doit compter au moins trois observations,
+de la première note : une fonction doit compter au moins trois observations,
 représenter au moins 20 % des contextes de même nombre d’accords et 55 % des
-fonctions identifiables ; le degré initial doit lui aussi atteindre 55 %. Il
-reste actuellement 19 patterns, identifiés de `P01` à `P19`, groupés par
-fonction puis par degré de départ ; les 39 cas ambigus sont écartés.
+fonctions identifiables ; le degré initial doit lui aussi atteindre 55 %. Ces
+profils gardent les identifiants `P01` à `P19`. Les 39 profils harmoniquement
+ambigus sont rétablis sous les identifiants `P20` à `P58`.
 
 Le rythme interprété est volontairement uniforme : croches à 156 BPM avec un
 swing léger de 1,4:1. Un motif à une harmonie place sa dernière note sur 1 ; un
 motif à deux harmonies place la note de bascule sur le temps fort retenu. La
 lecture commence au début de la mesure où entre le pattern : il peut donc y
 avoir une introduction partielle, mais jamais une mesure entière à vide. La
-basse ne joue que sur les temps 1 et sur le changement d’harmonie ; chaque
-note tient jusqu’à la suivante et la dernière dépasse légèrement l’arrivée.
-Le hi-hat marque 2 et 4. L’occurrence WJD de référence reste disponible pour
-comparaison.
+basse n’est ajoutée que lorsque la fondamentale représentative et son éventuel
+mouvement obtiennent une majorité stricte parmi les contextes harmoniques
+identifiables : 35 profils ont ainsi une basse et les 23 autres restent
+volontairement sans basse. Quand elle est présente, elle ne joue que sur les
+temps 1 et sur le changement d’harmonie ; chaque note tient jusqu’à la suivante
+et la dernière dépasse légèrement l’arrivée. Le hi-hat marque 2 et 4.
+L’occurrence WJD de référence reste disponible pour comparaison.
 
 Pour régénérer ce corpus, télécharger `pattern_stats.RDS` avec le lien
 « Download data as RDS » de l’explorateur, puis lancer :

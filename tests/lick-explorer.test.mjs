@@ -10,12 +10,12 @@ import {
 import { DTL_RHYTHM_PILOT } from "../data/dtl-rhythm-pilot.js";
 import {
   adjustedLickSalience,
-  classifiedVeryTypicalLicks,
+  playableVeryTypicalLicks,
   createLickExplorer,
   createLickExerciseSequence,
   createLickSequence,
   createSyntheticLickSequence,
-  isClassifiedVeryTypicalLick,
+  isPlayableVeryTypicalLick,
   isTypicalLick,
   isVeryTypicalLick,
   moveLickIndex,
@@ -97,7 +97,7 @@ test("le filtre très typique exige aussi une forte surreprésentation", () => {
   );
 });
 
-test("le catalogue garde les consensus nets parmi les 58 licks très typiques", () => {
+test("le catalogue rétablit les 58 licks et réserve la basse aux consensus plausibles", () => {
   const veryTypicalLicks = DTL_LICKS.filter(isVeryTypicalLick);
   const catalogIds = Object.keys(DTL_RHYTHM_PILOT.licks);
   const catalogLicks = catalogIds.map((lickId) =>
@@ -106,19 +106,26 @@ test("le catalogue garde les consensus nets parmi les 58 licks très typiques", 
 
   assert.equal(DTL_RHYTHM_PILOT.analyzedLickCount, 58);
   assert.equal(DTL_RHYTHM_PILOT.analyzedOccurrenceCount, 1_300);
-  assert.equal(DTL_RHYTHM_PILOT.lickCount, 19);
-  assert.equal(DTL_RHYTHM_PILOT.occurrenceCount, 388);
-  assert.equal(DTL_RHYTHM_PILOT.excludedAmbiguousCount, 39);
-  assert.equal(DTL_RHYTHM_PILOT.singleHarmonyCount, 7);
-  assert.equal(DTL_RHYTHM_PILOT.twoHarmonyCount, 12);
+  assert.equal(DTL_RHYTHM_PILOT.lickCount, 58);
+  assert.equal(DTL_RHYTHM_PILOT.occurrenceCount, 1_300);
+  assert.equal(DTL_RHYTHM_PILOT.classifiedLickCount, 19);
+  assert.equal(DTL_RHYTHM_PILOT.ambiguousLickCount, 39);
+  assert.equal(DTL_RHYTHM_PILOT.bassLickCount, 35);
+  assert.equal(DTL_RHYTHM_PILOT.basslessLickCount, 23);
+  assert.equal(DTL_RHYTHM_PILOT.singleHarmonyCount, 25);
+  assert.equal(DTL_RHYTHM_PILOT.twoHarmonyCount, 33);
   assert.equal(DTL_RHYTHM_PILOT.eighthNoteTicks, 6);
   assert.equal(
-    catalogLicks.every(isClassifiedVeryTypicalLick),
+    catalogLicks.every(isPlayableVeryTypicalLick),
     true,
   );
   assert.equal(
-    veryTypicalLicks.filter(isClassifiedVeryTypicalLick).length,
+    veryTypicalLicks.filter(isPlayableVeryTypicalLick).length,
     catalogLicks.length,
+  );
+  assert.deepEqual(
+    [...catalogIds].sort(),
+    veryTypicalLicks.map(({ id }) => id).sort(),
   );
 
   const functionOrder = [
@@ -136,13 +143,6 @@ test("le catalogue garde les consensus nets parmi les 58 licks très typiques", 
     const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
     assert.equal(pilot.observations, lick.occurrenceCount);
     assert.equal(pilot.patternId, `P${String(catalogIndex + 1).padStart(2, "0")}`);
-    assert.ok(functionOrder.includes(pilot.harmonicFunction));
-    assert.equal(typeof pilot.startDegree, "string");
-    assert.ok(Number.isInteger(pilot.startDegreePitchClass));
-    assert.ok(pilot.functionObservations >= 3);
-    assert.ok(pilot.functionContextSupport >= 0.2);
-    assert.ok(pilot.functionClassifiedSupport >= 0.55);
-    assert.ok(pilot.startDegreeSupport >= 0.55);
     assert.equal(pilot.meter, 4);
     assert.equal(
       pilot.startTick % DTL_RHYTHM_PILOT.eighthNoteTicks,
@@ -152,16 +152,49 @@ test("le catalogue garde les consensus nets parmi les 58 licks très typiques", 
     assert.ok(pilot.meterSupport >= 0.8);
     assert.ok(pilot.harmonySupport >= 0.5);
 
-    const sortKey = [
-      functionOrder.indexOf(pilot.harmonicFunction),
-      pilot.startDegreePitchClass,
-    ];
-    assert.ok(
-      sortKey[0] > previousSortKey[0] ||
-        (sortKey[0] === previousSortKey[0] &&
-          sortKey[1] >= previousSortKey[1]),
-    );
-    previousSortKey = sortKey;
+    if (pilot.harmonicClassification === "classified") {
+      assert.ok(functionOrder.includes(pilot.harmonicFunction));
+      assert.equal(typeof pilot.startDegree, "string");
+      assert.ok(Number.isInteger(pilot.startDegreePitchClass));
+      assert.ok(pilot.functionObservations >= 3);
+      assert.ok(pilot.functionContextSupport >= 0.2);
+      assert.ok(pilot.functionClassifiedSupport >= 0.55);
+      assert.ok(pilot.startDegreeSupport >= 0.55);
+      assert.equal(pilot.bassInterval, pilot.startDegreePitchClass);
+
+      const sortKey = [
+        functionOrder.indexOf(pilot.harmonicFunction),
+        pilot.startDegreePitchClass,
+      ];
+      assert.ok(
+        sortKey[0] > previousSortKey[0] ||
+          (sortKey[0] === previousSortKey[0] &&
+            sortKey[1] >= previousSortKey[1]),
+      );
+      previousSortKey = sortKey;
+    } else {
+      assert.equal(pilot.harmonicClassification, "ambiguous");
+      assert.equal(pilot.harmonicFunction, undefined);
+      assert.equal(pilot.startDegree, undefined);
+      assert.equal(pilot.startDegreePitchClass, undefined);
+      assert.ok(catalogIndex >= DTL_RHYTHM_PILOT.classifiedLickCount);
+    }
+
+    if (Number.isInteger(pilot.bassInterval)) {
+      assert.ok(
+        pilot.harmonicClassification === "classified" ||
+          pilot.bassSupport > 0.5,
+      );
+      if (pilot.harmonyCount === 2) {
+        assert.ok(pilot.rootMotionSupport > 0.5);
+      }
+    } else {
+      assert.equal(pilot.harmonicClassification, "ambiguous");
+      assert.ok(
+        pilot.bassSupport <= 0.5 ||
+          (pilot.harmonyCount === 2 && pilot.rootMotionSupport <= 0.5),
+      );
+    }
 
     const targetNoteIndex =
       pilot.harmonyCount === 1
@@ -179,10 +212,15 @@ test("le catalogue garde les consensus nets parmi les 58 licks très typiques", 
       assert.ok(pilot.changeNoteIndex > 0);
       assert.ok(pilot.changeNoteIndex < lick.notes.length);
       assert.ok([1, 3].includes(pilot.changeBeat));
-      assert.ok(Number.isInteger(pilot.rootMotion));
       assert.ok(pilot.changeBeatSupport > 0);
       assert.ok(pilot.changeNoteSupport > 0);
-      assert.ok(pilot.rootMotionSupport > 0);
+      if (pilot.rootMotion === null) {
+        assert.equal(pilot.rootMotionSupport, 0);
+        assert.equal(Number.isInteger(pilot.bassInterval), false);
+      } else {
+        assert.ok(Number.isInteger(pilot.rootMotion));
+        assert.ok(pilot.rootMotionSupport > 0);
+      }
     }
   }
 });
@@ -354,6 +392,51 @@ test("le pilote joue les croches swinguées avec basse rare et 2 et 4", async ()
   }
 });
 
+test("un profil ambigu sans majorité garde la batterie mais aucune basse", async () => {
+  const dom = new JSDOM(html, { pretendToBeVisual: true });
+  const audio = createAudioHarness();
+  const lick = DTL_LICKS.find(({ id }) => id === "dtl-ph-0022");
+  const explorer = createLickExplorer({
+    audioRuntime: audio.runtime,
+    documentObject: dom.window.document,
+    licks: [lick],
+    windowObject: dom.window,
+  });
+
+  try {
+    explorer.open();
+    const snapshot = explorer.snapshot();
+    assert.equal(snapshot.total, 1);
+    assert.equal(snapshot.patternId, "P21");
+    assert.equal(snapshot.harmonicFunction, undefined);
+    assert.equal(snapshot.startDegree, undefined);
+    assert.equal(
+      dom.window.document.querySelector("#lick-explorer-harmonic-function")
+        .parentElement.hidden,
+      true,
+    );
+    assert.equal(
+      dom.window.document.querySelector("#lick-explorer-start-degree")
+        .parentElement.hidden,
+      true,
+    );
+
+    const played = await explorer.playOriginal();
+    assert.equal(played, true);
+    assert.equal(audio.calls.bassPreloads.length, 0);
+    assert.equal(audio.calls.bass.length, 0);
+    assert.ok(audio.calls.chicks.length > 0);
+    assert.equal(audio.calls.tones.length, lick.notes.length);
+
+    const sequence = createSyntheticLickSequence(lick);
+    assert.deepEqual(sequence.bassHits, []);
+    assert.equal(sequence.meta.source.hasBass, false);
+  } finally {
+    explorer.destroy();
+    dom.window.close();
+  }
+});
+
 test("la navigation joue automatiquement le nouveau lick", async () => {
   const dom = createReferenceDom();
   const audio = createAudioHarness();
@@ -382,7 +465,7 @@ test("la navigation joue automatiquement le nouveau lick", async () => {
   }
 });
 
-test("l’explorateur ne parcourt que les patterns classifiés", () => {
+test("l’explorateur parcourt les 58 patterns très typiques", () => {
   const dom = new JSDOM(html, { pretendToBeVisual: true });
   const audio = createAudioHarness();
   const explorer = createLickExplorer({
@@ -394,7 +477,7 @@ test("l’explorateur ne parcourt que les patterns classifiés", () => {
 
   try {
     explorer.open();
-    assert.equal(explorer.snapshot().total, 19);
+    assert.equal(explorer.snapshot().total, 58);
     assert.equal(explorer.snapshot().rhythmMode, "synthetic");
     assert.equal(explorer.snapshot().sourceTotal, 364);
     assert.equal(explorer.snapshot().patternId, "P01");
@@ -447,12 +530,12 @@ test("la transposition aléatoire conserve le motif et change de ton", () => {
 });
 
 test("la pioche mélange sans remise et évite un doublon à la reprise", () => {
-  const catalog = classifiedVeryTypicalLicks();
+  const catalog = playableVeryTypicalLicks();
   const originalIds = catalog.map(({ id }) => id);
   const deck = shuffledLickDeck(catalog, () => 0);
   const deckIds = deck.map(({ id }) => id);
 
-  assert.equal(deck.length, 19);
+  assert.equal(deck.length, 58);
   assert.equal(new Set(deckIds).size, deck.length);
   assert.deepEqual([...deckIds].sort(), [...originalIds].sort());
   assert.notDeepEqual(deckIds, originalIds);
@@ -467,7 +550,7 @@ test("la pioche mélange sans remise et évite un doublon à la reprise", () => 
 });
 
 test("une séquence d’exercice ajoute le clavier et l’identité du pattern", () => {
-  const lick = classifiedVeryTypicalLicks()[0];
+  const lick = playableVeryTypicalLicks()[0];
   const pilot = DTL_RHYTHM_PILOT.licks[lick.id];
   const sequence = createLickExerciseSequence(lick, 3);
 
@@ -553,14 +636,18 @@ test("toutes les reconstructions utilisent des croches et leur temps cible", () 
     const lastReleaseTick =
       firstNoteTick + lick.notes.length * DTL_RHYTHM_PILOT.eighthNoteTicks;
     const bassTicks = new Set();
-    for (
-      let tick = timelineStartTick;
-      tick < lastReleaseTick;
-      tick += measureTicks
-    ) {
-      bassTicks.add(tick);
+    const hasBass = Number.isInteger(pilot.bassInterval);
+    if (hasBass) {
+      for (
+        let tick = timelineStartTick;
+        tick < lastReleaseTick;
+        tick += measureTicks
+      ) {
+        bassTicks.add(tick);
+      }
+      if (pilot.harmonyCount === 2) bassTicks.add(targetTick);
     }
-    if (pilot.harmonyCount === 2) bassTicks.add(targetTick);
+    assert.equal(sequence.meta.source.hasBass, hasBass, lick.id);
     assert.deepEqual(
       sequence.bassHits.map(({ offset }) => offset),
       [...bassTicks]
@@ -587,7 +674,7 @@ test("toutes les reconstructions utilisent des croches et leur temps cible", () 
         lick.id,
       );
     });
-    assert.equal(sequence.bassHits[0].offset, 0, lick.id);
+    if (hasBass) assert.equal(sequence.bassHits[0].offset, 0, lick.id);
     assert.ok(
       sequence.bassHits.every(({ offset }) => offset >= 0),
       lick.id,
@@ -609,7 +696,7 @@ test("une harmonie finit sur 1 et la basse ne joue que sur les 1", () => {
   assert.ok(sequence.chicks.every(({ beat }) => beat === 2 || beat === 4));
   assert.equal(sequence.meta.source.kind, "dtl-lick-synthetic");
   const expectedBassPitchClass =
-    ((lick.notes[0] + 5 - pilot.startDegreePitchClass) % 12 + 12) % 12;
+    ((lick.notes[0] + 5 - pilot.bassInterval) % 12 + 12) % 12;
   assert.ok(
     sequence.bassHits.every(
       ({ midi }) => midi % 12 === expectedBassPitchClass,
@@ -631,7 +718,7 @@ test("deux harmonies placent et font entendre la bascule sur 3", () => {
   const sequence = createSyntheticLickSequence(lick, 0);
   const changeOffset = sequence.timings[pilot.changeNoteIndex].offset;
   const firstBassPitchClass =
-    ((lick.notes[0] - pilot.startDegreePitchClass) % 12 + 12) % 12;
+    ((lick.notes[0] - pilot.bassInterval) % 12 + 12) % 12;
   const secondBassPitchClass =
     (firstBassPitchClass + pilot.rootMotion) % 12;
 
