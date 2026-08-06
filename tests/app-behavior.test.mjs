@@ -5,6 +5,7 @@ import {
   enterExerciseNotes,
   finishPlayback,
 } from "./helpers/app-dom-harness.mjs";
+import { formatVideoTimestamp } from "../src/recording.js";
 
 const SETTINGS_KEY = "dictee-musicale.settings.v1";
 const RATINGS_KEY = "dictee-musicale.ratings.v1";
@@ -1069,6 +1070,29 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         workshopFirstMidi + 1,
       );
 
+      await youtube.waitFor(
+        () =>
+          !youtube.element("#recording-workshop-phrase-timestamp")
+            .disabled,
+        "chargement du minutage précis",
+      );
+      assert.equal(
+        youtube.element("#recording-workshop-phrase-timestamp").value,
+        formatVideoTimestamp(58.1878 + source.phraseOnsetStart),
+      );
+      const precisePhraseTimestamp = 75.432;
+      await youtube.change(
+        "#recording-workshop-phrase-timestamp",
+        "1:15.432",
+      );
+      const preciseOffset = Number(
+        (precisePhraseTimestamp - source.phraseOnsetStart).toFixed(4),
+      );
+      assert.equal(
+        Number(youtube.element("#recording-workshop-offset").value),
+        preciseOffset,
+      );
+
       const sourceCountBeforePhrase = youtube.audio.sources.length;
       await youtube.click("#play-recording-workshop-phrase");
       await youtube.waitFor(
@@ -1096,17 +1120,24 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(preview.searchParams.get("enablejsapi"), "1");
       assert.equal(
         preview.searchParams.get("start"),
-        String(Math.floor(58.1878 + source.onsetStart)),
+        String(Math.floor(preciseOffset + source.onsetStart)),
       );
       assert.equal(
         preview.searchParams.get("end"),
-        String(Math.ceil(58.1878 + source.onsetEnd + 0.25)),
+        String(Math.ceil(preciseOffset + source.onsetEnd + 0.25)),
       );
 
       await youtube.click('[data-recording-offset="0.1"]');
+      const adjustedOffset = Number((preciseOffset + 0.1).toFixed(4));
       assert.equal(
         Number(youtube.element("#recording-workshop-offset").value),
-        58.2878,
+        adjustedOffset,
+      );
+      assert.equal(
+        youtube.element("#recording-workshop-phrase-timestamp").value,
+        formatVideoTimestamp(
+          adjustedOffset + source.phraseOnsetStart,
+        ),
       );
       await youtube.click("#verify-recording-workshop");
       assert.deepEqual(
@@ -1116,7 +1147,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         {
           status: "verified",
           youtubeId: "wbU4zwhOGVg",
-          offset: 58.2878,
+          offset: adjustedOffset,
           updatedAt:
             youtube.storageJson(RECORDING_VALIDATIONS_KEY)[
               "wjazzd-v2.1-14"
@@ -1164,7 +1195,9 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         exportedCsv,
         /"youtube";"wjazzd-v2\.1-14"/,
       );
-      assert.match(exportedCsv, /"wbU4zwhOGVg";"58\.2878"/);
+      assert.ok(
+        exportedCsv.includes(`"wbU4zwhOGVg";"${adjustedOffset}"`),
+      );
 
       await youtube.click("#open-favorites");
       await youtube.click(".favorite-row-main");
@@ -1183,10 +1216,10 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
 
       const embed = new URL(youtube.element("#recording-player").src);
       const expectedStart = Math.floor(
-        58.2878 + validatedSource.onsetStart,
+        adjustedOffset + validatedSource.onsetStart,
       );
       const expectedEnd = Math.ceil(
-        58.2878 + validatedSource.onsetEnd + 0.25,
+        adjustedOffset + validatedSource.onsetEnd + 0.25,
       );
       assert.equal(embed.hostname, "www.youtube-nocookie.com");
       assert.equal(embed.searchParams.get("start"), String(expectedStart));

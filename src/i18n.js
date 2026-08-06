@@ -117,6 +117,8 @@ const messages = {
     "recordingWorkshop.offset": "Solo offset (seconds)",
     "recordingWorkshop.adjustOffset": "Adjust solo offset",
     "recordingWorkshop.phrase": "Test phrase",
+    "recordingWorkshop.phraseTimestamp":
+      "Exact phrase start in the video (min:s.mmm)",
     "recordingWorkshop.phraseNumber": ({ phrase }) => `Phrase ${phrase}`,
     "recordingWorkshop.playPhrase": "Play phrase",
     "recordingWorkshop.preview": "Preview",
@@ -125,9 +127,11 @@ const messages = {
     "recordingWorkshop.reject": "Wrong version",
     "recordingWorkshop.unavailable": "Unavailable",
     "recordingWorkshop.invalid": "Enter a valid video and offset.",
+    "recordingWorkshop.invalidPhraseTimestamp":
+      "Enter a valid timestamp, for example 1:23.456.",
     "recordingWorkshop.loading": "Loading phrase…",
     "recordingWorkshop.previewReady": ({ phrase, start }) =>
-      `Phrase ${phrase} starts at ${start} s.`,
+      `Phrase ${phrase} starts at ${start}.`,
     "recordingWorkshop.phrasePlaying": "Playing the app phrase.",
     "recordingWorkshop.loadError": "Unable to load this phrase.",
     "recordingWorkshop.saved": "Recording validated.",
@@ -471,6 +475,8 @@ const messages = {
     "recordingWorkshop.offset": "Décalage du solo (secondes)",
     "recordingWorkshop.adjustOffset": "Ajuster le décalage du solo",
     "recordingWorkshop.phrase": "Phrase de test",
+    "recordingWorkshop.phraseTimestamp":
+      "Début précis de la phrase dans la vidéo (min:s.mmm)",
     "recordingWorkshop.phraseNumber": ({ phrase }) => `Phrase ${phrase}`,
     "recordingWorkshop.playPhrase": "Écouter la phrase",
     "recordingWorkshop.preview": "Tester",
@@ -480,9 +486,11 @@ const messages = {
     "recordingWorkshop.unavailable": "Indisponible",
     "recordingWorkshop.invalid":
       "Saisis une vidéo et un décalage valides.",
+    "recordingWorkshop.invalidPhraseTimestamp":
+      "Saisis un minutage valide, par exemple 1:23.456.",
     "recordingWorkshop.loading": "Chargement de la phrase…",
     "recordingWorkshop.previewReady": ({ phrase, start }) =>
-      `La phrase ${phrase} commence à ${start} s.`,
+      `La phrase ${phrase} commence à ${start}.`,
     "recordingWorkshop.phrasePlaying":
       "Lecture de la phrase dans l’application.",
     "recordingWorkshop.loadError":

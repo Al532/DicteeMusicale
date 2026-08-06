@@ -2,10 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  formatVideoTimestamp,
   mergeRecordingValidations,
   normalizeRecordingValidation,
+  offsetAtPhraseTimestamp,
+  parseVideoTimestamp,
   recordingValidationsModule,
   recordingsAtPhrase,
+  timestampAtPhrase,
   youtubeIdFromValue,
 } from "../src/recording.js";
 import { DEFAULT_PHRASE_RATINGS } from "../data/default-ratings.js";
@@ -14,6 +18,36 @@ import { WJAZZD_SOLO_INDEX } from "../data/wjazzd-index.js";
 import {
   YOUTUBE_SEARCH_RECORDINGS,
 } from "../data/youtube-search-recordings.js";
+
+test("les minutages vidéo précis acceptent les formats usuels", () => {
+  assert.equal(parseVideoTimestamp("1:23.456"), 83.456);
+  assert.equal(parseVideoTimestamp("1:23,456"), 83.456);
+  assert.equal(parseVideoTimestamp("83.456"), 83.456);
+  assert.equal(parseVideoTimestamp("1:02:03.004"), 3723.004);
+  assert.equal(parseVideoTimestamp("1:60.000"), null);
+  assert.equal(parseVideoTimestamp("1:02:60"), null);
+  assert.equal(parseVideoTimestamp("minutage"), null);
+
+  assert.equal(formatVideoTimestamp(83.456), "1:23.456");
+  assert.equal(formatVideoTimestamp(3723.004), "1:02:03.004");
+  assert.equal(formatVideoTimestamp(59.9996), "1:00.000");
+  assert.equal(formatVideoTimestamp(null), "");
+});
+
+test("le minutage d’une phrase se convertit sans changer le schéma du solo", () => {
+  const source = {
+    onsetStart: 24,
+    phraseOnsetStart: 25.1234,
+  };
+  const timestamp = timestampAtPhrase(58.1878, source);
+  assert.equal(Number(timestamp.toFixed(4)), 83.3112);
+  assert.equal(
+    Number(offsetAtPhraseTimestamp(timestamp, source).toFixed(4)),
+    58.1878,
+  );
+  assert.equal(timestampAtPhrase(10, { onsetStart: 2.5 }), 12.5);
+  assert.equal(offsetAtPhraseTimestamp(null, source), null);
+});
 
 test("les sources directes et décisions intégrées non validées restent invisibles", () => {
   assert.deepEqual(

@@ -1,13 +1,13 @@
 const CACHE_PREFIX = "dictee-musicale-";
-const SHELL_CACHE = `${CACHE_PREFIX}shell-v74`;
+const SHELL_CACHE = `${CACHE_PREFIX}shell-v75`;
 const CORPUS_CACHE = `${CACHE_PREFIX}corpus-0bebff94`;
 const CORPUS_MANIFEST = "./data/wjazzd-blocks/manifest.json";
 const CORPUS_BLOCK_PATH = "/data/wjazzd-blocks/block-";
 
 const CORE_SHELL = [
   "./index.html",
-  "./styles.css?v=74",
-  "./src/app.js?v=74",
+  "./styles.css?v=75",
+  "./src/app.js?v=75",
   "./src/app-dom.js",
   "./src/app-renderer.js",
   "./src/app-shell.js",

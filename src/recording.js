@@ -8,6 +8,92 @@ const RECORDING_STATUSES = new Set([
   "unavailable",
 ]);
 
+export function parseVideoTimestamp(value) {
+  const text = String(value ?? "").trim().replace(",", ".");
+  if (!text) return null;
+
+  const parts = text.split(":");
+  if (parts.length > 3) return null;
+  const secondsText = parts.at(-1);
+  if (!/^\d+(?:\.\d+)?$/.test(secondsText)) return null;
+  if (parts.slice(0, -1).some((part) => !/^\d+$/.test(part))) {
+    return null;
+  }
+
+  const seconds = Number(secondsText);
+  if (!Number.isFinite(seconds) || (parts.length > 1 && seconds >= 60)) {
+    return null;
+  }
+  if (parts.length === 1) return seconds;
+
+  const minutes = Number(parts.at(-2));
+  if (
+    !Number.isFinite(minutes) ||
+    (parts.length === 3 && minutes >= 60)
+  ) {
+    return null;
+  }
+  const hours = parts.length === 3 ? Number(parts[0]) : 0;
+  const total = hours * 3600 + minutes * 60 + seconds;
+  return Number.isFinite(total) ? total : null;
+}
+
+export function formatVideoTimestamp(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) return "";
+
+  const totalMilliseconds = Math.round(seconds * 1000);
+  const hours = Math.floor(totalMilliseconds / 3_600_000);
+  const minutes = Math.floor(
+    (totalMilliseconds % 3_600_000) / 60_000,
+  );
+  const wholeSeconds = Math.floor(
+    (totalMilliseconds % 60_000) / 1000,
+  );
+  const milliseconds = totalMilliseconds % 1000;
+  const secondText =
+    `${String(wholeSeconds).padStart(2, "0")}.` +
+    String(milliseconds).padStart(3, "0");
+  if (hours) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${secondText}`;
+  }
+  return `${minutes}:${secondText}`;
+}
+
+function phraseOnset(source) {
+  const phraseStart = Number(source?.phraseOnsetStart);
+  if (Number.isFinite(phraseStart)) return phraseStart;
+  const playbackStart = Number(source?.onsetStart);
+  return Number.isFinite(playbackStart) ? playbackStart : null;
+}
+
+export function timestampAtPhrase(offset, source) {
+  if (offset === null || offset === undefined || offset === "") {
+    return null;
+  }
+  const start = phraseOnset(source);
+  const normalizedOffset = Number(offset);
+  if (!Number.isFinite(normalizedOffset) || start === null) return null;
+  return Math.max(0, normalizedOffset + start);
+}
+
+export function offsetAtPhraseTimestamp(timestamp, source) {
+  if (timestamp === null || timestamp === undefined || timestamp === "") {
+    return null;
+  }
+  const start = phraseOnset(source);
+  const normalizedTimestamp = Number(timestamp);
+  if (
+    !Number.isFinite(normalizedTimestamp) ||
+    normalizedTimestamp < 0 ||
+    start === null
+  ) {
+    return null;
+  }
+  return normalizedTimestamp - start;
+}
+
 export function youtubeIdFromValue(value) {
   const text = String(value ?? "").trim();
   if (YOUTUBE_ID_PATTERN.test(text)) return text;

@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=74" />
-    <script type="module" src="./src/app.js?v=74"></script>
+    <link rel="stylesheet" href="./styles.css?v=75" />
+    <script type="module" src="./src/app.js?v=75"></script>
   </head>
   <body>
     <div
@@ -462,6 +462,20 @@
               <label class="workshop-field">
                 <span data-i18n="recordingWorkshop.phrase">Test phrase</span>
                 <select id="recording-workshop-phrase"></select>
+              </label>
+              <label class="workshop-field">
+                <span data-i18n="recordingWorkshop.phraseTimestamp">
+                  Exact phrase start in the video (min:s.mmm)
+                </span>
+                <input
+                  id="recording-workshop-phrase-timestamp"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="1:23.456"
+                  disabled
+                />
               </label>
               <div class="recording-phrase-actions">
                 <button

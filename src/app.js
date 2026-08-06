@@ -332,8 +332,16 @@ function selectRecordingWorkshopCandidate() {
   recordingWorkshop?.selectCandidate();
 }
 
+function selectRecordingWorkshopPhrase() {
+  recordingWorkshop?.selectPhrase();
+}
+
 function useManualRecordingCandidate() {
   recordingWorkshop?.useManualCandidate();
+}
+
+function useRecordingWorkshopPhraseTimestamp() {
+  recordingWorkshop?.usePhraseTimestamp();
 }
 
 function adjustRecordingOffset(delta) {
@@ -1421,6 +1429,9 @@ function saveCurrentPhraseEvents(editedEvents, originalEvents) {
       reloadCurrent: target.origin === "exercise",
     },
   );
+  if (saved && target.origin === "workshop") {
+    void recordingWorkshop?.refreshPhraseTimestamp();
+  }
   phraseEditorTarget = null;
   return saved;
 }
@@ -2475,6 +2486,7 @@ bindAppEvents(
     rejectRecordingWorkshop,
     resumeChallenge,
     selectRecordingWorkshopCandidate,
+    selectRecordingWorkshopPhrase,
     selectRecordingWorkshopSolo,
     setDeveloperMode,
     setQuickRating,
@@ -2493,6 +2505,7 @@ bindAppEvents(
     transposeFreePhrase,
     undoLastRating,
     useManualRecordingCandidate,
+    useRecordingWorkshopPhraseTimestamp,
     verifyRecordingWorkshop,
   },
   document,

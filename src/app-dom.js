@@ -83,6 +83,9 @@ export function queryAppElements(documentObject) {
     recordingWorkshopPhrase: documentObject.querySelector(
       "#recording-workshop-phrase",
     ),
+    recordingWorkshopPhraseTimestamp: documentObject.querySelector(
+      "#recording-workshop-phrase-timestamp",
+    ),
     previewRecordingWorkshop: documentObject.querySelector(
       "#preview-recording-workshop",
     ),
@@ -221,6 +224,12 @@ export function bindAppEvents(elements, actions, documentObject) {
       actions.adjustRecordingOffset(Number(button.dataset.recordingOffset)),
     );
   }
+  listen(elements.recordingWorkshopPhrase, "change", () =>
+    actions.selectRecordingWorkshopPhrase(),
+  );
+  listen(elements.recordingWorkshopPhraseTimestamp, "change", () =>
+    actions.useRecordingWorkshopPhraseTimestamp(),
+  );
   listen(elements.previewRecordingWorkshop, "click", () =>
     actions.previewRecordingWorkshop(),
   );

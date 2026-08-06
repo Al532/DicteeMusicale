@@ -6,9 +6,13 @@ import {
   WJAZZD_SOLO_INDEX,
 } from "./corpus-loader.js";
 import {
+  formatVideoTimestamp,
   mergeRecordingValidations,
   normalizeRecordingValidations,
+  offsetAtPhraseTimestamp,
+  parseVideoTimestamp,
   recordingChoiceAtPhrase,
+  timestampAtPhrase,
   youtubeIdFromValue,
 } from "./recording.js";
 
@@ -41,6 +45,9 @@ export function createRecordingWorkshop({
   let localValidations = normalizeRecordingValidations(
     initialLocalValidations,
   );
+  let phraseTimestampInvalid = false;
+  let phraseTimestampSource = null;
+  let phraseTimestampVersion = 0;
   let previewVersion = 0;
   let reviewPhraseKeySet = new Set();
 
@@ -292,6 +299,7 @@ export function createRecordingWorkshop({
     renderCandidates();
     renderPhrases();
     renderCurrentStatus();
+    void refreshPhraseTimestamp();
   }
 
   function selectCandidate() {
@@ -302,6 +310,7 @@ export function createRecordingWorkshop({
     if (!candidate) return;
     elements.recordingWorkshopYoutube.value = candidate.youtubeId;
     elements.recordingWorkshopOffset.value = String(candidate.offset);
+    syncPhraseTimestampFromOffset();
   }
 
   function useManualCandidate() {
@@ -314,6 +323,7 @@ export function createRecordingWorkshop({
     ) {
       elements.recordingWorkshopCandidate.value = "manual";
     }
+    syncPhraseTimestampFromOffset();
     stopPreview();
   }
 
@@ -323,7 +333,117 @@ export function createRecordingWorkshop({
     return solo && phrase ? `${solo.id}:${phrase}` : null;
   }
 
+  function setPhraseTimestampValidity(valid = true) {
+    phraseTimestampInvalid = !valid;
+    elements.recordingWorkshopPhraseTimestamp.toggleAttribute(
+      "aria-invalid",
+      !valid,
+    );
+    elements.recordingWorkshopPhraseTimestamp.setCustomValidity?.(
+      valid ? "" : translate("recordingWorkshop.invalidPhraseTimestamp"),
+    );
+  }
+
+  function showInvalidPhraseTimestamp() {
+    elements.recordingWorkshopMessage.textContent = translate(
+      "recordingWorkshop.invalidPhraseTimestamp",
+    );
+    elements.recordingWorkshopMessage.className =
+      "recording-workshop-message error";
+  }
+
+  function syncPhraseTimestampFromOffset() {
+    const phraseKey = selectedPhraseKey();
+    if (
+      !phraseTimestampSource ||
+      phraseTimestampSource.phraseKey !== phraseKey
+    ) {
+      return;
+    }
+    const timestamp = timestampAtPhrase(
+      elements.recordingWorkshopOffset.value,
+      phraseTimestampSource.source,
+    );
+    elements.recordingWorkshopPhraseTimestamp.value =
+      formatVideoTimestamp(timestamp);
+    setPhraseTimestampValidity();
+  }
+
+  async function refreshPhraseTimestamp() {
+    const phraseKey = selectedPhraseKey();
+    const version = ++phraseTimestampVersion;
+    phraseTimestampSource = null;
+    elements.recordingWorkshopPhraseTimestamp.value = "";
+    elements.recordingWorkshopPhraseTimestamp.disabled = true;
+    setPhraseTimestampValidity();
+    if (!phraseKey) return;
+
+    try {
+      const generated = await loadPhrasePreview(phraseKey);
+      if (
+        version !== phraseTimestampVersion ||
+        selectedPhraseKey() !== phraseKey
+      ) {
+        return;
+      }
+      const source = generated?.meta?.source;
+      const timestamp = timestampAtPhrase(
+        elements.recordingWorkshopOffset.value,
+        source,
+      );
+      if (timestamp === null) throw new Error("Invalid phrase timestamp");
+      phraseTimestampSource = { phraseKey, source };
+      elements.recordingWorkshopPhraseTimestamp.value =
+        formatVideoTimestamp(timestamp);
+      elements.recordingWorkshopPhraseTimestamp.disabled = false;
+    } catch {
+      if (version !== phraseTimestampVersion) return;
+      phraseTimestampSource = null;
+    }
+  }
+
+  function selectPhrase() {
+    stopPreview();
+    void refreshPhraseTimestamp();
+  }
+
+  function usePhraseTimestamp() {
+    const phraseKey = selectedPhraseKey();
+    const timestamp = parseVideoTimestamp(
+      elements.recordingWorkshopPhraseTimestamp.value,
+    );
+    const offset =
+      phraseTimestampSource?.phraseKey === phraseKey
+        ? offsetAtPhraseTimestamp(
+            timestamp,
+            phraseTimestampSource.source,
+          )
+        : null;
+    if (offset === null) {
+      setPhraseTimestampValidity(false);
+      stopPreview({ clearStatus: false });
+      showInvalidPhraseTimestamp();
+      return;
+    }
+
+    setPhraseTimestampValidity();
+    elements.recordingWorkshopPhraseTimestamp.value =
+      formatVideoTimestamp(timestamp);
+    elements.recordingWorkshopOffset.value = String(roundedOffset(offset));
+    if (!elements.recordingWorkshopPreview.hidden) {
+      void preview();
+    } else {
+      elements.recordingWorkshopMessage.textContent = "";
+      elements.recordingWorkshopMessage.className =
+        "recording-workshop-message";
+    }
+  }
+
   async function preview() {
+    if (phraseTimestampInvalid) {
+      showInvalidPhraseTimestamp();
+      return;
+    }
     const solo = selectedSolo();
     const youtubeId = youtubeIdFromValue(
       elements.recordingWorkshopYoutube.value,
@@ -359,7 +479,7 @@ export function createRecordingWorkshop({
         "recordingWorkshop.previewReady",
         {
           phrase,
-          start: choice.exactStart.toFixed(2),
+          start: formatVideoTimestamp(timestampAtPhrase(offset, source)),
         },
       );
       windowObject.setTimeout(() => {
@@ -427,6 +547,7 @@ export function createRecordingWorkshop({
       (Number.isFinite(current) ? current : 0) + Number(delta),
     );
     elements.recordingWorkshopOffset.value = String(next);
+    syncPhraseTimestampFromOffset();
     if (!elements.recordingWorkshopPreview.hidden) void preview();
   }
 
@@ -435,6 +556,10 @@ export function createRecordingWorkshop({
   }
 
   function verify() {
+    if (phraseTimestampInvalid) {
+      showInvalidPhraseTimestamp();
+      return;
+    }
     const youtubeId = youtubeIdFromValue(
       elements.recordingWorkshopYoutube.value,
     );
@@ -540,11 +665,14 @@ export function createRecordingWorkshop({
     playPhrase,
     preview,
     reject,
+    refreshPhraseTimestamp,
     selectCandidate,
+    selectPhrase,
     selectedPhraseKey,
     selectSolo,
     stopPreview,
     useManualCandidate,
+    usePhraseTimestamp,
     verify,
   });
 }
