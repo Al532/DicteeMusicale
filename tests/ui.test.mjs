@@ -223,6 +223,12 @@ test("les favoris et les originaux conservent leur structure publique", () => {
   assert.equal(elements.favoritesEmpty.id, "favorites-empty");
   assert.equal(elements.favoritesRandom.dataset.i18n, "favorites.random");
   assert.equal(elements.freeRandom.dataset.i18nAriaLabel, "free.random");
+  const freeRandomIcon = elements.freeRandom.querySelector(
+    ".free-random-icon",
+  );
+  assert.equal(freeRandomIcon?.tagName, "svg");
+  assert.equal(freeRandomIcon?.getAttribute("aria-hidden"), "true");
+  assert.equal(freeRandomIcon?.getAttribute("viewBox"), "0 0 20 20");
   assert.equal(elements.freeTranspose.hidden, true);
   assert.equal(
     elements.freeTranspose.querySelector("[data-i18n]")?.dataset.i18n,

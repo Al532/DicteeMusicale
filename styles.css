@@ -1281,6 +1281,17 @@ body.game-mode {
   margin-left: 3px;
 }
 
+.free-random-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .review-navigation strong,
 .free-navigation strong {
   min-width: 70px;
