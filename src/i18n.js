@@ -139,6 +139,7 @@ const messages = {
     "favorites.title": "My phrases",
     "favorites.intro":
       "Choose a phrase, then explore it freely in all twelve keys.",
+    "favorites.random": "Choose at random",
     "favorites.empty.title": "No favorite phrases",
     "favorites.empty.body":
       "Add favorites during a challenge to find them here.",
@@ -167,6 +168,7 @@ const messages = {
     "free.otherKey": "Another key",
     "free.previous": "Previous phrase",
     "free.next": "Next phrase",
+    "free.random": "Random phrase",
     "common.next": "Next",
     "common.skip": "Skip",
     "phrase.number": ({ phrase }) => `phrase ${phrase}`,
@@ -494,6 +496,7 @@ const messages = {
     "favorites.title": "Mes phrases",
     "favorites.intro":
       "Choisis une phrase, puis explore-la librement dans les douze tons.",
+    "favorites.random": "Choisir au hasard",
     "favorites.empty.title": "Aucune phrase favorite",
     "favorites.empty.body":
       "Ajoute des favoris pendant un défi pour les retrouver ici.",
@@ -522,6 +525,7 @@ const messages = {
     "free.otherKey": "Autre ton",
     "free.previous": "Phrase précédente",
     "free.next": "Phrase suivante",
+    "free.random": "Phrase au hasard",
     "common.next": "Suivant",
     "common.skip": "Passer",
     "phrase.number": ({ phrase }) => `phrase ${phrase}`,

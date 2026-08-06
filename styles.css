@@ -878,6 +878,11 @@ output {
   line-height: 1.55;
 }
 
+.favorites-random-button {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
 .favorites-list {
   display: grid;
   gap: 9px;
@@ -1270,6 +1275,10 @@ body.game-mode {
   min-width: 34px;
   height: 34px;
   min-height: 34px;
+}
+
+.free-navigation .free-random-button {
+  margin-left: 3px;
 }
 
 .review-navigation strong,

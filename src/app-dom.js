@@ -14,6 +14,7 @@ export function queryAppElements(documentObject) {
     sessionStatus: documentObject.querySelector("#session-status"),
     openFavorites: documentObject.querySelector("#open-favorites"),
     closeFavorites: documentObject.querySelector("#close-favorites"),
+    favoritesRandom: documentObject.querySelector("#favorites-random"),
     favoritesList: documentObject.querySelector("#favorites-list"),
     favoritesEmpty: documentObject.querySelector("#favorites-empty"),
     favoriteToggle: documentObject.querySelector("#favorite-toggle"),
@@ -21,6 +22,7 @@ export function queryAppElements(documentObject) {
     freeNavigation: documentObject.querySelector("#free-navigation"),
     freePrevious: documentObject.querySelector("#free-previous"),
     freeNext: documentObject.querySelector("#free-next"),
+    freeRandom: documentObject.querySelector("#free-random"),
     freeCounter: documentObject.querySelector("#free-counter"),
     challengeProgress: documentObject.querySelector("#challenge-progress"),
     progressTitle: documentObject.querySelector("#progress-title"),
@@ -242,6 +244,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.newChallenge, "click", () => actions.startNewChallenge());
   listen(elements.openFavorites, "click", () => actions.showFavorites());
   listen(elements.closeFavorites, "click", () => actions.showHome());
+  listen(elements.favoritesRandom, "click", () =>
+    actions.chooseRandomFreePhrase(false),
+  );
   listen(elements.favoriteToggle, "click", () =>
     actions.toggleCurrentFavorite(),
   );
@@ -250,6 +255,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   );
   listen(elements.freePrevious, "click", () => actions.moveFreePhrase(-1));
   listen(elements.freeNext, "click", () => actions.moveFreePhrase(1));
+  listen(elements.freeRandom, "click", () =>
+    actions.chooseRandomFreePhrase(true),
+  );
   listen(elements.startSuddenDeath, "click", () =>
     actions.launchSuddenDeath(),
   );

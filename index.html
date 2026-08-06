@@ -26,8 +26,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=72" />
-    <script type="module" src="./src/app.js?v=72"></script>
+    <link rel="stylesheet" href="./styles.css?v=73" />
+    <script type="module" src="./src/app.js?v=73"></script>
   </head>
   <body>
     <div
@@ -213,6 +213,12 @@
         <p class="favorites-intro" data-i18n="favorites.intro">
           Choose a phrase, then explore it freely in all twelve keys.
         </p>
+        <button
+          class="quiet-button favorites-random-button"
+          id="favorites-random"
+          type="button"
+          data-i18n="favorites.random"
+        >Choose at random</button>
         <div class="favorites-list" id="favorites-list"></div>
         <div class="empty-state" id="favorites-empty" hidden>
           <span aria-hidden="true">♡</span>
@@ -594,6 +600,15 @@
               aria-label="Next phrase"
               data-i18n-aria-label="free.next"
             >→</button>
+            <button
+              class="icon-button compact free-random-button"
+              id="free-random"
+              type="button"
+              aria-label="Random phrase"
+              title="Random phrase"
+              data-i18n-aria-label="free.random"
+              data-i18n-title="free.random"
+            >⤨</button>
           </div>
         </div>
 

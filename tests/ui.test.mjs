@@ -183,8 +183,9 @@ test("les contrôles de notation, review et phrase restent dans le jeu", () => {
       elements.freePrevious,
       elements.freeCounter,
       elements.freeNext,
+      elements.freeRandom,
     ].map(({ id }) => id),
-    ["free-previous", "free-counter", "free-next"],
+    ["free-previous", "free-counter", "free-next", "free-random"],
   );
   assert.equal(elements.exportData.dataset.i18n, undefined);
   assert.equal(
@@ -220,6 +221,8 @@ test("les favoris et les originaux conservent leur structure publique", () => {
   assert.equal(elements.favoriteToggle.id, "favorite-toggle");
   assert.equal(elements.favoritesList.id, "favorites-list");
   assert.equal(elements.favoritesEmpty.id, "favorites-empty");
+  assert.equal(elements.favoritesRandom.dataset.i18n, "favorites.random");
+  assert.equal(elements.freeRandom.dataset.i18nAriaLabel, "free.random");
   assert.equal(elements.freeTranspose.hidden, true);
   assert.equal(
     elements.freeTranspose.querySelector("[data-i18n]")?.dataset.i18n,

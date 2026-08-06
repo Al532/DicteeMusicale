@@ -196,6 +196,8 @@ let completedPhraseKeys = loadStoredArray(COMPLETED_PHRASES_KEY);
 let favoritePhraseKeys = loadStoredArray(FAVORITES_KEY);
 let freePhraseKey = null;
 let freeBrowsePhraseKeys = [];
+let freeRandomCycleSignature = "";
+let freeRandomRemainingPhraseKeys = [];
 let freeToneState = null;
 let lickExerciseDeck = [];
 let lickExerciseIndex = -1;
@@ -695,6 +697,63 @@ function freeProgressState() {
   };
 }
 
+function shuffledFreePhraseKeys(phraseKeys, avoidFirstKey = null) {
+  const shuffled = [...phraseKeys];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomValue = Number(Math.random());
+    const swapIndex = Math.max(
+      0,
+      Math.min(
+        index,
+        Math.floor(
+          (Number.isFinite(randomValue) ? randomValue : 0) *
+            (index + 1),
+        ),
+      ),
+    );
+    [shuffled[index], shuffled[swapIndex]] = [
+      shuffled[swapIndex],
+      shuffled[index],
+    ];
+  }
+  if (shuffled.length > 1 && shuffled[0] === avoidFirstKey) {
+    const swapIndex = shuffled.findIndex(
+      (phraseKey, index) => index > 0 && phraseKey !== avoidFirstKey,
+    );
+    if (swapIndex > 0) {
+      [shuffled[0], shuffled[swapIndex]] = [
+        shuffled[swapIndex],
+        shuffled[0],
+      ];
+    }
+  }
+  return shuffled;
+}
+
+function drawRandomFreePhraseKey(phraseKeys, currentPhraseKey = null) {
+  const eligibleKeys = [...new Set(phraseKeys.filter(Boolean))];
+  if (!eligibleKeys.length) return null;
+  const signature = [...eligibleKeys].sort().join("\u0000");
+  if (signature !== freeRandomCycleSignature) {
+    freeRandomCycleSignature = signature;
+    freeRandomRemainingPhraseKeys = [];
+  } else if (freeRandomRemainingPhraseKeys.length) {
+    freeRandomRemainingPhraseKeys =
+      freeRandomRemainingPhraseKeys.filter(
+        (phraseKey) =>
+          eligibleKeys.includes(phraseKey) &&
+          phraseKey !== currentPhraseKey,
+      );
+  }
+  if (!freeRandomRemainingPhraseKeys.length) {
+    freeRandomRemainingPhraseKeys = shuffledFreePhraseKeys(
+      eligibleKeys,
+      currentPhraseKey,
+    );
+  }
+  return freeRandomRemainingPhraseKeys.shift() ?? null;
+}
+
 function renderFreeProgress() {
   appRenderer.renderFreeProgress(freeProgressState());
 }
@@ -840,6 +899,21 @@ async function moveFreePhrase(offset) {
   await startFreePhrase(freeBrowsePhraseKeys[nextIndex], {
     preserveBrowseList: true,
   });
+}
+
+async function chooseRandomFreePhrase(preserveBrowseList = false) {
+  if (!preserveBrowseList || currentMode !== "free") {
+    freeBrowsePhraseKeys = favoritePhraseCatalog().map(
+      (phrase) => phrase.phraseKey,
+    );
+  }
+  const phraseKey = drawRandomFreePhraseKey(
+    freeBrowsePhraseKeys,
+    freePhraseKey,
+  );
+  if (!phraseKey) return false;
+  await startFreePhrase(phraseKey, { preserveBrowseList: true });
+  return true;
 }
 
 async function transposeFreePhrase() {
@@ -2378,6 +2452,7 @@ bindAppEvents(
   {
     adjustCurrentPhraseSettings,
     adjustRecordingOffset,
+    chooseRandomFreePhrase,
     closePhraseEditor: () => phraseEditor.close(),
     closeRecordingWorkshop,
     closeRecordingPlayer: originalPlayer.close,

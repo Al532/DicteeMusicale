@@ -199,6 +199,8 @@ export function createAppRenderer({
   function renderFavorites(phrases, { onOpen }) {
     elements.favoritesList.replaceChildren();
     elements.favoritesEmpty.hidden = phrases.length > 0;
+    elements.favoritesRandom.hidden = phrases.length === 0;
+    elements.favoritesRandom.disabled = phrases.length === 0;
     for (const phrase of phrases) {
       const row = documentObject.createElement("article");
       row.className = "favorite-row";
@@ -284,6 +286,7 @@ export function createAppRenderer({
     elements.freeCounter.textContent = total ? `${index + 1}/${total}` : "0/0";
     elements.freePrevious.disabled = index <= 0;
     elements.freeNext.disabled = !total || index >= total - 1;
+    elements.freeRandom.disabled = !total;
   }
 
   function renderLickExerciseProgress({

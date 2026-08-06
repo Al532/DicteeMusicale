@@ -19,6 +19,7 @@ function createFixture() {
     <p id="session-status"></p>
     <div id="favorites-list"></div>
     <p id="favorites-empty"></p>
+    <button id="favorites-random"></button>
     <div id="piano"></div>
     <section id="challenge-progress">
       <h2 id="progress-title"></h2>
@@ -34,6 +35,7 @@ function createFixture() {
       <button id="free-previous"></button>
       <span id="free-counter"></span>
       <button id="free-next"></button>
+      <button id="free-random"></button>
     </div>
     <p id="rating-session-summary"></p>
     <p id="rating-coverage-summary"></p>
@@ -69,10 +71,12 @@ function createFixture() {
     favoritesEmpty: document.querySelector("#favorites-empty"),
     favoritesList: document.querySelector("#favorites-list"),
     favoritesPanel: document.querySelector("#favorites-panel"),
+    favoritesRandom: document.querySelector("#favorites-random"),
     freeCounter: document.querySelector("#free-counter"),
     freeNavigation: document.querySelector("#free-navigation"),
     freeNext: document.querySelector("#free-next"),
     freePrevious: document.querySelector("#free-previous"),
+    freeRandom: document.querySelector("#free-random"),
     homePanel: document.querySelector("#home-panel"),
     newChallenge: document.querySelector("#new-challenge"),
     piano: document.querySelector("#piano"),
@@ -356,6 +360,8 @@ test("l’accueil et les favoris délèguent leurs actions sans état caché", (
     },
   );
   assert.equal(elements.favoritesEmpty.hidden, true);
+  assert.equal(elements.favoritesRandom.hidden, false);
+  assert.equal(elements.favoritesRandom.disabled, false);
   assert.equal(
     elements.favoritesList.querySelector("strong").textContent,
     "Charlie Parker",
@@ -371,6 +377,10 @@ test("l’accueil et les favoris délèguent leurs actions sans état caché", (
   assert.equal(elements.favoritesList.querySelectorAll("button").length, 1);
   elements.favoritesList.querySelector(".favorite-row-main").click();
   assert.deepEqual(actions, [["open", "solo:3"]]);
+
+  renderer.renderFavorites([], { onOpen: () => {} });
+  assert.equal(elements.favoritesRandom.hidden, true);
+  assert.equal(elements.favoritesRandom.disabled, true);
 
   dom.window.close();
 });
@@ -427,6 +437,7 @@ test("les vues défi, review et session de notation restent stateless", () => {
   assert.equal(elements.freeCounter.textContent, "1/2");
   assert.equal(elements.freePrevious.disabled, true);
   assert.equal(elements.freeNext.disabled, false);
+  assert.equal(elements.freeRandom.disabled, false);
 
   renderer.renderLickExerciseProgress({
     current: 5,

@@ -334,6 +334,68 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
     }
   });
 
+  await t.test("le tirage libre parcourt tous les favoris avant de reboucler", async () => {
+    const favorites = [
+      "wjazzd-v2.1-1:1",
+      "wjazzd-v2.1-55:3",
+      "wjazzd-v2.1-456:1",
+    ];
+    const app = await bootApp({ favorites });
+    try {
+      await app.click("#open-favorites");
+      assert.equal(app.element("#favorites-random").hidden, false);
+      assert.equal(
+        app.element("#favorites-random").textContent.trim(),
+        "Choose at random",
+      );
+
+      await app.click("#favorites-random");
+      await app.waitFor(
+        () => app.snapshot().exercise,
+        "premier favori tiré au hasard",
+      );
+      assert.equal(app.element("#free-random").title, "Random phrase");
+
+      const firstCycle = [app.snapshot().freePhraseKey];
+      while (firstCycle.length < favorites.length) {
+        const previous = app.snapshot().freePhraseKey;
+        await app.click("#free-random");
+        await app.waitFor(
+          () => {
+            const snapshot = app.snapshot();
+            return (
+              snapshot.freePhraseKey !== previous &&
+              snapshot.exercise?.source?.phraseKey ===
+                snapshot.freePhraseKey
+            );
+          },
+          "favori aléatoire suivant",
+        );
+        firstCycle.push(app.snapshot().freePhraseKey);
+      }
+
+      assert.equal(new Set(firstCycle).size, favorites.length);
+      assert.deepEqual([...firstCycle].sort(), [...favorites].sort());
+
+      const lastOfFirstCycle = app.snapshot().freePhraseKey;
+      await app.click("#free-random");
+      await app.waitFor(
+        () => {
+          const snapshot = app.snapshot();
+          return (
+            snapshot.freePhraseKey !== lastOfFirstCycle &&
+            snapshot.exercise?.source?.phraseKey ===
+              snapshot.freePhraseKey
+          );
+        },
+        "nouveau cycle sans répétition immédiate",
+      );
+      assert.equal(favorites.includes(app.snapshot().freePhraseKey), true);
+    } finally {
+      app.close();
+    }
+  });
+
   await t.test("mode libre, transposition et réglage de longueur", async () => {
     const phraseKey = "wjazzd-v2.1-55:3";
     let persistedPhraseSettings;

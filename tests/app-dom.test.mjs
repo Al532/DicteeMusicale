@@ -33,8 +33,10 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
   assert.equal(elements.quickRatingButtons.length, 3);
   assert.equal(elements.openPhraseEditor.id, "open-phrase-editor");
   assert.equal(elements.phraseEditorModal.id, "phrase-editor-modal");
+  assert.equal(elements.favoritesRandom.id, "favorites-random");
   assert.equal(elements.freePrevious.id, "free-previous");
   assert.equal(elements.freeNext.id, "free-next");
+  assert.equal(elements.freeRandom.id, "free-random");
 
   dom.window.close();
 });
@@ -45,6 +47,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   const elements = queryAppElements(document);
   const calls = [];
   const actions = {
+    chooseRandomFreePhrase(preserveBrowseList) {
+      calls.push(["chooseRandomFreePhrase", preserveBrowseList]);
+    },
     closeRecordingPlayer() {
       calls.push(["closeRecordingPlayer"]);
     },
@@ -107,8 +112,10 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   elements.editRecordingWorkshopPhrase.click();
   elements.openLickExplorer.click();
   elements.openPhraseEditor.click();
+  elements.favoritesRandom.click();
   elements.freeNext.click();
   elements.freePrevious.click();
+  elements.freeRandom.click();
   elements.developerMode.checked = true;
   elements.developerMode.dispatchEvent(new dom.window.Event("change"));
 
@@ -153,8 +160,10 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     ["editSelectedRecordingWorkshopPhrase"],
     ["openLickExplorer"],
     ["openCurrentPhraseEditor"],
+    ["chooseRandomFreePhrase", false],
     ["moveFreePhrase", 1],
     ["moveFreePhrase", -1],
+    ["chooseRandomFreePhrase", true],
     ["setDeveloperMode", true],
     ["setQuickRating", 2],
     ["togglePlayback"],
@@ -166,7 +175,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 15);
+  assert.equal(calls.length, 17);
 
   dom.window.close();
 });
