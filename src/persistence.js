@@ -1,3 +1,5 @@
+// Espace de noms historique conservé pour préserver les données locales
+// existantes après le changement d’adresse de l’application.
 export const SETTINGS_KEY = "dictee-musicale.settings.v1";
 export const RATINGS_KEY = "dictee-musicale.ratings.v1";
 export const RATING_SCOPES_KEY = "dictee-musicale.rating-scopes.v1";

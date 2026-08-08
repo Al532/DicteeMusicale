@@ -58,7 +58,7 @@ def read_catalog_html(source: str) -> str:
     if re.match(r"^https?://", source):
         request = urllib.request.Request(
             source,
-            headers={"User-Agent": "JazzSoloTraining DTL importer"},
+            headers={"User-Agent": "JazzSoloChallenge DTL importer"},
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read().decode("utf-8")

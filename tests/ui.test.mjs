@@ -437,11 +437,15 @@ test("les modales et favoris conservent leur adaptation au paysage", () => {
 });
 
 test("les manifestes et le shell PWA restent synchronisés", () => {
+  assert.equal(
+    document.querySelector('link[rel="canonical"]')?.href,
+    "https://al532.github.io/JazzSoloChallenge/",
+  );
   assert.equal(manifest.display, "fullscreen");
   assert.equal(manifest.orientation, "any");
   assert.equal(manifest.name, "Jazz Solo Challenge");
   assert.equal(manifest.lang, "en");
-  assert.equal(manifest.id, "./");
+  assert.equal(manifest.id, "/DicteeMusicale/");
   assert.equal(frenchManifest.lang, "fr");
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);

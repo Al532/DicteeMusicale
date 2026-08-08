@@ -1,5 +1,8 @@
 # Jazz Solo Challenge
 
+[Application publique](https://al532.github.io/JazzSoloChallenge/) ·
+[Dépôt GitHub](https://github.com/Al532/JazzSoloChallenge)
+
 PWA de dictée mélodique construite à partir des 456 solos de la
 [Weimar Jazz Database](https://jazzomat.hfm-weimar.de/dbformat/dbcontent.html).
 L’expérience publique est volontairement centrée sur un seul parcours guidé.
@@ -171,11 +174,15 @@ npm run dtl:rhythm-pilot -- /chemin/vers/wjazzd.db
 Pour intégrer le dernier export central :
 
 ```bash
-npm run ratings:generate -- /chemin/vers/dictee-musicale-donnees-AAAA-MM-JJ.csv data/default-ratings.js
+npm run ratings:generate -- /chemin/vers/jazz-solo-challenge-donnees-AAAA-MM-JJ.csv data/default-ratings.js
 ```
 
 Cette commande régénère aussi `data/default-phrase-settings.js` et, lorsque le
 CSV contient les colonnes YouTube, `data/recording-validations.js`.
+
+L’identifiant PWA et les clés de stockage historiques restent volontairement
+stables afin de préserver les installations et les données locales créées avant
+le renommage du dépôt.
 
 ## Licence
 

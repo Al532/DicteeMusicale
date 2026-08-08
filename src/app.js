@@ -2410,7 +2410,7 @@ function download(filename, content, type) {
 
 function exportData() {
   download(
-    `dictee-musicale-donnees-${new Date().toISOString().slice(0, 10)}.csv`,
+    `jazz-solo-challenge-donnees-${new Date().toISOString().slice(0, 10)}.csv`,
     createDataExportCsv({
       phraseRatings: ratingWorkflow.phraseRatings(),
       phraseSettings,

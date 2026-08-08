@@ -2,7 +2,7 @@
   "name": "Jazz Solo Challenge",
   "short_name": "Jazz Solo",
   "description": "Rejouez à l’oreille des phrases de solos de jazz dans tous les tons.",
-  "id": "./",
+  "id": "/DicteeMusicale/",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

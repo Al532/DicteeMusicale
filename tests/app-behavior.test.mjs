@@ -1172,6 +1172,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       );
 
       let exportedBlob = null;
+      let exportedFilename = null;
       const originalCreateObjectUrl = URL.createObjectURL;
       const originalRevokeObjectUrl = URL.revokeObjectURL;
       const originalAnchorClick =
@@ -1181,7 +1182,9 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         return "blob:central-export";
       };
       URL.revokeObjectURL = () => {};
-      youtube.window.HTMLAnchorElement.prototype.click = () => {};
+      youtube.window.HTMLAnchorElement.prototype.click = function () {
+        exportedFilename = this.download;
+      };
       try {
         await youtube.click("#export-data");
       } finally {
@@ -1190,6 +1193,10 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         youtube.window.HTMLAnchorElement.prototype.click = originalAnchorClick;
       }
       assert.ok(exportedBlob);
+      assert.match(
+        exportedFilename,
+        /^jazz-solo-challenge-donnees-\d{4}-\d{2}-\d{2}\.csv$/,
+      );
       const exportedCsv = await exportedBlob.text();
       assert.match(
         exportedCsv,

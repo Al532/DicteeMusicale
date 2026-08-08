@@ -2,7 +2,7 @@
   "name": "Jazz Solo Challenge",
   "short_name": "Jazz Solo",
   "description": "Play jazz solo phrases back by ear in every key.",
-  "id": "./",
+  "id": "/DicteeMusicale/",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
