@@ -26,6 +26,7 @@ export const STORAGE_KEYS = Object.freeze({
 export const DEFAULT_REAL_SPEED_PERCENT = 100;
 export const MIN_REAL_SPEED_PERCENT = 25;
 export const MAX_REAL_SPEED_PERCENT = 100;
+export const REAL_SPEED_DEFAULT_REVISION = 1;
 export const DEFAULT_MELODY_SOUND = "synthetic";
 
 function storageOrDefault(storage) {
@@ -88,6 +89,7 @@ export function serializedGlobalSettings(value = {}) {
   const settings = normalizeGlobalSettings(value);
   return {
     realSpeed: settings.realSpeed,
+    realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
     developerMode: settings.developerMode,
   };
 }
@@ -105,7 +107,18 @@ export function saveGlobalSettings(value, storage) {
 }
 
 export function loadAndMigrateGlobalSettings(storage) {
-  const settings = loadGlobalSettings(storage);
+  const storedSettings = settingsRecord(
+    readJson(SETTINGS_KEY, {}, storage),
+  );
+  const settings = normalizeGlobalSettings(
+    storedSettings.realSpeedDefaultRevision ===
+      REAL_SPEED_DEFAULT_REVISION
+      ? storedSettings
+      : {
+          ...storedSettings,
+          realSpeed: DEFAULT_REAL_SPEED_PERCENT,
+        },
+  );
   saveGlobalSettings(settings, storage);
   return settings;
 }

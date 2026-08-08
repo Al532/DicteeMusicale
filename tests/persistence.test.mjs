@@ -8,6 +8,7 @@ import {
   FAVORITES_KEY,
   PHRASE_SETTINGS_KEY,
   RECORDING_VALIDATIONS_KEY,
+  REAL_SPEED_DEFAULT_REVISION,
   RATINGS_KEY,
   RATING_SCOPES_KEY,
   SETTINGS_KEY,
@@ -153,12 +154,13 @@ test("la sérialisation omet les anciens réglages et le son implicite", () => {
     }),
     {
       realSpeed: 80,
+      realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
       developerMode: true,
     },
   );
 });
 
-test("le chargement migratoire réécrit le format canonique", () => {
+test("le chargement migratoire applique une fois la vitesse par défaut", () => {
   const storage = memoryStorage({
     [SETTINGS_KEY]: JSON.stringify({
       parkerSpeed: 70,
@@ -168,12 +170,13 @@ test("le chargement migratoire réécrit le format canonique", () => {
   });
 
   assert.deepEqual(loadAndMigrateGlobalSettings(storage), {
-    realSpeed: 70,
+    realSpeed: 100,
     developerMode: false,
     melodySound: DEFAULT_MELODY_SOUND,
   });
   assert.deepEqual(readJson(SETTINGS_KEY, null, storage), {
-    realSpeed: 70,
+    realSpeed: 100,
+    realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
     developerMode: false,
   });
 
@@ -188,6 +191,11 @@ test("le chargement migratoire réécrit le format canonique", () => {
     true,
   );
   assert.deepEqual(loadGlobalSettings(storage), {
+    realSpeed: 30,
+    developerMode: true,
+    melodySound: DEFAULT_MELODY_SOUND,
+  });
+  assert.deepEqual(loadAndMigrateGlobalSettings(storage), {
     realSpeed: 30,
     developerMode: true,
     melodySound: DEFAULT_MELODY_SOUND,

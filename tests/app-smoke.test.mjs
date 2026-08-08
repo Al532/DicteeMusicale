@@ -48,13 +48,14 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
 
   assert.equal(dom.window.document.body.classList.contains("home-view"), true);
   assert.equal(dom.window.document.querySelector("#home-panel").hidden, false);
-  assert.equal(dom.window.document.querySelector("#game-speed").value, "75");
+  assert.equal(dom.window.document.querySelector("#game-speed").value, "100");
   assert.deepEqual(
     JSON.parse(
       dom.window.localStorage.getItem("dictee-musicale.settings.v1"),
     ),
     {
-      realSpeed: 75,
+      realSpeed: 100,
+      realSpeedDefaultRevision: 1,
       developerMode: false,
     },
   );
@@ -70,11 +71,15 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
     dom.window.document.querySelector(".developer-home-actions").hidden,
     false,
   );
-  assert.equal(
+  assert.deepEqual(
     JSON.parse(
       dom.window.localStorage.getItem("dictee-musicale.settings.v1"),
-    ).developerMode,
-    true,
+    ),
+    {
+      realSpeed: 100,
+      realSpeedDefaultRevision: 1,
+      developerMode: true,
+    },
   );
 
   dom.window.close();

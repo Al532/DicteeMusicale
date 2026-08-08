@@ -39,9 +39,10 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(app.document.body.classList.contains("home-view"), true);
       assert.equal(app.element("#home-panel").hidden, false);
       assert.equal(app.element("#favorites-panel").hidden, true);
-      assert.equal(app.element("#game-speed").value, "75");
+      assert.equal(app.element("#game-speed").value, "100");
       assert.deepEqual(app.storageJson(SETTINGS_KEY), {
-        realSpeed: 75,
+        realSpeed: 100,
+        realSpeedDefaultRevision: 1,
         developerMode: false,
       });
       assert.deepEqual(app.serviceWorkerCalls, ["./sw.js"]);
@@ -97,6 +98,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       storage: {
         [SETTINGS_KEY]: {
           realSpeed: 75,
+          realSpeedDefaultRevision: 1,
           developerMode: true,
           transposeOriginal: true,
         },
@@ -108,6 +110,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.equal(restarted.document.querySelector("#transpose-original"), null);
       assert.deepEqual(restarted.storageJson(SETTINGS_KEY), {
         realSpeed: 75,
+        realSpeedDefaultRevision: 1,
         developerMode: true,
       });
     } finally {
